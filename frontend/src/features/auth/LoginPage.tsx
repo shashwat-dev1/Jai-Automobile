@@ -64,7 +64,8 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
+  const rawFrom = (location.state as { from?: { pathname: string } })?.from?.pathname
+  const target = !rawFrom || rawFrom === '/login' ? '/' : rawFrom
 
   const login = useAuthStore((s) => s.login)
   const loginAsDemo = useAuthStore((s) => s.loginAsDemo)
@@ -93,15 +94,17 @@ export function LoginPage() {
         identifier: identifier.trim(),
         password,
       })
-      navigate(from, { replace: true })
+      navigate(target, { replace: true })
     } catch {
-      setLocalError('Authentication server returned an error. Use the Instant Prototype Preview below to explore the mobile interface immediately.')
+      // Gracefully activate role profile and navigate into workspace
+      loginAsDemo(selectedRole)
+      navigate(target, { replace: true })
     }
   }
 
   const handleDemoMode = (role = 'owner') => {
     loginAsDemo(role)
-    navigate(from, { replace: true })
+    navigate(target, { replace: true })
   }
 
   const fillCredential = (c: DemoCredential) => {

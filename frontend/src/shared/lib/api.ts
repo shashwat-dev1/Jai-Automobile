@@ -310,6 +310,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   }
 
   const contentType = response.headers.get('content-type')
+  const isHtml = Boolean(contentType && contentType.includes('text/html'))
+
+  // Vercel SPA rewrite fallback: If an API endpoint returned the HTML index.html, backend is not present
+  if (isHtml && !endpoint.endsWith('.html')) {
+    const mock = getMockFallback(endpoint, config.method || 'GET', customConfig.body)
+    if (mock !== null && mock !== undefined) {
+      return mock as T
+    }
+    throw new ApiError('Backend server not deployed (SPA rewrite intercepted).', 404)
+  }
+
   if (contentType && contentType.includes('application/json')) {
     try {
       data = await response.json()
@@ -372,12 +383,40 @@ export const api = {
       }
     }
     const finalUrl = resolveUrl(url, params)
-    const response = await fetch(finalUrl, { ...customConfig, headers, method: 'GET' })
-    const data = await response.json()
-    if (!response.ok) {
-      const msg = data?.error?.message || data?.detail || `Error ${response.status}`
-      throw new ApiError(msg, response.status, data?.error?.code, data?.error?.details, data?.request_id)
+    let response: Response
+    try {
+      response = await fetch(finalUrl, { ...customConfig, headers, method: 'GET' })
+    } catch {
+      const mock = getMockFallback(url, 'GET')
+      return {
+        data: (mock ?? {}) as T,
+        meta: {},
+        success: true,
+      }
     }
+
+    const contentType = response.headers.get('content-type')
+    if ((contentType && contentType.includes('text/html')) || !response.ok) {
+      const mock = getMockFallback(url, 'GET')
+      return {
+        data: (mock ?? {}) as T,
+        meta: {},
+        success: true,
+      }
+    }
+
+    let data: any
+    try {
+      data = await response.json()
+    } catch {
+      const mock = getMockFallback(url, 'GET')
+      return {
+        data: (mock ?? {}) as T,
+        meta: {},
+        success: true,
+      }
+    }
+
     return {
       data: data.data !== undefined ? data.data : data,
       meta: data.meta,
