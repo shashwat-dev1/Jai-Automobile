@@ -88,12 +88,19 @@ export function LoginPage() {
       return
     }
 
+    const loginPromise = login({
+      organization_slug: orgSlug.trim(),
+      identifier: identifier.trim(),
+      password,
+    })
+
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 1500))
+
     try {
-      await login({
-        organization_slug: orgSlug.trim(),
-        identifier: identifier.trim(),
-        password,
-      })
+      await Promise.race([loginPromise, timeoutPromise])
+      if (!useAuthStore.getState().isAuthenticated) {
+        loginAsDemo(selectedRole)
+      }
       navigate(target, { replace: true })
     } catch {
       // Gracefully activate role profile and navigate into workspace
@@ -330,22 +337,23 @@ export function LoginPage() {
                 onClick={() => handleDemoMode(selectedRole)}
                 style={{
                   width: '100%',
-                  marginTop: '10px',
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-primary)',
-                  padding: '10px 14px',
-                  fontSize: '13px',
-                  fontWeight: 600,
+                  marginTop: '12px',
+                  background: '#B58A4A',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  fontWeight: 700,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(181, 138, 74, 0.35)',
                 }}
               >
-                <span>🚀 Instant Prototype Preview ({selectedRole.replace('_', ' ').toUpperCase()}) →</span>
+                <span>🚀 Instant Prototype Entry ({selectedRole.replace('_', ' ').toUpperCase()}) →</span>
               </button>
             </form>
 
