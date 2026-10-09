@@ -154,6 +154,13 @@ export const JAI_MOCK_DASHBOARD = {
     { month: 'Jan 2025', expected_amount: '460000', settled_amount: '430000', case_count: 16 },
     { month: 'Feb 2025', expected_amount: '384000', settled_amount: '312000', case_count: 14 },
   ],
+  monthly_commission: [
+    { month: 'Oct 2024', expected_amount: '280000', settled_amount: '280000', case_count: 8 },
+    { month: 'Nov 2024', expected_amount: '340000', settled_amount: '325000', case_count: 11 },
+    { month: 'Dec 2024', expected_amount: '410000', settled_amount: '395000', case_count: 14 },
+    { month: 'Jan 2025', expected_amount: '460000', settled_amount: '430000', case_count: 16 },
+    { month: 'Feb 2025', expected_amount: '384000', settled_amount: '312000', case_count: 14 },
+  ],
   top_sources: [
     { source_name: 'Maruti True Value - Andheri West', files_count: 8, volume: '₹72.5L', payout: '₹1.45L' },
     { source_name: 'Hyundai H-Promise - Thane', files_count: 6, volume: '₹58.0L', payout: '₹1.16L' },

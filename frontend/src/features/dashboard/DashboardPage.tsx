@@ -177,14 +177,14 @@ export const DashboardPage: React.FC = () => {
 
           {/* Tier 2: Pipeline Funnel (7 cols) + Attention Queue (5 cols) */}
           <div className="dashboard-grid-tier-mid">
-            <StageVelocity stages={data.funnel_stages} />
-            <AttentionPanel attention={data.attention_items} />
+            <StageVelocity stages={data.funnel_stages || []} />
+            <AttentionPanel attention={data.attention_items || []} />
           </div>
 
           {/* Tier 3: Commission Performance (6 cols) + Top Sources (6 cols) */}
           <div className="dashboard-grid-tier-split">
-            <CommissionChart data={data.monthly_commission} />
-            <SourceTable sources={data.top_sources} />
+            <CommissionChart data={data.monthly_commission || (data as any).monthly_commissions || []} />
+            <SourceTable sources={data.top_sources || []} />
           </div>
 
           {/* Tier 4: Recent Active Loan Files & Live Case Stream (12 cols full width) */}
