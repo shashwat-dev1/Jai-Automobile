@@ -1,0 +1,209 @@
+/**
+ * DSA OS — CaseListPage Styles (Graphite Ledger Design System)
+ */
+
+.cases-page {
+  padding: var(--spacing-6);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.cases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-6);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--spacing-4);
+}
+
+.cases-error-alert {
+  background-color: #FEF2F2;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-4);
+}
+
+.cases-filter-bar {
+  display: flex;
+  gap: var(--spacing-3);
+  align-items: flex-end;
+  margin-bottom: var(--spacing-4);
+  background: var(--color-surface);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.cases-search-wrap {
+  flex: 2;
+  min-width: 280px;
+}
+
+.cases-filter-select {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  min-width: 160px;
+}
+
+.cases-filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.cases-summary-bar {
+  display: flex;
+  gap: var(--spacing-6);
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  font-size: var(--font-size-xs);
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.summary-label {
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-value {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.cases-loading,
+.cases-empty {
+  text-align: center;
+  padding: var(--spacing-12);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.cases-table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+
+.cases-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.cases-table th {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cases-table td {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.cases-table tr:hover {
+  background-color: var(--color-bg-subtle);
+}
+
+.case-no-link {
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.case-no-link:hover {
+  text-decoration: underline;
+}
+
+.applicant-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.applicant-mobile {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.product-tag {
+  display: inline-block;
+  font-size: 11px;
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.cases-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border);
+}
+
+.cases-pagination-btns {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+@media (max-width: 640px) {
+  .cases-page {
+    padding: var(--spacing-3);
+  }
+  .cases-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-3);
+  }
+  .cases-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cases-search-wrap,
+  .cases-filter-select {
+    width: 100%;
+    min-width: 0;
+  }
+  .cases-summary-bar {
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+  .cases-pagination {
+    flex-direction: column;
+    gap: var(--spacing-3);
+    align-items: stretch;
+    text-align: center;
+  }
+  .cases-pagination-btns {
+    justify-content: center;
+  }
+}

@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsaos-backend"
+version = "0.1.0"
+description = "DSA OS — Vehicle Loan Operations Platform Backend"
+requires-python = ">=3.11,<3.12"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+dependencies = [
+    # --- Web Framework ---
+    "fastapi==0.115.4",
+    "starlette==0.41.2",
+    "uvicorn[standard]==0.32.0",
+    "python-multipart==0.0.12",
+
+    # --- Validation & Config ---
+    "pydantic==2.9.2",
+    "pydantic-settings==2.5.2",
+    "email-validator==2.2.0",
+
+    # --- Database ---
+    "sqlalchemy==2.0.36",
+    "asyncpg==0.29.0",
+    "alembic==1.13.3",
+
+    # --- Authentication & Security ---
+    "PyJWT==2.9.0",
+    "cryptography==43.0.3",
+    "argon2-cffi==23.1.0",
+
+    # --- Background Jobs ---
+    "arq==0.26.1",
+    "redis==5.0.8",
+
+    # --- Object Storage ---
+    "minio==7.2.9",
+
+    # --- File Processing (for document validation in PH-03) ---
+    "Pillow==10.4.0",
+    "pyclamd>=0.4.0",
+    "python-magic-bin==0.4.14; sys_platform == 'win32'",
+    "python-magic==0.4.27; sys_platform != 'win32'",
+
+    # --- Utilities ---
+    "httpx==0.27.2",
+    "python-dateutil==2.9.0",
+    "orjson==3.10.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    # --- Testing ---
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==5.0.0",
+    "httpx==0.27.2",
+    "anyio==4.6.2",
+    "factory-boy==3.3.1",
+
+    # --- Linting & Formatting ---
+    "ruff==0.7.0",
+    "mypy==1.11.2",
+    "types-python-dateutil>=2.9.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+# =============================================================================
+# Ruff (linting + formatting)
+# =============================================================================
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+    "N",   # pep8-naming
+]
+ignore = [
+    "S101",  # Use of `assert` (allowed in tests)
+    "B008",  # Function calls in default arguments (FastAPI Depends pattern)
+    "S106",  # Possible hardcoded password (flags token_type="bearer" in OAuth2)
+    "E501",  # Line too long (handled by ruff format)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# =============================================================================
+# Pytest
+# =============================================================================
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=70"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::ResourceWarning",
+]
+
+# =============================================================================
+# Mypy
+# =============================================================================
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]

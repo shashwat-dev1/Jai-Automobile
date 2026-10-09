@@ -1,0 +1,148 @@
+import { Routes, Route } from 'react-router-dom'
+import AppShell from './AppShell'
+import { LoginPage } from '../features/auth/LoginPage'
+import { ProtectedRoute } from '../features/auth/ProtectedRoute'
+import { UsersPage } from '../features/admin/UsersPage'
+import { AuditLogPage } from '../features/admin/AuditLogPage'
+import { PERMISSIONS } from '../features/auth/types'
+
+import { CaseListPage } from '../features/cases/CaseListPage'
+import { CaseDetailPage } from '../features/cases/CaseDetailPage'
+import { CaseIntakeWorkspace } from '../features/cases/CaseIntakeWorkspace'
+import { SourcesPage } from '../features/sources/SourcesPage'
+import { PartiesPage } from '../features/parties/PartiesPage'
+import { LendersPage } from '../features/lenders/LendersPage'
+import { TasksPage } from '../features/workflow/TasksPage'
+import { PDDBoardPage } from '../features/pdd/PDDBoardPage'
+import { PayoutExpectationsPage } from '../features/payout/PayoutExpectationsPage'
+import { PayoutRulesPage } from '../features/payout/PayoutRulesPage'
+import { AttentionListPage } from '../features/payout/AttentionListPage'
+import { ReconciliationPage } from '../features/payout/ReconciliationPage'
+import { OutstandingReportPage } from '../features/payout/OutstandingReportPage'
+import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { TodayPage } from '../features/dashboard/TodayPage'
+import { SourcesReportPage } from '../features/reports/SourcesReportPage'
+
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Authenticated Workspace */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="today" element={<TodayPage />} />
+
+        {/* Core Operations */}
+        <Route path="cases" element={<CaseListPage />} />
+        <Route
+          path="cases/new"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.CASES_CREATE}>
+              <CaseIntakeWorkspace />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="cases/:id" element={<CaseDetailPage />} />
+        <Route path="pdd" element={<PDDBoardPage />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="parties" element={<PartiesPage />} />
+        <Route path="customers" element={<PartiesPage />} />
+        <Route path="sources" element={<SourcesPage />} />
+        <Route path="reports/sources" element={<SourcesReportPage />} />
+        <Route path="lenders" element={<LendersPage />} />
+
+        {/* Finance & Payouts */}
+        <Route
+          path="payouts"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <PayoutExpectationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payout"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <PayoutExpectationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payout/rules"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <PayoutRulesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payout/attention"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <AttentionListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payout/reconciliation"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <ReconciliationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="payout/outstanding"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <OutstandingReportPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Administration & Governance */}
+        <Route
+          path="admin/users"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
+              <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/audit"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.AUDIT_READ}>
+              <AuditLogPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  )
+}
+
+function NotFound() {
+  return (
+    <div style={{ padding: 'var(--spacing-12)', textAlign: 'center' }}>
+      <h1 className="type-h1">404</h1>
+      <p className="type-body-lg" style={{ color: 'var(--color-text-secondary)', marginTop: 8 }}>
+        Requested operational view does not exist.
+      </p>
+    </div>
+  )
+}
+
+export default AppRoutes

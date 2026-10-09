@@ -1,0 +1,100 @@
+/*
+ * DSA OS — Typography Utility Classes
+ * Use these for consistent text treatment across components.
+ */
+
+/* Display */
+.type-display-lg {
+  font-size: var(--type-display-lg-size);
+  font-weight: var(--type-display-lg-weight);
+  line-height: var(--type-display-lg-lh);
+  letter-spacing: var(--type-display-lg-ls);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Headlines */
+.type-headline-lg {
+  font-size: var(--type-headline-lg-size);
+  font-weight: var(--type-headline-lg-weight);
+  line-height: var(--type-headline-lg-lh);
+  letter-spacing: var(--type-headline-lg-ls);
+}
+
+.type-headline-md {
+  font-size: var(--type-headline-md-size);
+  font-weight: var(--type-headline-md-weight);
+  line-height: var(--type-headline-md-lh);
+  letter-spacing: var(--type-headline-md-ls);
+}
+
+.type-headline-sm {
+  font-size: var(--type-headline-sm-size);
+  font-weight: var(--type-headline-sm-weight);
+  line-height: var(--type-headline-sm-lh);
+}
+
+/* Titles */
+.type-title-md {
+  font-size: var(--type-title-md-size);
+  font-weight: var(--type-title-md-weight);
+  line-height: var(--type-title-md-lh);
+}
+
+/* Body */
+.type-body-lg {
+  font-size: var(--type-body-lg-size);
+  font-weight: var(--type-body-lg-weight);
+  line-height: var(--type-body-lg-lh);
+}
+
+.type-body-md {
+  font-size: var(--type-body-md-size);
+  font-weight: var(--type-body-md-weight);
+  line-height: var(--type-body-md-lh);
+}
+
+.type-body-sm {
+  font-size: var(--type-body-sm-size);
+  font-weight: var(--type-body-sm-weight);
+  line-height: var(--type-body-sm-lh);
+}
+
+/* Labels — always uppercase */
+.type-label-md {
+  font-size: var(--type-label-md-size);
+  font-weight: var(--type-label-md-weight);
+  line-height: var(--type-label-md-lh);
+  letter-spacing: var(--type-label-md-ls);
+  text-transform: uppercase;
+}
+
+.type-label-sm {
+  font-size: var(--type-label-sm-size);
+  font-weight: var(--type-label-sm-weight);
+  line-height: var(--type-label-sm-lh);
+  letter-spacing: var(--type-label-sm-ls);
+  text-transform: uppercase;
+}
+
+/* Text color utilities */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-inverse { color: var(--color-text-inverse); }
+.text-accent { color: var(--color-accent); }
+.text-success { color: var(--status-success-text); }
+.text-warning { color: var(--status-warning-text); }
+.text-error { color: var(--status-error-text); }
+.text-info { color: var(--status-info-text); }
+
+/* Amount formatting — right-aligned tabular numerals */
+.amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-feature-settings: "tnum";
+}
+
+/* Monospace for IDs, references */
+.mono {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+}

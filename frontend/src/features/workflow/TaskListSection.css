@@ -1,0 +1,127 @@
+.task-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 14px;
+}
+
+.empty-tasks-state {
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.task-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.task-item.is-completed {
+  opacity: 0.6;
+}
+
+.task-item.is-completed .task-title {
+  text-decoration: line-through;
+}
+
+.task-item.is-overdue {
+  border-left: 3px solid #dc2626;
+}
+
+.task-check-col {
+  padding-top: 2px;
+}
+
+.task-check-col input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.task-content-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.task-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  background: var(--bg-surface-hover, #f1f5f9);
+  color: var(--color-text-tertiary, #64748b);
+  border: 1px solid var(--border-default, #e2e8f0);
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+}
+
+.task-overdue-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.task-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary, #475569);
+}
+
+.task-outcome {
+  font-size: 12px;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 4px 8px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.task-meta-row {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono, monospace);
+  margin-top: 2px;
+}

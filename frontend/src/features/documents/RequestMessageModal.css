@@ -1,0 +1,57 @@
+/**
+ * DSA OS — RequestMessageModal CSS
+ */
+
+.req-msg-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 580px;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.req-msg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.req-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.req-msg-textarea {
+  width: 100%;
+  padding: var(--space-3);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.req-msg-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.req-msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .req-msg-card {
+    padding: var(--space-4);
+    max-width: 95vw;
+  }
+}

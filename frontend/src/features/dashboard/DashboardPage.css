@@ -1,0 +1,414 @@
+/* ===================================================================
+ * DSA OS — Operations Console Dashboard Grid
+ * Dense, architectural, financial operations layout
+ * =================================================================== */
+
+.dashboard-page-container {
+  padding: 24px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+/* Header */
+.dashboard-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-pretitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-accent, #b45309);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.dashboard-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary, #475569);
+  margin-top: 4px;
+  max-width: 720px;
+  line-height: 1.4;
+}
+
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.date-range-pills {
+  display: inline-flex;
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-default, #e2e8f0);
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.date-pill-btn {
+  background: transparent;
+  color: var(--color-text-secondary, #475569);
+  border: none;
+  border-radius: 3px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.date-pill-btn.is-active {
+  background: var(--color-primary, #0f172a);
+  color: #ffffff;
+}
+
+.btn-new-intake {
+  background: var(--color-primary, #0f172a);
+  border: 1px solid var(--color-primary, #0f172a);
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s;
+}
+
+.btn-new-intake:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.btn-today-console {
+  background: #ffffff;
+  border: 1px solid var(--border-default, #e2e8f0);
+  color: var(--color-text-primary, #0f172a);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.btn-today-console:hover {
+  background: var(--bg-surface-hover, #f8fafc);
+  border-color: var(--color-text-secondary, #475569);
+}
+
+/* Dashboard 12-Column Responsive Grid */
+.dashboard-grid-tier-mid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-grid-tier-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid-tier-mid,
+  .dashboard-grid-tier-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tier 4: Recent Live Loan Files & Case Stream */
+.recent-cases-section {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: 6px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.recent-cases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.recent-cases-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.recent-cases-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary, #475569);
+  margin-top: 2px;
+}
+
+.recent-cases-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary, #0f172a);
+  text-decoration: underline;
+}
+
+.recent-cases-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.recent-cases-table th {
+  background: #f8fafc;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #475569);
+  border-bottom: 1px solid var(--border-default, #e2e8f0);
+}
+
+.recent-cases-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.recent-cases-table tr:hover td {
+  background: #f8fafc;
+}
+
+.case-num-link {
+  font-family: var(--font-family-mono, monospace);
+  font-weight: 700;
+  color: var(--color-primary, #0f172a);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.case-num-link:hover {
+  text-decoration: underline;
+  color: var(--color-accent, #b45309);
+}
+
+.case-applicant-name {
+  font-weight: 600;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.case-vehicle-text {
+  font-size: 11px;
+  color: var(--color-text-tertiary, #64748b);
+}
+
+.case-amt-text {
+  font-family: var(--font-family-mono, monospace);
+  font-weight: 600;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.case-status-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.badge-lead {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.badge-submitted {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-sanctioned {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-disbursed {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.btn-case-action {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary, #0f172a);
+  text-decoration: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: 3px;
+  background: #ffffff;
+}
+
+.btn-case-action:hover {
+  background: #f8fafc;
+  border-color: var(--color-text-secondary, #475569);
+}
+
+/* Responsive Table Wrapper */
+.recent-cases-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Stage Velocity Grid */
+.stage-velocity-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 140px 90px;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Commission Chart Grid */
+.commission-chart-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 180px;
+  align-items: center;
+  gap: 12px;
+}
+
+/* KPI Strip Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-default, #e2e8f0);
+  padding: 14px 16px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpi-label {
+  color: var(--color-text-secondary, #475569);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-family: var(--font-family-mono, monospace);
+  font-size: clamp(1.1rem, 3vw, 1.375rem);
+  font-weight: 700;
+  margin: 6px 0 4px;
+  color: var(--color-text-primary, #0f172a);
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.kpi-subtext {
+  color: var(--color-text-tertiary, #64748b);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile Dashboard Adjustments */
+@media (max-width: 640px) {
+  .dashboard-page-container {
+    padding: 12px;
+  }
+  .dashboard-title {
+    font-size: 19px;
+  }
+  .dashboard-header-bar {
+    gap: 12px;
+  }
+  .dashboard-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .date-range-pills {
+    width: 100%;
+    display: flex;
+  }
+  .date-pill-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 8px;
+  }
+  .btn-new-intake,
+  .btn-today-console {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .kpi-card {
+    padding: 10px 12px;
+  }
+  
+  .stage-velocity-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+  
+  .commission-chart-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+}
+
+@media (max-width: 360px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

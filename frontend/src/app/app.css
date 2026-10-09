@@ -1,0 +1,79 @@
+/*
+ * DSA OS — App shell layout styles
+ */
+
+.app-shell {
+  display: flex;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background-color: var(--color-canvas);
+  position: relative;
+}
+
+/* Main content area */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0; /* Prevent flex item overflow */
+  height: 100%;
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--margin-desktop);
+}
+
+@media (max-width: 1023px) {
+  .app-content {
+    padding: var(--space-lg);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-content {
+    padding: var(--space-sm);
+    padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Placeholder content area (Phase 00 only) */
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-lg);
+  color: var(--color-text-secondary);
+}
+
+.placeholder-content h1 {
+  font-size: var(--type-headline-lg-size);
+  font-weight: var(--type-headline-lg-weight);
+  color: var(--color-text-primary);
+}
+
+/* Universal Mobile Optimizations */
+@media (max-width: 640px) {
+  /* Prevent iOS Safari auto-zoom on form inputs */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Safe interactive touch targets */
+  button,
+  .btn,
+  .action-link-btn {
+    min-height: 38px;
+    touch-action: manipulation;
+  }
+}
+

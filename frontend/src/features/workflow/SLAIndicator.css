@@ -1,0 +1,64 @@
+.sla-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2, 8px);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-family-mono, monospace);
+  font-size: 11px;
+}
+
+.sla-badge.is-healthy {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+.sla-badge.is-stuck {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  animation: pulse-stuck 2s infinite ease-in-out;
+}
+
+@keyframes pulse-stuck {
+  0%, 100% { border-color: rgba(220, 38, 38, 0.4); }
+  50% { border-color: rgba(220, 38, 38, 0.8); }
+}
+
+.sla-badge-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.sla-title {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.sla-subtitle {
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+.sla-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--font-family-mono, monospace);
+}
+
+.sla-healthy-compact {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.sla-stuck-compact {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 600;
+}
