@@ -7,41 +7,48 @@ interface AttentionPanelProps {
 }
 
 export const AttentionPanel: React.FC<AttentionPanelProps> = ({ attention }) => {
+  const att: any = attention || {}
+  const stuckCount = att.stuck_cases_count ?? (Array.isArray(attention) ? attention.filter((i: any) => i.urgency === 'high').length : 0)
+  const urgentCount = att.urgent_tasks_count ?? (Array.isArray(attention) ? attention.length : 0)
+  const overduePddCount = att.overdue_pdd_count ?? (Array.isArray(attention) ? attention.filter((i: any) => i.title?.includes('PDD') || i.title?.includes('RC')).length : 0)
+  const discrepancyCount = att.discrepancy_payouts_count ?? 0
+  const expiringDocsCount = att.expiring_docs_count ?? 0
+
   const items = [
     {
       label: 'Stuck Cases (> SLA)',
-      count: attention.stuck_cases_count,
+      count: stuckCount,
       description: 'Files exceeding stage turnaround SLA',
       path: '/today',
-      severity: attention.stuck_cases_count > 0 ? 'high' : 'normal',
+      severity: stuckCount > 0 ? 'high' : 'normal',
     },
     {
       label: 'Urgent Pending Tasks',
-      count: attention.urgent_tasks_count,
+      count: urgentCount,
       description: 'Follow-ups and queries due today or overdue',
       path: '/tasks',
-      severity: attention.urgent_tasks_count > 0 ? 'medium' : 'normal',
+      severity: urgentCount > 0 ? 'medium' : 'normal',
     },
     {
       label: 'Overdue PDD Documents',
-      count: attention.overdue_pdd_count,
+      count: overduePddCount,
       description: 'RC, hypothecation or insurance pending past due',
       path: '/pdd',
-      severity: attention.overdue_pdd_count > 0 ? 'high' : 'normal',
+      severity: overduePddCount > 0 ? 'high' : 'normal',
     },
     {
       label: 'Payout Discrepancies',
-      count: attention.discrepancy_payouts_count,
+      count: discrepancyCount,
       description: 'Short-paid bank credits and commission queries',
       path: '/payout/attention',
-      severity: attention.discrepancy_payouts_count > 0 ? 'medium' : 'normal',
+      severity: discrepancyCount > 0 ? 'medium' : 'normal',
     },
     {
       label: 'Expiring Documents',
-      count: attention.expiring_docs_count,
+      count: expiringDocsCount,
       description: 'Borrower / vehicle papers expiring in 30 days',
       path: '/today',
-      severity: attention.expiring_docs_count > 0 ? 'low' : 'normal',
+      severity: expiringDocsCount > 0 ? 'low' : 'normal',
     },
   ]
 

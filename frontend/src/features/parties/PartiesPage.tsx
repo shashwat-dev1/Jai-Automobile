@@ -789,7 +789,7 @@ export function PartiesPage() {
                             Registered with phone {selectedCustomer.mobile_primary} · Consent recorded
                           </div>
                           <div className="timeline-date">
-                            {new Date(selectedCustomer.created_at).toLocaleString('en-IN')}
+                            {selectedCustomer.created_at ? new Date(selectedCustomer.created_at).toLocaleString('en-IN') : '—'}
                           </div>
                         </div>
                       </div>

@@ -382,7 +382,7 @@ export const StatementImportWizard: React.FC<StatementImportWizardProps> = ({
                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
                   <span className="text-[10px] text-slate-400 block uppercase">Total Amount</span>
                   <span className="text-slate-100 font-bold text-base">
-                    ₹{dryRunReport.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{(dryRunReport.total_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -409,11 +409,11 @@ export const StatementImportWizard: React.FC<StatementImportWizardProps> = ({
                         <td className="py-2 px-3 text-slate-300">{row.loan_account_no || '—'}</td>
                         <td className="py-2 px-3 text-slate-300">{row.customer_name || '—'}</td>
                         <td className="py-2 px-3 text-right font-bold text-emerald-400">
-                          ₹{row.received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(row.received_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2 px-3 text-right text-slate-300">
                           {row.expected_amount !== null && row.expected_amount !== undefined
-                            ? `₹${row.expected_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            ? `₹${(row.expected_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
                             : '—'}
                         </td>
                         <td className="py-2 px-3 text-right">
@@ -428,7 +428,7 @@ export const StatementImportWizard: React.FC<StatementImportWizardProps> = ({
                               }
                             >
                               {row.variance > 0 ? '+' : ''}
-                              ₹{row.variance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              ₹{(row.variance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </span>
                           ) : (
                             '—'
@@ -490,7 +490,7 @@ export const StatementImportWizard: React.FC<StatementImportWizardProps> = ({
                 <div className="flex justify-between">
                   <span className="text-slate-500">Total Received:</span>
                   <span className="text-emerald-400 font-bold">
-                    ₹{committedBatch.total_received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{(committedBatch.total_received_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between">

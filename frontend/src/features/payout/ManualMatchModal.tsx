@@ -136,7 +136,7 @@ export const ManualMatchModal: React.FC<ManualMatchModalProps> = ({
             <div>
               <span className="text-slate-500 block text-[10px] uppercase tracking-wider">Received Amount</span>
               <span className="text-emerald-400 font-bold">
-                ₹{receipt.received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{(receipt.received_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div>
@@ -205,10 +205,10 @@ export const ManualMatchModal: React.FC<ManualMatchModalProps> = ({
                         <td className="py-2 px-3 font-semibold text-slate-200">{exp.case_no}</td>
                         <td className="py-2 px-3 text-slate-300">{exp.applicant_name || '—'}</td>
                         <td className="py-2 px-3 text-right text-slate-400">
-                          ₹{exp.disbursal_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(Number(exp.disbursal_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2 px-3 text-right font-bold text-slate-100">
-                          ₹{exp.gross_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(Number(exp.gross_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2 px-3">
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase bg-slate-800 text-slate-300">
@@ -249,13 +249,13 @@ export const ManualMatchModal: React.FC<ManualMatchModalProps> = ({
                 <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
                   <span className="text-[10px] text-slate-500 block">Expected Gross</span>
                   <span className="text-slate-200 font-bold">
-                    ₹{selectedExp.gross_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{(Number(selectedExp.gross_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
                   <span className="text-[10px] text-slate-500 block">Actual Received</span>
                   <span className="text-emerald-400 font-bold">
-                    ₹{receipt.received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{(receipt.received_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800">
@@ -270,7 +270,7 @@ export const ManualMatchModal: React.FC<ManualMatchModalProps> = ({
                     }`}
                   >
                     {variance > 0 ? '+' : ''}
-                    ₹{variance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{(variance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>

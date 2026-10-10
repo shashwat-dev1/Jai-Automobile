@@ -8,42 +8,47 @@ interface KPIStripProps {
 }
 
 export const KPIStrip: React.FC<KPIStripProps> = ({ pipeline, payout }) => {
+  const pl = pipeline || ({} as Partial<PipelineSummary>)
+  const po = payout || ({} as Partial<PayoutSummary>)
+  const varianceNet = parseFloat(po.variance_net || '0') || 0
+  const outstandingNet = parseFloat(po.outstanding_net || '0') || 0
+
   const cards = [
     {
       label: 'Active Pipeline',
-      value: pipeline.active_files_count.toString(),
-      subtext: `${pipeline.new_inflow_count} new inflow`,
+      value: (pl.active_files_count ?? 0).toString(),
+      subtext: `${pl.new_inflow_count ?? 0} new inflow`,
       accent: '#0f172a',
     },
     {
       label: 'Requested Volume',
-      value: formatINR(pipeline.total_loan_amount_requested),
+      value: formatINR(pl.total_loan_amount_requested),
       subtext: 'Current gross pipeline',
       accent: '#334155',
     },
     {
       label: 'Disbursed Volume',
-      value: formatINR(pipeline.disbursed_volume),
-      subtext: `${pipeline.disbursed_count} files disbursed`,
+      value: formatINR(pl.disbursed_volume),
+      subtext: `${pl.disbursed_count ?? 0} files disbursed`,
       accent: '#047857',
     },
     {
       label: 'Expected Commission',
-      value: formatINR(payout.total_expected_net),
+      value: formatINR(po.total_expected_net),
       subtext: 'Net accrued receivable',
       accent: '#b45309',
     },
     {
       label: 'Collected Payout',
-      value: formatINR(payout.total_received_net),
-      subtext: `${payout.realisation_rate_pct}% realisation`,
+      value: formatINR(po.total_received_net),
+      subtext: `${po.realisation_rate_pct ?? '0'}% realisation`,
       accent: '#059669',
     },
     {
       label: 'Outstanding Payout',
-      value: formatINR(payout.outstanding_net),
-      subtext: parseFloat(payout.variance_net) < 0 ? `Shortfall: ${formatINR(Math.abs(parseFloat(payout.variance_net)))}` : 'On track',
-      accent: parseFloat(payout.outstanding_net) > 0 ? '#d97706' : '#64748b',
+      value: formatINR(po.outstanding_net),
+      subtext: varianceNet < 0 ? `Shortfall: ${formatINR(Math.abs(varianceNet))}` : 'On track',
+      accent: outstandingNet > 0 ? '#d97706' : '#64748b',
     },
   ]
 

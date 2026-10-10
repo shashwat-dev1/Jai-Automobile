@@ -7,7 +7,8 @@ interface StageVelocityProps {
 }
 
 export const StageVelocity: React.FC<StageVelocityProps> = ({ stages }) => {
-  const maxCount = Math.max(...stages.map((s) => s.count), 1)
+  const stageList = Array.isArray(stages) ? stages : []
+  const maxCount = Math.max(...stageList.map((s) => s.count || 0), 1)
 
   return (
     <div

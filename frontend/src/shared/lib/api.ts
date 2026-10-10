@@ -58,6 +58,105 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
+  // Authentication endpoints
+  if (clean.includes('/auth/login') && method === 'POST') {
+    const role = (parsedBody?.identifier || '').includes('accountant')
+      ? 'accountant'
+      : (parsedBody?.identifier || '').includes('processor')
+      ? 'processor'
+      : (parsedBody?.identifier || '').includes('field')
+      ? 'field_executive'
+      : (parsedBody?.identifier || '').includes('auditor')
+      ? 'auditor'
+      : (parsedBody?.identifier || '').includes('manager')
+      ? 'manager'
+      : 'owner'
+    const roleNames: Record<string, string> = {
+      owner: 'Aarav Sharma (MD)',
+      manager: 'Priya Patel (Branch Manager)',
+      processor: 'Rohan Verma (Sr. Loan Processor)',
+      accountant: 'Sanjay Gupta (Chief Accountant)',
+      field_executive: 'Kavita Singh (Field Officer)',
+      auditor: 'Meera Iyer (Internal Auditor)',
+    }
+    return {
+      access_token: 'demo-prototype-access-token',
+      refresh_token: 'demo-prototype-refresh-token',
+      token_type: 'bearer',
+      user: {
+        id: `jai-user-${role}`,
+        org_id: '11111111-1111-1111-1111-111111111111',
+        name: roleNames[role] || 'Aarav Sharma',
+        email: parsedBody?.identifier || `${role}@jaiautomobiles.com`,
+        role,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        permissions: [
+          'cases:create',
+          'cases:read',
+          'cases:update',
+          'cases:delete',
+          'cases:reassign',
+          'documents:upload',
+          'documents:read',
+          'documents:verify',
+          'documents:archive',
+          'payout:read',
+          'payout:update',
+          'recon:read',
+          'recon:update',
+          'recon:approve',
+          'reports:read',
+          'audit:read',
+          'users:manage',
+          'settings:manage',
+          'data:export',
+          'pdd:read',
+          'pdd:manage',
+          'sources:manage',
+          'lenders:manage',
+        ],
+      },
+    }
+  }
+
+  if (clean.includes('/auth/me')) {
+    return {
+      id: 'jai-user-owner',
+      org_id: '11111111-1111-1111-1111-111111111111',
+      name: 'Aarav Sharma (MD)',
+      email: 'owner@jaiautomobiles.com',
+      role: 'owner',
+      is_active: true,
+      created_at: '2025-01-01T00:00:00Z',
+      permissions: [
+        'cases:create',
+        'cases:read',
+        'cases:update',
+        'cases:delete',
+        'cases:reassign',
+        'documents:upload',
+        'documents:read',
+        'documents:verify',
+        'documents:archive',
+        'payout:read',
+        'payout:update',
+        'recon:read',
+        'recon:update',
+        'recon:approve',
+        'reports:read',
+        'audit:read',
+        'users:manage',
+        'settings:manage',
+        'data:export',
+        'pdd:read',
+        'pdd:manage',
+        'sources:manage',
+        'lenders:manage',
+      ],
+    }
+  }
+
   // Dashboard endpoints
   if (clean.includes('/dashboard/overview')) {
     return JAI_MOCK_DASHBOARD
