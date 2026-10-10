@@ -1,7 +1,12 @@
+/**
+ * DSA OS — Lead Import Modal Styling
+ * High-Contrast Financial Operations Aesthetics
+ */
+
 .lead-import-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.75);
+  background-color: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -11,31 +16,39 @@
 }
 
 .lead-import-modal {
-  background: var(--color-surface, #1e293b);
-  border: 1px solid var(--color-border, #334155);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
   width: 100%;
   max-width: 960px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  color: var(--color-text, #f8fafc);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  color: #0F172A;
   overflow: hidden;
 }
 
 .lead-import-header {
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-border, #334155);
+  border-bottom: 1px solid #E2E8F0;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  background: #F8FAFC;
+}
+
+.lead-import-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
 }
 
 .lead-import-close-btn {
   background: transparent;
   border: none;
-  color: var(--color-text-secondary, #94a3b8);
+  color: #64748B;
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
@@ -43,8 +56,8 @@
 }
 
 .lead-import-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: #E2E8F0;
+  color: #0F172A;
 }
 
 .lead-import-body {
@@ -65,24 +78,26 @@
 }
 
 .lead-import-dropzone {
-  border: 2px dashed var(--color-border, #334155);
+  border: 2px dashed #CBD5E1;
   border-radius: 8px;
-  padding: 2rem;
+  padding: 2.25rem 1.5rem;
   text-align: center;
-  background: rgba(15, 23, 42, 0.4);
+  background: #F8FAFC;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: #334155;
 }
 
 .lead-import-dropzone:hover,
 .lead-import-dropzone.is-dragover {
-  border-color: var(--color-primary, #10b981);
-  background: rgba(16, 185, 129, 0.05);
+  border-color: #2563EB;
+  background: #EFF6FF;
 }
 
 .lead-import-dropzone.has-file {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  border-color: #16A34A;
+  background: #F0FDF4;
+  border-style: solid;
 }
 
 .dropzone-content {
@@ -96,6 +111,19 @@
   font-size: 2.25rem;
 }
 
+.dropzone-text-primary {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+}
+
+.dropzone-text-secondary {
+  font-size: 0.8125rem;
+  color: #64748B;
+  margin: 0;
+}
+
 .lead-import-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -103,127 +131,82 @@
 }
 
 .metric-pill {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--color-border, #334155);
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.metric-num {
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-lbl {
+.metric-label {
   font-size: 0.75rem;
-  color: var(--color-text-secondary, #94a3b8);
+  color: #64748B;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
-.metric-valid .metric-num {
-  color: #10b981;
+.metric-num {
+  font-size: 1.625rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0F172A;
+  line-height: 1.1;
 }
 
-.metric-duplicates .metric-num {
-  color: #f59e0b;
+.text-valid {
+  color: #059669;
 }
 
-.metric-invalid .metric-num {
-  color: #ef4444;
+.text-duplicate {
+  color: #D97706;
 }
 
-.lead-import-preview-container {
-  border: 1px solid var(--color-border, #334155);
+.text-invalid {
+  color: #DC2626;
+}
+
+.import-preview-wrapper {
+  overflow-x: auto;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
-  overflow: hidden;
-  background: rgba(15, 23, 42, 0.3);
+  background: #FFFFFF;
 }
 
-.preview-table-header {
-  padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid var(--color-border, #334155);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.preview-table-scroll {
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.preview-table {
+.import-preview-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
   text-align: left;
 }
 
-.preview-table th {
-  padding: 0.5rem 0.75rem;
-  background: rgba(30, 41, 59, 0.8);
-  color: var(--color-text-secondary, #94a3b8);
-  font-weight: 600;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.import-preview-table th {
+  background: #F1F5F9;
+  padding: 0.65rem 0.85rem;
+  color: #334155;
+  font-weight: 700;
+  border-bottom: 1px solid #CBD5E1;
+  white-space: nowrap;
 }
 
-.preview-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+.import-preview-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #F1F5F9;
+  color: #0F172A;
+  white-space: nowrap;
 }
 
-.preview-badge {
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.badge-ok {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-}
-
-.badge-dup {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-}
-
-.badge-err {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-}
-
-.preview-ok-text {
-  color: #10b981;
-}
-
-.preview-err-text {
-  color: #ef4444;
-}
-
-.product-tag {
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
-  font-size: 0.75rem;
+.import-preview-table tbody tr:hover {
+  background-color: #F8FAFC;
 }
 
 .lead-import-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--color-border, #334155);
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #E2E8F0;
+  background: #F8FAFC;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  background: rgba(15, 23, 42, 0.4);
 }

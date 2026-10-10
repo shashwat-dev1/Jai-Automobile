@@ -21,52 +21,28 @@ interface DemoCredential {
 
 const DEMO_CREDENTIALS: DemoCredential[] = [
   {
-    role: 'Managing Director / Owner',
+    role: 'DSA Administrator',
     roleKey: 'owner',
     orgSlug: 'jai-automobiles',
-    identifier: 'owner@jaiautomobiles.com',
+    identifier: 'admin@jaiautomobiles.com',
     pass: 'JaiAuto@123',
-    tag: 'Full Access (Jai Auto)',
+    tag: 'Full Management (Cold Leads, Team, Referrals)',
   },
   {
-    role: 'Senior Loan Processor',
-    roleKey: 'processor',
+    role: 'Priya Sharma (Telecaller)',
+    roleKey: 'telecaller',
     orgSlug: 'jai-automobiles',
-    identifier: 'processor@jaiautomobiles.com',
+    identifier: 'priya.sharma@jaiautomobiles.com',
     pass: 'JaiAuto@123',
-    tag: 'Cases & KYC Intake',
+    tag: 'Assigned Leads & Call Desk',
   },
   {
-    role: 'Chief Accountant',
-    roleKey: 'accountant',
+    role: 'Rahul Verma (Telecaller)',
+    roleKey: 'telecaller',
     orgSlug: 'jai-automobiles',
-    identifier: 'accountant@jaiautomobiles.com',
+    identifier: 'rahul.verma@jaiautomobiles.com',
     pass: 'JaiAuto@123',
-    tag: 'Payouts & Recon Only',
-  },
-  {
-    role: 'Apex Capital Owner (Org B)',
-    roleKey: 'owner',
-    orgSlug: 'apex-loans',
-    identifier: 'owner@apexloans.com',
-    pass: 'Apex@123',
-    tag: 'Navy Theme / Commercial',
-  },
-  {
-    role: 'BlueStar Owner (Org C)',
-    roleKey: 'owner',
-    orgSlug: 'bluestar',
-    identifier: 'owner@bluestar.com',
-    pass: 'BlueStar@123',
-    tag: 'Sapphire Theme / Retail',
-  },
-  {
-    role: 'Internal Auditor',
-    roleKey: 'auditor',
-    orgSlug: 'jai-automobiles',
-    identifier: 'auditor@jaiautomobiles.com',
-    pass: 'JaiAuto@123',
-    tag: 'Read-Only Audit',
+    tag: 'Assigned Leads & Call Desk',
   },
 ]
 
@@ -84,12 +60,12 @@ export function LoginPage() {
   const switchTenant = useTenantStore((s) => s.switchTenant)
   const branding = currentTenant?.settings?.branding || {
     name: 'Jai Automobiles',
-    tagline: 'Vehicle Finance & Loan Operations Portal',
+    tagline: 'Vehicle Finance & Lead Operations Portal',
     logo_url: '/jai_auto_logo.jpg',
   }
 
   const [orgSlug, setOrgSlug] = useState('jai-automobiles')
-  const [identifier, setIdentifier] = useState('owner@jaiautomobiles.com')
+  const [identifier, setIdentifier] = useState('admin@jaiautomobiles.com')
   const [password, setPassword] = useState('JaiAuto@123')
   const [selectedRole, setSelectedRole] = useState('owner')
   const [showPassword, setShowPassword] = useState(false)
@@ -115,18 +91,18 @@ export function LoginPage() {
     try {
       await Promise.race([loginPromise, timeoutPromise])
       if (!useAuthStore.getState().isAuthenticated) {
-        loginAsDemo(selectedRole)
+        loginAsDemo(selectedRole, identifier)
       }
       navigate(target, { replace: true })
     } catch {
       // Gracefully activate role profile and navigate into workspace
-      loginAsDemo(selectedRole)
+      loginAsDemo(selectedRole, identifier)
       navigate(target, { replace: true })
     }
   }
 
   const handleDemoMode = (role = 'owner') => {
-    loginAsDemo(role)
+    loginAsDemo(role, identifier)
     navigate(target, { replace: true })
   }
 
@@ -155,17 +131,17 @@ export function LoginPage() {
             </div>
             <div>
               <div className="login-brand-title">{branding.name}</div>
-              <div className="login-brand-tagline">{branding.tagline || 'Vehicle Finance & Loan Operations Portal'}</div>
+              <div className="login-brand-tagline">{branding.tagline || 'Vehicle Finance & Lead Operations Portal'}</div>
             </div>
           </div>
 
           <div className="login-thesis-banner">
             <div className="login-thesis-quote">
-              &ldquo;Never lose track of a case, and never lose a rupee of payout.&rdquo;
+              &ldquo;Never lose track of a lead, and never lose a rupee of payout.&rdquo;
             </div>
             <div className="login-thesis-subtext">
-              Unified operational lifecycle from messy lead intake through multi-lender sanctions,
-              PDD documentation, and ledger reconciliation.
+              Dedicated Phase 1 operating platform for cold-lead management, high-velocity telecalling,
+              public partner referrals, and automated commission tracking.
             </div>
           </div>
 
@@ -181,62 +157,63 @@ export function LoginPage() {
                 </svg>
               </div>
               <div className="capability-details">
-                <div className="capability-title">Document Pipeline & OCR</div>
-                <div className="capability-desc">Automated validation, confidence scoring & human review</div>
+                <div className="capability-title">Cold Leads & Bulk Import</div>
+                <div className="capability-desc">Excel / CSV intake, column validation & active duplicate detection</div>
               </div>
             </div>
 
             <div className="capability-card">
               <div className="capability-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                 </svg>
               </div>
               <div className="capability-details">
-                <div className="capability-title">Multi-Lender Grid Engine</div>
-                <div className="capability-desc">Compare sanction rates, SLAs, and commission matrices</div>
+                <div className="capability-title">Telecaller Desk & Queue</div>
+                <div className="capability-desc">Click-to-call, outcome logging, follow-up scheduler & audit logs</div>
               </div>
             </div>
 
             <div className="capability-card">
               <div className="capability-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
               </div>
               <div className="capability-details">
-                <div className="capability-title">PDD Ageing & Gating</div>
-                <div className="capability-desc">Form 34, hypothecation and RC collection tracking</div>
+                <div className="capability-title">Public Guest Referral Desk</div>
+                <div className="capability-desc">Passwordless 10-digit mobile lookup & returning partner recognition</div>
               </div>
             </div>
 
             <div className="capability-card">
               <div className="capability-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
                 </svg>
               </div>
               <div className="capability-details">
-                <div className="capability-title">Automated Reconciliation</div>
-                <div className="capability-desc">Bank statement UTR matching & short-payment recovery</div>
+                <div className="capability-title">Referral Commission Ledger</div>
+                <div className="capability-desc">Approval workflows, payout authorization & bank UTR tracking</div>
               </div>
             </div>
           </div>
 
           <div className="login-security-notice">
             <span className="security-shield-icon">🛡️</span>
-            <span>Enterprise-grade tenant isolation with PostgreSQL RLS & AES-256 field encryption</span>
+            <span>Multi-tenant organization isolation with PostgreSQL RLS & encrypted credentials</span>
           </div>
         </div>
 
         {/* Right Authentication Form Column */}
         <div className="login-form-pane">
           <div className="login-card">
-            {/* Mobile Header Brand visible on narrow viewports */}
-            <div className="login-mobile-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Mobile Header Brand visible ONLY on narrow viewports */}
+            <div className="login-mobile-brand">
               <img
                 src="/jai_auto_logo.jpg"
                 alt="Jai Automobiles Logo"
@@ -277,7 +254,7 @@ export function LoginPage() {
                   <span className="form-label-hint">Tenant Identifier</span>
                 </label>
                 <div className="input-affix-wrapper">
-                  <span className="input-prefix">🏢</span>
+                  <span className="login-input-prefix">🏢</span>
                   <input
                     id="org-slug"
                     className="login-input"
@@ -296,7 +273,7 @@ export function LoginPage() {
                   <span className="form-label-hint">Email or Mobile</span>
                 </label>
                 <div className="input-affix-wrapper">
-                  <span className="input-prefix">👤</span>
+                  <span className="login-input-prefix">👤</span>
                   <input
                     id="identifier"
                     className="login-input"
@@ -325,7 +302,7 @@ export function LoginPage() {
                   </button>
                 </div>
                 <div className="input-affix-wrapper">
-                  <span className="input-prefix">🔒</span>
+                  <span className="login-input-prefix">🔒</span>
                   <input
                     id="password"
                     className="login-input"
@@ -355,7 +332,7 @@ export function LoginPage() {
                 style={{
                   width: '100%',
                   marginTop: '12px',
-                  background: '#B58A4A',
+                  background: '#2563EB',
                   color: '#FFFFFF',
                   border: 'none',
                   padding: '12px 16px',
@@ -367,10 +344,10 @@ export function LoginPage() {
                   justifyContent: 'center',
                   gap: '8px',
                   borderRadius: '6px',
-                  boxShadow: '0 4px 12px rgba(181, 138, 74, 0.35)',
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
                 }}
               >
-                <span>🚀 Instant Prototype Entry ({selectedRole.replace('_', ' ').toUpperCase()}) →</span>
+                <span>🚀 Instant Prototype Entry ({selectedRole === 'telecaller' ? 'TELECALLER' : 'DSA ADMIN'}) →</span>
               </button>
             </form>
 

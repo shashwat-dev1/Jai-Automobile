@@ -23,7 +23,7 @@ interface AuthState {
 
   // Actions
   login: (payload: LoginPayload) => Promise<void>
-  loginAsDemo: (role?: string) => void
+  loginAsDemo: (role?: string, identifier?: string) => void
   logout: () => Promise<void>
   fetchMe: () => Promise<void>
   setTokens: (accessToken: string, refreshToken?: string) => void
@@ -104,28 +104,67 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'payout:read',
     'recon:read',
   ],
+  telecaller: [
+    'cases:read',
+    'cases:update',
+    'documents:upload',
+    'documents:read',
+  ],
 }
 
+const STORAGE_KEY = 'dsa_os_auth_state_v1'
+
+function getSavedSession() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && parsed.accessToken && parsed.user) {
+        return parsed
+      }
+    }
+  } catch {
+    // Ignore storage parse error
+  }
+  return null
+}
+
+const savedSession = getSavedSession()
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  accessToken: null,
-  refreshToken: null,
-  user: null,
-  permissions: [],
-  isAuthenticated: false,
+  accessToken: savedSession?.accessToken ?? null,
+  refreshToken: savedSession?.refreshToken ?? null,
+  user: savedSession?.user ?? null,
+  permissions: savedSession?.permissions ?? [],
+  isAuthenticated: !!savedSession?.accessToken,
   isLoading: false,
   error: null,
 
   setError: (error) => set({ error }),
 
   setTokens: (accessToken, refreshToken) => {
-    set((state) => ({
-      accessToken,
-      refreshToken: refreshToken ?? state.refreshToken,
-      isAuthenticated: true,
-    }))
+    set((state) => {
+      const nextState = {
+        accessToken,
+        refreshToken: refreshToken ?? state.refreshToken,
+        isAuthenticated: true,
+      }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          accessToken,
+          refreshToken: nextState.refreshToken,
+          user: state.user,
+          permissions: state.permissions,
+        }))
+      } catch {}
+      return nextState
+    })
   },
 
   clearAuth: () => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+    } catch {}
     set({
       accessToken: null,
       refreshToken: null,
@@ -194,31 +233,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  loginAsDemo: (role = 'owner') => {
+  loginAsDemo: (role = 'owner', identifier?: string) => {
     const roleKey = role.toLowerCase()
     const permissions = ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.owner
 
-    const roleNames: Record<string, string> = {
-      owner: 'Aarav Sharma (MD)',
-      manager: 'Priya Patel (Branch Manager)',
-      processor: 'Rohan Verma (Sr. Loan Processor)',
-      accountant: 'Sanjay Gupta (Chief Accountant)',
-      field_executive: 'Kavita Singh (Field Officer)',
-      auditor: 'Meera Iyer (Internal Auditor)',
+    let userId = `jai-user-${roleKey}`
+    let userName = 'Aarav Sharma (DSA Admin)'
+    let userEmail = 'admin@jaiautomobiles.com'
+
+    if (roleKey === 'telecaller' || identifier?.includes('telecaller') || identifier?.includes('priya') || identifier?.includes('rahul')) {
+      if (identifier?.includes('rahul')) {
+        userId = 'usr-telecaller-2'
+        userName = 'Rahul Verma (Telecaller)'
+        userEmail = 'rahul.verma@jaiautomobiles.com'
+      } else {
+        userId = 'usr-telecaller-1'
+        userName = 'Priya Sharma (Telecaller)'
+        userEmail = 'priya.sharma@jaiautomobiles.com'
+      }
+    } else {
+      userId = 'jai-user-owner'
+      userName = 'Aarav Sharma (DSA Admin)'
+      userEmail = 'admin@jaiautomobiles.com'
     }
 
     const demoUser: User = {
-      id: `jai-user-${roleKey}`,
+      id: userId,
       org_id: '11111111-1111-1111-1111-111111111111',
-      name: roleNames[roleKey] || 'Aarav Sharma',
-      email: `${roleKey === 'field_executive' ? 'field' : roleKey}@jaiautomobiles.com`,
-      role: (roleKey as User['role']) || 'owner',
+      name: userName,
+      email: userEmail,
+      role: (roleKey === 'telecaller' ? 'telecaller' : 'owner') as User['role'],
       is_active: true,
       created_at: new Date().toISOString(),
       permissions,
     }
 
-    set({
+    const nextState = {
       accessToken: 'demo-prototype-access-token',
       refreshToken: 'demo-prototype-refresh-token',
       user: demoUser,
@@ -226,7 +276,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       isLoading: false,
       error: null,
-    })
+    }
+
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        accessToken: nextState.accessToken,
+        refreshToken: nextState.refreshToken,
+        user: nextState.user,
+        permissions: nextState.permissions,
+      }))
+    } catch {}
+
+    set(nextState)
   },
 
   logout: async () => {

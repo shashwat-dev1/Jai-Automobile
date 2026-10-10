@@ -66,6 +66,12 @@
   --text-disabled: #94A3B8;
   --text-inverse: #FFFFFF;
 
+  /* Standard aliases */
+  --color-bg: #F8FAFC;
+  --color-text: #0F172A;
+  --color-text-muted: #64748B;
+  --color-card: #FFFFFF;
+
   /* Semantic Borders: Surgical precision lines */
   --color-border: #E2E8F0;
   --color-border-light: #F1F5F9;

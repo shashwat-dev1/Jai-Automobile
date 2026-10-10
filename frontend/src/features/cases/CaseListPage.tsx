@@ -409,11 +409,11 @@ export function CaseListPage() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: c.assigned_telecaller_name ? '#fff' : '#94a3b8' }}>
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: c.assigned_telecaller_name ? '#0F172A' : '#64748B' }}>
                         {c.assigned_telecaller_name ? `👤 ${c.assigned_telecaller_name}` : 'Unassigned'}
                       </span>
                       {c.call_outcome && (
-                        <span style={{ fontSize: '0.7rem', color: c.call_outcome === 'interested' ? '#34d399' : c.call_outcome === 'follow_up' ? '#fbbf24' : '#94a3b8', textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: c.call_outcome === 'interested' ? '#047857' : c.call_outcome === 'follow_up' ? '#B45309' : '#64748B', textTransform: 'uppercase' }}>
                           ● {c.call_outcome.replace(/_/g, ' ')}
                         </span>
                       )}
