@@ -65,6 +65,7 @@ python scripts/seed_data.py
   - MD / Owner: `owner@apexloans.com` / `ApexOwner@123`
   - Branch Manager: `manager@apexloans.com` / `ApexManager@123`
   - Sr. Loan Processor: `processor@apexloans.com` / `ApexProcessor@123`
+  - Telecaller Desk: `priya.telecaller@jaiautomobiles.com` (role: `telecaller`)
   - Field Officer: `fe@apexloans.com` / `ApexField@123`
   - Chief Accountant: `accountant@apexloans.com` / `ApexAccount@123`
   - Internal Auditor: `auditor@apexloans.com` / `ApexAuditor@123`
@@ -77,9 +78,33 @@ python scripts/seed_data.py
 
 ## 4. Vercel Static Frontend Deployment
 
-1. Set **Root Directory** in Vercel to `frontend`.
-2. Framework Preset: `Vite`.
-3. Build Command: `tsc -b && vite build`.
-4. Output Directory: `dist`.
-5. Environment Variables:
-   - `VITE_API_URL`: URL of your deployed FastAPI backend (e.g., `https://api.dsaos.in`).
+1. **Vercel Project:** `Jai-Automobile`
+2. **Connected Git Remote:** `https://github.com/shashwat-dev1/Jai-Automobile.git` (`main` branch)
+3. **Framework Preset:** `Vite`
+4. **Root Directory:** `frontend`
+5. **Build Command:** `tsc -b && vite build`
+6. **Output Directory:** `dist`
+7. **Environment Variables:**
+   - `VITE_API_URL`: URL of the deployed FastAPI backend (falls back gracefully to client prototype persistence if offline).
+
+---
+
+## 5. Rollback Procedure
+
+In the event that a rollback to pre-Phase 1 state is required:
+
+### Option A: Instant Vercel Rollback (Zero Downtime)
+1. Navigate to the **Vercel Dashboard** for project `Jai-Automobile`.
+2. Go to the **Deployments** tab.
+3. Locate the previous production deployment prior to commit `feat(phase1): implement Phase 1 rebuild`.
+4. Click the three dots `...` and select **Promote to Production** (Instant Rollback).
+
+### Option B: Git Checkpoint Restoration
+A recoverable checkpoint branch was created before changes: `checkpoint-pre-phase1`.
+To restore via Git:
+```bash
+git checkout main
+git reset --hard checkpoint-pre-phase1
+git push origin main --force-with-lease
+```
+Vercel will automatically re-build and restore the previous state.

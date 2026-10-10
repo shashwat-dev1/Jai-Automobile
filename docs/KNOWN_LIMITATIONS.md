@@ -32,7 +32,23 @@
 
 ---
 
+---
+
 ## 3. Regulatory & Privacy Considerations
 
 - **Synthetic Seed Identifiers:** In compliance with `AGENTS.md` Section 5, all seeded customer names, PAN numbers (`ABCDE****F`), mobile numbers, and vehicle registration numbers are synthetically generated. Real citizen PII is strictly prohibited in development and demonstration databases.
 - **PAN Decryption Audit Log:** Production deployments must securely store the Fernet symmetric encryption key (`ENCRYPTION_KEY`) in an enterprise secrets manager (e.g. AWS Secrets Manager or HashiCorp Vault). Every PAN decryption event is permanently recorded in the immutable audit log.
+- **Masked Mobile Numbers:** All general listings for referral partners mask mobile numbers (`98****4551`) to prevent unauthorized scraping or contact harvesting.
+
+---
+
+## 4. Phase 1 Operational Considerations
+
+### SMS OTP Verification Integration
+- **Current Architecture:** Guest referral partner intake currently utilizes instant mobile number lookup and registration within the DSA organization tenant. Returning partners are identified by matching normalized 10-digit mobile numbers without password friction.
+- **Future OTP Gateway:** Adding an OTP verification challenge via SMS (e.g., MSG91, Twilio, or Gupshup) requires choosing a paid telecom SMS gateway provider and acquiring DLT (Distributed Ledger Technology) template approvals under TRAI guidelines in India. This should be activated when commercial accounts are provisioned.
+
+### Referral Commission Bank Transfers
+- **Current Architecture:** Commission workflows enforce administrative review (`pending_review` -> `approved` -> `paid`) and record mandatory bank transaction references (UTR / NEFT / IMPS identifiers), payment dates, and approving user IDs in the audit ledger.
+- **Automated Payout APIs:** Direct programmatic bank transfers (via ICICI Corporate Connected Banking or RazorpayX Payouts) require signed banking API contracts and corporate bank account keys. In Phase 1, payments are executed via standard corporate net banking and reconciled via UTR entry.
+

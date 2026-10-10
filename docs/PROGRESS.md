@@ -6,9 +6,32 @@
 
 ## Current Phase
 
-**ALL PHASES (PH-00 THROUGH PH-10) 100% COMPLETE & FULL PRODUCT-QUALITY OVERHAUL EXECUTED**
+**PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
-### Full Product-Quality Overhaul & Distinctive Financial Design System (Completed)
+### Phase 1 Rebuild & Codebase Cleanup (Completed)
+- **Workflow A: Admin Cold Leads & Excel Ingestion**:
+  - Drag-and-drop Excel/CSV lead import modal with row validation, duplicate detection, template download, and batch commit.
+  - Multi-select row checkboxes and bulk telecaller assignment bar.
+  - Filters for status, product, telecaller, and outcome.
+- **Workflow B: Telecaller Focused Workspace (`/telecaller`)**:
+  - Live counter cards for Assigned Leads, Pending, Follow-ups Due, Interested.
+  - Click-to-call (`tel:`) support, outcome logger, rich remarks, callback scheduling, and activity history.
+- **Workflow C: Guest Referral Intake (`/referral` & `/refer/:orgSlug`)**:
+  - Public passwordless mobile-first lookup. Auto-retrieves returning partner name or registers new partner profile.
+  - Auto-resolving PIN-code city/state lookup directory.
+  - Document upload dropzones for Aadhaar, PAN, and RC.
+- **Workflow D: Admin Referral Analysis & Commissions (`/referrals`)**:
+  - Financial KPI strip, privacy-protecting masked mobile numbers (`98****4551`), partner verification toggle.
+  - Slide-over partner dossier with attributed leads and commission ledger.
+  - Commission approval, rejection, and payment tracking with mandatory bank UTR reference numbers.
+  - CSV export for partner accounting.
+- **Codebase & Navigation Cleanup**:
+  - Deferred later-stage banking/post-disbursement modules (PDD, Lender Matching, Bank Payouts, Reconciliation) from active navigation without breaking models or migrations.
+  - Active navigation highlights Phase 1 core operations, channels, telecalling, and branding.
+- **Verification**:
+  - 159 backend tests passing (100%).
+  - 68 frontend tests passing (100%).
+  - Browser subagent verified 100% of routes end-to-end.
 - **Executive Obsidian-Slate Financial Design System**: Overhauled `tokens.css` with a bespoke institutional financial palette:
   - Deep Architectural Obsidian-Slate navigation (`#0F172A`)
   - Crisp, glare-free, high-density neutral operations canvas (`#F8FAFC` & `#FFFFFF`)
