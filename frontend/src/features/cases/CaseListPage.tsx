@@ -14,6 +14,7 @@ import { SLAIndicator } from '../workflow/SLAIndicator'
 import { CaseCreateModal } from './CaseCreateModal'
 import { LeadImportModal } from './LeadImportModal'
 import { usePermission } from '../auth/usePermission'
+import { useAuthStore } from '../auth/useAuth'
 import { PERMISSIONS } from '../auth/types'
 import type { CaseDetail, CaseListItem } from './types'
 import './CaseListPage.css'
@@ -29,6 +30,8 @@ interface PaginationMeta {
 export function CaseListPage() {
   const navigate = useNavigate()
   const { can } = usePermission()
+  const user = useAuthStore((s) => s.user)
+  const isTelecaller = user?.role === 'telecaller'
   const [cases, setCases] = useState<CaseListItem[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -40,7 +43,7 @@ export function CaseListPage() {
 
   // Bulk Selection & Telecaller Assignment
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([])
-  const [assignTelecallerId, setAssignTelecallerId] = useState('u-tc-1')
+  const [assignTelecallerId, setAssignTelecallerId] = useState('usr-telecaller-1')
   const [isAssigning, setIsAssigning] = useState(false)
   const [assignSuccessMsg, setAssignSuccessMsg] = useState('')
 
@@ -136,7 +139,7 @@ export function CaseListPage() {
         case_ids: selectedCaseIds,
         telecaller_id: assignTelecallerId,
       })
-      const tcName = assignTelecallerId === 'u-tc-2' ? 'Karan Mehta' : 'Priya Nair'
+      const tcName = assignTelecallerId === 'usr-telecaller-2' ? 'Rahul Verma' : 'Priya Sharma'
       setCases((prev) =>
         prev.map((c) =>
           selectedCaseIds.includes(c.id)
@@ -167,26 +170,30 @@ export function CaseListPage() {
     <div className="cases-page">
       <div className="cases-header">
         <div>
-          <h1 className="type-h1">Cold Leads & Active Files</h1>
+          <h1 className="type-h1">{isTelecaller ? 'My Assigned Leads Desk' : 'Cold Leads & Active Files'}</h1>
           <p className="type-body-md" style={{ color: 'var(--color-text-secondary)' }}>
-            Admin lead desk, Excel bulk ingestion, telecaller assignments, and pipeline tracking.
+            {isTelecaller
+              ? 'Review, call, and update outcomes for borrower leads assigned to your telecalling queue.'
+              : 'Admin lead desk, Excel bulk ingestion, telecaller assignments, and pipeline tracking.'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <Button variant="secondary" onClick={() => setShowImportModal(true)}>
-            📥 Bulk Excel Import
-          </Button>
-          {can(PERMISSIONS.CASES_CREATE) && (
-            <>
-              <Button variant="outline" onClick={() => setShowCreateModal(true)}>
-                ⚡ Quick Intake
-              </Button>
-              <Button variant="primary" onClick={() => navigate('/cases/new')}>
-                + New Lead Workspace →
-              </Button>
-            </>
-          )}
-        </div>
+        {!isTelecaller && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Button variant="secondary" onClick={() => setShowImportModal(true)}>
+              📥 Bulk Excel Import
+            </Button>
+            {can(PERMISSIONS.CASES_CREATE) && (
+              <>
+                <Button variant="outline" onClick={() => setShowCreateModal(true)}>
+                  ⚡ Quick Intake
+                </Button>
+                <Button variant="primary" onClick={() => navigate('/cases/new')}>
+                  + New Lead Workspace →
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {assignSuccessMsg && (
@@ -197,8 +204,8 @@ export function CaseListPage() {
 
       {error && <div className="cases-error-alert">{error}</div>}
 
-      {/* Bulk Assignment Action Bar (Appears when leads are selected) */}
-      {selectedCaseIds.length > 0 && (
+      {/* Bulk Assignment Action Bar (Admin only) */}
+      {!isTelecaller && selectedCaseIds.length > 0 && (
         <div className="bulk-assign-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(30, 41, 59, 0.95)', border: '1px solid #3b82f6', padding: '0.75rem 1.25rem', borderRadius: 8, gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontWeight: 600, color: '#60a5fa' }}>{selectedCaseIds.length} lead(s) selected</span>
@@ -219,8 +226,8 @@ export function CaseListPage() {
               className="cases-filter-select"
               style={{ minWidth: 180 }}
             >
-              <option value="u-tc-1">Priya Nair (Telecaller Desk 1)</option>
-              <option value="u-tc-2">Karan Mehta (Sr. Telecaller)</option>
+              <option value="usr-telecaller-1">Priya Sharma (Telecaller Desk 1)</option>
+              <option value="usr-telecaller-2">Rahul Verma (Sr. Telecaller)</option>
             </select>
             <Button
               variant="primary"
@@ -245,19 +252,21 @@ export function CaseListPage() {
           />
         </div>
 
-        <select
-          className="cases-filter-select"
-          value={telecallerFilter}
-          onChange={(e) => {
-            setTelecallerFilter(e.target.value)
-            setPage(1)
-          }}
-        >
-          <option value="">All Telecallers</option>
-          <option value="Priya Nair">Priya Nair</option>
-          <option value="Karan Mehta">Karan Mehta</option>
-          <option value="unassigned">Unassigned Leads</option>
-        </select>
+        {!isTelecaller && (
+          <select
+            className="cases-filter-select"
+            value={telecallerFilter}
+            onChange={(e) => {
+              setTelecallerFilter(e.target.value)
+              setPage(1)
+            }}
+          >
+            <option value="">All Telecallers</option>
+            <option value="Priya Sharma">Priya Sharma</option>
+            <option value="Rahul Verma">Rahul Verma</option>
+            <option value="unassigned">Unassigned Leads</option>
+          </select>
+        )}
 
         <select
           className="cases-filter-select"
@@ -345,24 +354,28 @@ export function CaseListPage() {
       ) : cases.length === 0 ? (
         <div className="cases-empty">
           <h3>No loan leads match the criteria</h3>
-          <p>Import leads from Excel or create a new lead entry.</p>
-          <Button variant="primary" style={{ marginTop: 12 }} onClick={() => setShowImportModal(true)}>
-            📥 Bulk Excel Import
-          </Button>
+          <p>{isTelecaller ? 'No leads are currently assigned to your desk queue.' : 'Import leads from Excel or create a new lead entry.'}</p>
+          {!isTelecaller && (
+            <Button variant="primary" style={{ marginTop: 12 }} onClick={() => setShowImportModal(true)}>
+              📥 Bulk Excel Import
+            </Button>
+          )}
         </div>
       ) : (
         <div className="cases-table-wrap">
           <table className="cases-table">
             <thead>
               <tr>
-                <th style={{ width: 40 }}>
-                  <input
-                    type="checkbox"
-                    checked={cases.length > 0 && selectedCaseIds.length === cases.length}
-                    onChange={handleToggleSelectAll}
-                    aria-label="Select all"
-                  />
-                </th>
+                {!isTelecaller && (
+                  <th style={{ width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={cases.length > 0 && selectedCaseIds.length === cases.length}
+                      onChange={handleToggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th>Case No</th>
                 <th>Primary Applicant</th>
                 <th>Product</th>
@@ -376,14 +389,16 @@ export function CaseListPage() {
             <tbody>
               {cases.map((c) => (
                 <tr key={c.id} className={selectedCaseIds.includes(c.id) ? 'row-selected' : ''}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedCaseIds.includes(c.id)}
-                      onChange={() => handleToggleSelectRow(c.id)}
-                      aria-label={`Select ${c.case_no}`}
-                    />
-                  </td>
+                  {!isTelecaller && (
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedCaseIds.includes(c.id)}
+                        onChange={() => handleToggleSelectRow(c.id)}
+                        aria-label={`Select ${c.case_no}`}
+                      />
+                    </td>
+                  )}
                   <td>
                     <Link to={`/cases/${c.id}`} className="case-no-link type-mono-sm">
                       {c.case_no}

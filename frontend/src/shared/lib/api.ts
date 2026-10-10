@@ -57,12 +57,19 @@ export function resetMockSessionUser() {
 
 function getActiveMockUser(): { id: string; role: string; name: string } | null {
   try {
-    const authState = useAuthStore.getState()
-    if (!authState.isAuthenticated || !authState.user) {
-      currentMockSessionUser = null
-      return null
+    const raw = sessionStorage.getItem('dsa_os_auth_state_v1') || localStorage.getItem('dsa_os_auth_state_v1')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && parsed.user) {
+        return parsed.user
+      }
     }
-    return authState.user
+  } catch {}
+  try {
+    const authState = useAuthStore.getState()
+    if (authState?.isAuthenticated && authState?.user) {
+      return authState.user
+    }
   } catch {}
   if (currentMockSessionUser) return currentMockSessionUser
   return null
@@ -82,6 +89,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   // Authentication endpoints
   if (clean.includes('/auth/login') && method === 'POST') {
     const idLower = (parsedBody?.identifier || '').toLowerCase()
+    const roleParam = (parsedBody?.role || '').toLowerCase()
     let role = 'owner'
     let userId = 'jai-user-owner'
     let userName = 'Aarav Sharma (DSA Admin)'
@@ -114,18 +122,24 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       'referrals:manage',
     ]
 
-    if (idLower.includes('priya') || idLower.includes('telecaller-1') || idLower.includes('priya.sharma')) {
+    const isTelecaller =
+      roleParam === 'telecaller' ||
+      idLower.includes('telecaller') ||
+      idLower.includes('priya') ||
+      idLower.includes('rahul')
+
+    if (isTelecaller) {
       role = 'telecaller'
-      userId = 'usr-telecaller-1'
-      userName = 'Priya Sharma (Telecaller)'
-      userEmail = 'priya.sharma@jaiautomobiles.com'
       userPerms = ['cases:read', 'cases:update', 'documents:read', 'documents:upload']
-    } else if (idLower.includes('rahul') || idLower.includes('telecaller-2') || idLower.includes('rahul.verma')) {
-      role = 'telecaller'
-      userId = 'usr-telecaller-2'
-      userName = 'Rahul Verma (Telecaller)'
-      userEmail = 'rahul.verma@jaiautomobiles.com'
-      userPerms = ['cases:read', 'cases:update', 'documents:read', 'documents:upload']
+      if (idLower.includes('rahul') || idLower.includes('telecaller-2') || idLower.includes('rahul.verma')) {
+        userId = 'usr-telecaller-2'
+        userName = 'Rahul Verma (Telecaller)'
+        userEmail = 'rahul.verma@jaiautomobiles.com'
+      } else {
+        userId = 'usr-telecaller-1'
+        userName = 'Priya Sharma (Telecaller)'
+        userEmail = 'priya.sharma@jaiautomobiles.com'
+      }
     } else if (idLower.includes('accountant')) {
       role = 'accountant'
       userId = 'jai-user-accountant'

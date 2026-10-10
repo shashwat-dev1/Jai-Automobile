@@ -80,30 +80,19 @@ export function LoginPage() {
       return
     }
 
-    const loginPromise = login({
-      organization_slug: orgSlug.trim(),
-      identifier: identifier.trim(),
-      password,
-    })
-
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 1500))
-
     try {
-      await Promise.race([loginPromise, timeoutPromise])
-      if (!useAuthStore.getState().isAuthenticated) {
-        loginAsDemo(selectedRole, identifier)
-      }
+      await login({
+        organization_slug: orgSlug.trim(),
+        identifier: identifier.trim(),
+        password,
+        role: selectedRole,
+      })
       navigate(target, { replace: true })
     } catch {
       // Gracefully activate role profile and navigate into workspace
-      loginAsDemo(selectedRole, identifier)
+      loginAsDemo(selectedRole, identifier.trim())
       navigate(target, { replace: true })
     }
-  }
-
-  const handleDemoMode = (role = 'owner') => {
-    loginAsDemo(role, identifier)
-    navigate(target, { replace: true })
   }
 
   const fillCredential = (c: DemoCredential) => {
@@ -325,30 +314,6 @@ export function LoginPage() {
               >
                 {isLoading ? 'Authenticating Terminal...' : 'Authenticate & Open Workspace →'}
               </Button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoMode(selectedRole)}
-                style={{
-                  width: '100%',
-                  marginTop: '12px',
-                  background: '#2563EB',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
-                }}
-              >
-                <span>🚀 Instant Prototype Entry ({selectedRole === 'telecaller' ? 'TELECALLER' : 'DSA ADMIN'}) →</span>
-              </button>
             </form>
 
             <div className="demo-credentials-section">

@@ -9,6 +9,13 @@
 **PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
 ### Phase 1 Rebuild, UI Palette Overhaul & Live Deployment (Completed)
+- **Critical Role-Based Access Control & Login Streamlining**:
+  - Removed secondary "Instant Prototype Entry" button from `/login`; streamlined form submit into a single "Authenticate & Open Workspace →" action.
+  - Retained 3 Quick Demo Operator Profiles (DSA Admin, Priya Sharma, Rahul Verma) that prefill credentials and set target role accurately.
+  - Fixed fallback role mapping in `useAuth.ts` and `api.ts` that previously caused telecaller credentials to fall back to Aarav Sharma (`owner`).
+  - Added strict role scoping to `/cases`: Telecallers see "My Assigned Leads Desk" with row checkboxes, bulk assignment toolbar, "+ New Lead Workspace", and "Bulk Excel Import" completely hidden. Only their assigned leads are shown.
+  - TopBar and Sidebar dynamically display operator name and role (`Operator: Priya Sharma (Telecaller)`), and sign out works cleanly.
+  - End-to-end verified via Playwright in automated multi-role tests.
 - **UI High-Contrast Palette Overhaul**:
   - Overhauled color tokens, backgrounds, inputs, and text across Login, Cold Leads, Telecaller Workspace, Referral Partners, Guest Referral, and Lead Import modal.
   - Eliminated all low-contrast/dark-on-dark/white-on-white collisions; enforced `#FFFFFF` cards, `#0F172A` headings/text, `#CBD5E1` input borders, and `#F8FAFC` canvas.

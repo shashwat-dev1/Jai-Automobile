@@ -28,6 +28,7 @@ export interface LoginPayload {
   organization_slug: string
   identifier: string
   password: string
+  role?: string
 }
 
 export interface AuthTokens {
