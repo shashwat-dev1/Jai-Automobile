@@ -59,17 +59,19 @@ def get_jwt_private_key() -> str:
         _private_key_cache = settings.jwt_private_key.replace("\\n", "\n")
         return _private_key_cache
 
-    key_path = Path(settings.jwt_private_key_path)
-    if not key_path.is_absolute():
-        key_path = Path.cwd() / key_path
-    if not key_path.exists():
-        alt_path = Path.cwd().parent / settings.jwt_private_key_path
-        if alt_path.exists():
-            key_path = alt_path
-        else:
-            raise RuntimeError(f"JWT private key not found at {key_path}")
+    candidates = [
+        Path(settings.jwt_private_key_path),
+        Path.cwd() / settings.jwt_private_key_path,
+        Path.cwd() / "backend" / settings.jwt_private_key_path,
+        Path(__file__).resolve().parents[2] / settings.jwt_private_key_path,
+        Path(__file__).resolve().parents[3] / settings.jwt_private_key_path,
+        Path.cwd().parent / settings.jwt_private_key_path,
+    ]
+    resolved_path = next((p for p in candidates if p.exists() and p.is_file()), None)
+    if not resolved_path:
+        raise RuntimeError(f"JWT private key not found at {settings.jwt_private_key_path}")
 
-    _private_key_cache = key_path.read_text(encoding="utf-8")
+    _private_key_cache = resolved_path.read_text(encoding="utf-8")
     return _private_key_cache
 
 
@@ -84,17 +86,19 @@ def get_jwt_public_key() -> str:
         _public_key_cache = settings.jwt_public_key.replace("\\n", "\n")
         return _public_key_cache
 
-    key_path = Path(settings.jwt_public_key_path)
-    if not key_path.is_absolute():
-        key_path = Path.cwd() / key_path
-    if not key_path.exists():
-        alt_path = Path.cwd().parent / settings.jwt_public_key_path
-        if alt_path.exists():
-            key_path = alt_path
-        else:
-            raise RuntimeError(f"JWT public key not found at {key_path}")
+    candidates = [
+        Path(settings.jwt_public_key_path),
+        Path.cwd() / settings.jwt_public_key_path,
+        Path.cwd() / "backend" / settings.jwt_public_key_path,
+        Path(__file__).resolve().parents[2] / settings.jwt_public_key_path,
+        Path(__file__).resolve().parents[3] / settings.jwt_public_key_path,
+        Path.cwd().parent / settings.jwt_public_key_path,
+    ]
+    resolved_path = next((p for p in candidates if p.exists() and p.is_file()), None)
+    if not resolved_path:
+        raise RuntimeError(f"JWT public key not found at {settings.jwt_public_key_path}")
 
-    _public_key_cache = key_path.read_text(encoding="utf-8")
+    _public_key_cache = resolved_path.read_text(encoding="utf-8")
     return _public_key_cache
 
 
