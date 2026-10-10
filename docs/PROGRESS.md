@@ -8,7 +8,12 @@
 
 **PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
-### Phase 1 Rebuild & Codebase Cleanup (Completed)
+### Phase 1 Rebuild, UI Palette Overhaul & Live Deployment (Completed)
+- **UI High-Contrast Palette Overhaul**:
+  - Overhauled color tokens, backgrounds, inputs, and text across Login, Cold Leads, Telecaller Workspace, Referral Partners, Guest Referral, and Lead Import modal.
+  - Eliminated all low-contrast/dark-on-dark/white-on-white collisions; enforced `#FFFFFF` cards, `#0F172A` headings/text, `#CBD5E1` input borders, and `#F8FAFC` canvas.
+  - Restricted Login Quick Demo Operator Profiles strictly to 1 DSA Administrator and 2 Telecallers (Priya Sharma, Rahul Verma), removing all obsolete Phase 2 operator roles.
+  - Added session hydration so page refresh preserves operator authentication.
 - **Workflow A: Admin Cold Leads & Excel Ingestion**:
   - Drag-and-drop Excel/CSV lead import modal with row validation, duplicate detection, template download, and batch commit.
   - Multi-select row checkboxes and bulk telecaller assignment bar.
