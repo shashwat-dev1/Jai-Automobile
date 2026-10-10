@@ -68,7 +68,7 @@ export const OutstandingReportPage: React.FC = () => {
                 Total Expected Commission
               </span>
               <span className="text-xl font-bold text-slate-100 mt-1 block">
-                ₹{report.total_expected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{(report.total_expected ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-slate-500 mt-1 block">
                 Gross receivables across all disbursed cases
@@ -80,7 +80,7 @@ export const OutstandingReportPage: React.FC = () => {
                 Total Collected / Reconciled
               </span>
               <span className="text-xl font-bold text-emerald-400 mt-1 block">
-                ₹{report.total_received.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{(report.total_received ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-slate-500 mt-1 block">
                 Credits matched through statement ingestion
@@ -92,7 +92,7 @@ export const OutstandingReportPage: React.FC = () => {
                 Total Outstanding Receivables
               </span>
               <span className="text-xl font-bold text-amber-400 mt-1 block">
-                ₹{report.total_outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{(report.total_outstanding ?? (report as any).total_outstanding_net ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
               <span className="text-[10px] text-slate-500 mt-1 block">
                 Uncollected payout due from lenders
@@ -107,7 +107,7 @@ export const OutstandingReportPage: React.FC = () => {
                 Lender-Wise Receivables &amp; Ageing Ledger
               </h3>
               <span className="text-[10px] text-slate-400 font-mono">
-                {report.lenders.length} Active Lenders
+                {(report.lenders || []).length} Active Lenders
               </span>
             </div>
 
@@ -127,32 +127,32 @@ export const OutstandingReportPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {report.lenders.map((l) => (
+                  {(report.lenders || []).map((l) => (
                     <tr key={l.lender_id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="py-2.5 px-4 font-semibold text-slate-200">{l.lender_name}</td>
                       <td className="py-2.5 px-4 text-right text-slate-300">
-                        ₹{l.total_expected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.total_expected ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right text-emerald-400 font-medium">
-                        ₹{l.total_received.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.total_received ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right font-bold text-amber-400">
-                        ₹{l.total_outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.total_outstanding ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right text-slate-400">
-                        {l.pending_cases_count}
+                        {l.pending_cases_count ?? 0}
                       </td>
                       <td className="py-2.5 px-4 text-right text-slate-300 bg-slate-950/20">
-                        ₹{l.ageing_0_30.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.ageing_0_30 ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right text-slate-300 bg-slate-950/20">
-                        ₹{l.ageing_31_60.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.ageing_31_60 ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right text-amber-400 bg-slate-950/20">
-                        ₹{l.ageing_61_90.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.ageing_61_90 ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right font-bold text-rose-400 bg-rose-950/10">
-                        ₹{l.ageing_90_plus.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(l.ageing_90_plus ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}

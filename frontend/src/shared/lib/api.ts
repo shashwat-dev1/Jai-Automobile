@@ -88,9 +88,24 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   }
   if (clean.includes('/sources')) {
     return [
+      { id: 's-direct', name: 'Direct Customer Walk-in / Telephonic', type: 'direct', contact_person: 'Internal Desk', contact_mobile: '9820011223', is_active: true },
       { id: 's1', name: 'Maruti True Value - Andheri West', type: 'dealer', contact_person: 'Vikas Malhotra', contact_mobile: '9820098200', is_active: true },
       { id: 's2', name: 'Hyundai H-Promise - Thane', type: 'dealer', contact_person: 'Suresh Patil', contact_mobile: '9833098330', is_active: true },
       { id: 's3', name: 'Shree Sai Finance Connectors', type: 'connector', contact_person: 'Ramesh Shah', contact_mobile: '9819098190', is_active: true },
+      { id: 's4', name: 'Autocars Mumbai Dealership', type: 'dealer', contact_person: 'Rajendra Joshi', contact_mobile: '9821122334', is_active: true },
+    ]
+  }
+
+  // Document Types
+  if (clean.includes('/document-types')) {
+    return [
+      { id: 'dt-pan', code: 'PAN', name: 'Borrower PAN Card', category: 'kyc' },
+      { id: 'dt-aadhaar', code: 'AADHAAR', name: 'Borrower Aadhaar Card', category: 'kyc' },
+      { id: 'dt-bank', code: 'BANK_STMT', name: 'Latest 6 Months Bank Statement', category: 'financial' },
+      { id: 'dt-rc', code: 'VEHICLE_RC', name: 'Vehicle Registration Certificate (RC)', category: 'vehicle' },
+      { id: 'dt-insurance', code: 'INSURANCE', name: 'Vehicle Insurance Cover Note', category: 'vehicle' },
+      { id: 'dt-form34', code: 'FORM_34', name: 'Form 34 Hypothecation Application', category: 'pdd' },
+      { id: 'dt-invoice', code: 'INVOICE', name: 'Showroom Invoice & Tax Copy', category: 'pdd' },
     ]
   }
 
@@ -208,6 +223,29 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   }
   if (clean.includes('/payout/reconciliation/outstanding')) {
     return JAI_MOCK_OUTSTANDING_REPORT
+  }
+  if (clean.includes('/payout/receipts')) {
+    return [
+      {
+        id: 'rcpt-unmatched-1',
+        org_id: '11111111-1111-1111-1111-111111111111',
+        batch_id: 'batch-2025-01',
+        lender_id: 'l1',
+        lender_name: 'HDFC Bank',
+        loan_account_no: 'LAN-9988123-NEW',
+        loan_account_no_raw: 'LAN-9988123-NEW',
+        customer_name: 'Vikram A. Joshi',
+        customer_name_raw: 'Vikram A. Joshi',
+        received_amount: 14500,
+        tds_amount: 725,
+        net_amount: 13775,
+        payment_date: '2025-02-21',
+        utr_reference: 'CMS-HDFC-992144',
+        status: 'unmatched',
+        match_confidence: null,
+        created_at: '2025-02-21T10:30:00Z',
+      },
+    ]
   }
   if (clean.includes('/payout/expectations') || clean.includes('/payouts')) {
     return JAI_MOCK_EXPECTATIONS

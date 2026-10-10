@@ -142,13 +142,13 @@ export const UnmatchedQueue: React.FC = () => {
                     </td>
                     <td className="py-2.5 px-4 text-slate-300">{r.customer_name || '—'}</td>
                     <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
-                      ₹{r.received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(r.received_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-2.5 px-4 text-right text-slate-400">
-                      ₹{r.tds_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(r.tds_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-2.5 px-4 text-right text-slate-200">
-                      ₹{r.net_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(r.net_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-2.5 px-4 text-slate-400">
                       <div>{r.payment_date}</div>

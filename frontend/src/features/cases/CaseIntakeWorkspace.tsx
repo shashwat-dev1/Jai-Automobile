@@ -35,6 +35,24 @@ interface IntakeUploadedDoc {
   createdAt: string
 }
 
+const DEFAULT_SOURCES: SourceOption[] = [
+  { id: 's-direct', name: 'Direct Customer Walk-in / Telephonic', type: 'direct' },
+  { id: 's1', name: 'Maruti True Value - Andheri West', type: 'dealer' },
+  { id: 's2', name: 'Hyundai H-Promise - Thane', type: 'dealer' },
+  { id: 's3', name: 'Shree Sai Finance Connectors', type: 'connector' },
+  { id: 's4', name: 'Autocars Mumbai Dealership', type: 'dealer' },
+]
+
+const DEFAULT_DOC_TYPES: DocumentTypeOption[] = [
+  { id: 'dt-pan', code: 'PAN', name: 'Borrower PAN Card', category: 'kyc' },
+  { id: 'dt-aadhaar', code: 'AADHAAR', name: 'Borrower Aadhaar Card', category: 'kyc' },
+  { id: 'dt-bank', code: 'BANK_STMT', name: 'Latest 6 Months Bank Statement', category: 'financial' },
+  { id: 'dt-rc', code: 'VEHICLE_RC', name: 'Vehicle Registration Certificate (RC)', category: 'vehicle' },
+  { id: 'dt-insurance', code: 'INSURANCE', name: 'Vehicle Insurance Cover Note', category: 'vehicle' },
+  { id: 'dt-form34', code: 'FORM_34', name: 'Form 34 Hypothecation Application', category: 'pdd' },
+  { id: 'dt-invoice', code: 'INVOICE', name: 'Showroom Invoice & Tax Copy', category: 'pdd' },
+]
+
 export function CaseIntakeWorkspace() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -42,8 +60,8 @@ export function CaseIntakeWorkspace() {
   // Current Step: 1 = Source, 2 = Customer, 3 = Loan & Asset, 4 = Documents
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [loadingSources, setLoadingSources] = useState(false)
-  const [sources, setSources] = useState<SourceOption[]>([])
-  const [documentTypes, setDocumentTypes] = useState<DocumentTypeOption[]>([])
+  const [sources, setSources] = useState<SourceOption[]>(DEFAULT_SOURCES)
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeOption[]>(DEFAULT_DOC_TYPES)
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -52,7 +70,7 @@ export function CaseIntakeWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // Step 1: Sourcing
-  const [sourceId, setSourceId] = useState('')
+  const [sourceId, setSourceId] = useState('s-direct')
   const [sourceType, setSourceType] = useState('direct')
   const [referralPerson, setReferralPerson] = useState('')
   const [subDsaPartner, setSubDsaPartner] = useState('')
@@ -89,7 +107,7 @@ export function CaseIntakeWorkspace() {
 
   // Step 4: Document Intake & OCR Pipeline
   const [uploadedDocs, setUploadedDocs] = useState<IntakeUploadedDoc[]>([])
-  const [selectedDocTypeId, setSelectedDocTypeId] = useState('')
+  const [selectedDocTypeId, setSelectedDocTypeId] = useState('dt-pan')
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const [activeReviewDoc, setActiveReviewDoc] = useState<{ id: string; scanResult: OCRScanResult; typeName: string } | null>(null)
 
@@ -99,19 +117,21 @@ export function CaseIntakeWorkspace() {
       setLoadingSources(true)
       try {
         const [sourcesRes, docTypesRes] = await Promise.all([
-          api.get<SourceOption[]>('/sources'),
-          api.get<DocumentTypeOption[]>('/document-types'),
+          api.get<SourceOption[]>('/sources').catch(() => DEFAULT_SOURCES),
+          api.get<DocumentTypeOption[]>('/document-types').catch(() => DEFAULT_DOC_TYPES),
         ])
-        setSources(sourcesRes)
-        if (sourcesRes.length > 0) {
-          setSourceId(sourcesRes[0].id)
+        if (sourcesRes && sourcesRes.length > 0) {
+          setSources(sourcesRes)
+          setSourceId((prev) => prev || sourcesRes[0].id)
         }
-        setDocumentTypes(docTypesRes)
-        if (docTypesRes.length > 0) {
-          setSelectedDocTypeId(docTypesRes[0].id)
+        if (docTypesRes && docTypesRes.length > 0) {
+          setDocumentTypes(docTypesRes)
+          setSelectedDocTypeId((prev) => prev || docTypesRes[0].id)
         }
       } catch (err) {
-        console.error('Failed to load intake metadata', err)
+        console.warn('Using default intake metadata', err)
+        setSources(DEFAULT_SOURCES)
+        setDocumentTypes(DEFAULT_DOC_TYPES)
       } finally {
         setLoadingSources(false)
       }
@@ -336,11 +356,15 @@ export function CaseIntakeWorkspace() {
                 onChange={(e) => setSourceId(e.target.value)}
                 disabled={loadingSources}
               >
-                {sources.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.type})
-                  </option>
-                ))}
+                {sources.length === 0 ? (
+                  <option value="s-direct">Direct Customer Walk-in / Telephonic (direct)</option>
+                ) : (
+                  sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.type})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 

@@ -93,9 +93,10 @@ export const ReconciliationPage: React.FC = () => {
   // Check if batch is within 24h reversal window
   const isReversible = (batch: ImportBatch) => {
     if (batch.status !== 'committed') return false
-    const createdAt = new Date(batch.created_at).getTime()
+    const ts = batch.created_at ? new Date(batch.created_at).getTime() : 0
+    if (!ts || isNaN(ts)) return false
     const now = Date.now()
-    const diffHours = (now - createdAt) / (1000 * 60 * 60)
+    const diffHours = (now - ts) / (1000 * 60 * 60)
     return diffHours <= 24
   }
 
@@ -207,23 +208,23 @@ export const ReconciliationPage: React.FC = () => {
                     const reversible = isReversible(b)
                     return (
                       <tr key={b.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-2.5 px-4 font-semibold text-slate-200">{b.filename}</td>
+                        <td className="py-2.5 px-4 font-semibold text-slate-200">{b.filename || (b as any).batch_no || 'Statement.xlsx'}</td>
                         <td className="py-2.5 px-4 text-slate-300">{b.lender_name || 'Lender'}</td>
-                        <td className="py-2.5 px-4 text-right text-slate-400">{b.total_rows}</td>
+                        <td className="py-2.5 px-4 text-right text-slate-400">{b.total_rows ?? (b as any).total_records ?? 0}</td>
                         <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
-                          {b.matched_rows}
+                          {b.matched_rows ?? (b as any).matched_records ?? 0}
                         </td>
                         <td className="py-2.5 px-4 text-right font-bold text-amber-400">
-                          {b.unmatched_rows}
+                          {b.unmatched_rows ?? (b as any).unmatched_records ?? 0}
                         </td>
                         <td className="py-2.5 px-4 text-right font-bold text-slate-100">
-                          ₹{b.total_received_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          ₹{(b.total_received_amount ?? Number((b as any).total_amount) ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-2.5 px-4 text-slate-400">
-                          {new Date(b.created_at).toLocaleString('en-IN', {
+                          {b.created_at ? new Date(b.created_at).toLocaleString('en-IN', {
                             dateStyle: 'short',
                             timeStyle: 'short',
-                          })}
+                          }) : '—'}
                         </td>
                         <td className="py-2.5 px-4">
                           <span
@@ -296,10 +297,10 @@ export const ReconciliationPage: React.FC = () => {
                       <td className="py-2.5 px-4 text-slate-300">{e.applicant_name || '—'}</td>
                       <td className="py-2.5 px-4 text-slate-300">{e.lender_name || '—'}</td>
                       <td className="py-2.5 px-4 text-right text-slate-400">
-                        ₹{Number(e.disbursal_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(Number(e.disbursal_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-right font-bold text-amber-400">
-                        ₹{Number(e.gross_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(Number(e.gross_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-slate-400">{e.disbursal_date || '—'}</td>
                       <td className="py-2.5 px-4 text-right font-bold text-rose-400">
@@ -342,13 +343,13 @@ export const ReconciliationPage: React.FC = () => {
                     <th className="py-2.5 px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
+                <tbody className="divide-y border-slate-800/60 font-mono">
                   {clawbacks.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="py-2.5 px-4 font-semibold text-slate-200">{c.case_no || '—'}</td>
                       <td className="py-2.5 px-4 text-slate-300 max-w-xs truncate">{c.reason}</td>
                       <td className="py-2.5 px-4 text-right font-bold text-rose-400">
-                        ₹{c.clawback_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(Number(c.clawback_amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2.5 px-4 text-slate-400">{c.effective_date}</td>
                       <td className="py-2.5 px-4">

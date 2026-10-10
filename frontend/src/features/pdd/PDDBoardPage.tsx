@@ -30,9 +30,21 @@ export const PDDBoardPage: React.FC = () => {
       if (selectedBucket !== 'all') params.set('bucket', selectedBucket)
       if (statusFilter) params.set('status', statusFilter)
       const url = `/pdd${params.toString() ? `?${params.toString()}` : ''}`
-      const data = await api.get<PDDBoardResponse>(url)
-      setBoardData(data)
+      const data = await api.get<any>(url)
+      if (data) {
+        const normalized: PDDBoardResponse = {
+          bucket_0_7_count: data.bucket_0_7_count ?? data.summary?.bucket_0_7_count ?? 0,
+          bucket_8_15_count: data.bucket_8_15_count ?? data.summary?.bucket_8_15_count ?? 0,
+          bucket_16_30_count: data.bucket_16_30_count ?? data.summary?.bucket_16_30_count ?? 0,
+          bucket_30_plus_count: data.bucket_30_plus_count ?? data.summary?.bucket_30_plus_count ?? 0,
+          total_pending: data.total_pending ?? data.summary?.total_pending ?? 0,
+          total_completed: data.total_completed ?? data.summary?.total_completed ?? 0,
+          items: Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []),
+        }
+        setBoardData(normalized)
+      }
     } catch (err) {
+      console.warn('Failed to load PDD Board:', err)
       setError(err instanceof ApiError ? err.message : 'Failed to load PDD Board')
     } finally {
       setIsLoading(false)
