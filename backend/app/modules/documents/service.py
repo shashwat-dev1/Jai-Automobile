@@ -37,6 +37,7 @@ from app.modules.parties.models import Party
 from app.shared.exceptions import (
     BusinessRuleViolationError,
     NotFoundError,
+    PermissionDeniedError,
 )
 from app.shared.storage import get_storage_service
 
@@ -252,6 +253,7 @@ class DocumentService:
         org_id: uuid.UUID,
         user_id: uuid.UUID,
         document_id: uuid.UUID,
+        user_role: str | None = None,
     ) -> tuple[str, str]:
         """Generate a short-lived (5 min) pre-signed download URL for a verified document.
 
@@ -267,6 +269,14 @@ class DocumentService:
         doc = res.scalar_one_or_none()
         if not doc:
             raise NotFoundError(f"Document {document_id} not found")
+
+        # Telecaller lead assignment check
+        if user_role == "telecaller" and doc.case_id:
+            c_stmt = select(Case).where(Case.id == doc.case_id, Case.org_id == org_id)
+            c_res = await self.session.execute(c_stmt)
+            case_obj = c_res.scalar_one_or_none()
+            if case_obj and case_obj.assigned_telecaller_id != user_id:
+                raise PermissionDeniedError("Access denied. You can only access documents for leads assigned to you.")
 
         # Security Invariant: Fail-closed on unvalidated files
         if doc.status in ("quarantined", "scanning", "scan_failed"):
@@ -358,9 +368,20 @@ class DocumentService:
         return doc
 
     async def get_checklist(
-        self, org_id: uuid.UUID, case_id: uuid.UUID
+        self,
+        org_id: uuid.UUID,
+        case_id: uuid.UUID,
+        user_role: str | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> tuple[list[ChecklistItemDTO], int]:
         """Compute checklist items for a case."""
+        if user_role == "telecaller" and user_id:
+            c_stmt = select(Case).where(Case.id == case_id, Case.org_id == org_id)
+            c_res = await self.session.execute(c_stmt)
+            case_obj = c_res.scalar_one_or_none()
+            if case_obj and case_obj.assigned_telecaller_id != user_id:
+                raise PermissionDeniedError("Access denied. Case is not assigned to you.")
+
         engine = ChecklistEngine(self.session)
         return await engine.get_case_checklist(org_id, case_id)
 

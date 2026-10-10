@@ -56,6 +56,8 @@ class GuestLeadSubmissionRequest(BaseModel):
     city: str = Field(..., min_length=2)
     state: str = Field(..., min_length=2)
 
+    vehicle_condition: str = Field(default="used", description="'new' or 'used'")
+
     # Vehicle / Asset (Optional)
     vehicle_reg_no: str | None = None
 
@@ -64,6 +66,17 @@ class GuestLeadSubmissionRequest(BaseModel):
     aadhaar_doc_id: uuid.UUID | None = None
     pan_doc_id: uuid.UUID | None = None
     rc_doc_id: uuid.UUID | None = None
+
+
+class GuestDocumentUploadResponse(BaseModel):
+    """Result of guest public document upload."""
+
+    document_id: uuid.UUID
+    doc_type: str
+    file_name: str
+    file_size: int
+    status: str
+    message: str
 
 
 class GuestLeadSubmissionResponse(BaseModel):

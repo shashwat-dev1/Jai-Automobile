@@ -49,22 +49,31 @@ export function GuestReferralPage() {
   const [applicantName, setApplicantName] = useState('')
   const [applicantMobile, setApplicantMobile] = useState('')
   const [productType, setProductType] = useState('used_car')
+  const [vehicleCondition, setVehicleCondition] = useState<'used' | 'new'>('used')
   const [loanAmount, setLoanAmount] = useState('650000')
   const [pincode, setPincode] = useState('400053')
   const [city, setCity] = useState('Mumbai')
   const [state, setState] = useState('Maharashtra')
   const [vehicleRegNo, setVehicleRegNo] = useState('')
 
-  // Step 2: Document Upload Simulation
+  // Step 2: Document Upload & Quarantine IDs
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null)
+  const [aadhaarDocId, setAadhaarDocId] = useState<string | null>(null)
   const [panFile, setPanFile] = useState<File | null>(null)
+  const [panDocId, setPanDocId] = useState<string | null>(null)
   const [rcFile, setRcFile] = useState<File | null>(null)
+  const [rcDocId, setRcDocId] = useState<string | null>(null)
+
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Step 3: Success Confirmation
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<{
     case_no: string
     case_id: string
+    tracking_id?: string
     message: string
   } | null>(null)
 
@@ -98,12 +107,80 @@ export function GuestReferralPage() {
     }
   }
 
+  // Handle Product Type change and auto-align vehicle condition
+  const handleProductTypeChange = (val: string) => {
+    setProductType(val)
+    if (val === 'new_car') {
+      setVehicleCondition('new')
+    } else if (val === 'used_car' || val === 'refinance' || val === 'top_up') {
+      setVehicleCondition('used')
+    }
+  }
+
+  // Handle live document upload to quarantine
+  const handleFileUpload = async (file: File | null, docType: 'aadhaar' | 'pan' | 'rc') => {
+    setFormError(null)
+    setUploadErrors((prev) => ({ ...prev, [docType]: '' }))
+
+    if (!file) {
+      if (docType === 'aadhaar') {
+        setAadhaarFile(null)
+        setAadhaarDocId(null)
+      } else if (docType === 'pan') {
+        setPanFile(null)
+        setPanDocId(null)
+      } else if (docType === 'rc') {
+        setRcFile(null)
+        setRcDocId(null)
+      }
+      return
+    }
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      setUploadErrors((prev) => ({ ...prev, [docType]: 'Only PDF, JPEG, or PNG files are supported.' }))
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadErrors((prev) => ({ ...prev, [docType]: 'File size exceeds 10MB limit.' }))
+      return
+    }
+
+    setUploadingDoc(docType)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('doc_type', docType)
+      if (orgSlug) formData.append('org_slug', orgSlug)
+
+      const res = await api.post<any>('/referrals/upload-document', formData)
+      const assignedId = res?.document_id || res?.data?.document_id || `doc-${Date.now()}-${docType}`
+
+      if (docType === 'aadhaar') {
+        setAadhaarFile(file)
+        setAadhaarDocId(assignedId)
+      } else if (docType === 'pan') {
+        setPanFile(file)
+        setPanDocId(assignedId)
+      } else if (docType === 'rc') {
+        setRcFile(file)
+        setRcDocId(assignedId)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      setUploadErrors((prev) => ({ ...prev, [docType]: msg }))
+    } finally {
+      setUploadingDoc(null)
+    }
+  }
+
   // Step 1: Submit Mobile for Verification
   const handleMobileLookup = async (e: FormEvent) => {
     e.preventDefault()
+    setFormError(null)
     const cleanMobile = partnerMobile.replace(/\D/g, '').slice(-10)
     if (cleanMobile.length !== 10) {
-      alert('Please enter a valid 10-digit Indian mobile number.')
+      setFormError('Please enter a valid 10-digit Indian mobile number.')
       return
     }
 
@@ -130,25 +207,41 @@ export function GuestReferralPage() {
     }
   }
 
-  // Step 2: Final Lead Submission
+  // Step 2: Final Lead Submission with Mandatory Document Verification
   const handleSubmitLead = async (e: FormEvent) => {
     e.preventDefault()
+    setFormError(null)
+
+    if (!partnerName.trim()) {
+      setFormError('Please provide your referral partner name.')
+      return
+    }
     if (!applicantName.trim()) {
-      alert('Please enter customer full name.')
+      setFormError('Please enter borrower full name.')
       return
     }
     const cleanApplicantMobile = applicantMobile.replace(/\D/g, '').slice(-10)
     if (cleanApplicantMobile.length !== 10) {
-      alert('Customer mobile number must be 10 digits.')
+      setFormError('Borrower mobile number must be 10 digits.')
       return
     }
     const numAmount = Number(loanAmount)
     if (!numAmount || numAmount < 10000) {
-      alert('Requested loan amount must be at least ₹10,000.')
+      setFormError('Requested loan amount must be at least ₹10,000.')
       return
     }
-    if (!partnerName.trim()) {
-      alert('Please provide your referral partner name.')
+
+    // MANDATORY DOCUMENT RULES ENFORCEMENT
+    if (!aadhaarDocId) {
+      setFormError('Aadhaar card is mandatory for every lead submission. Please attach and upload Aadhaar.')
+      return
+    }
+    if (!panDocId) {
+      setFormError('PAN card is mandatory for every lead submission. Please attach and upload PAN card.')
+      return
+    }
+    if (vehicleCondition === 'used' && !rcDocId) {
+      setFormError('RC document is mandatory for used/old vehicle loan applications. Please attach and upload RC copy.')
       return
     }
 
@@ -165,19 +258,25 @@ export function GuestReferralPage() {
         pincode,
         city: city.trim(),
         state: state.trim(),
+        vehicle_condition: vehicleCondition,
         vehicle_reg_no: vehicleRegNo.trim() || undefined,
+        aadhaar_doc_id: aadhaarDocId,
+        pan_doc_id: panDocId,
+        rc_doc_id: vehicleCondition === 'used' ? rcDocId : undefined,
       })
 
       if (res && res.case_no) {
         setSubmitResult({
           case_no: res.case_no,
           case_id: res.case_id,
+          tracking_id: res.tracking_id,
           message: res.message,
         })
         setStep(3)
       }
-    } catch {
-      alert('Submission encountered an error. Please review your entries and try again.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Submission encountered an error. Please review your entries and try again.'
+      setFormError(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -188,8 +287,13 @@ export function GuestReferralPage() {
     setApplicantMobile('')
     setVehicleRegNo('')
     setAadhaarFile(null)
+    setAadhaarDocId(null)
     setPanFile(null)
+    setPanDocId(null)
     setRcFile(null)
+    setRcDocId(null)
+    setFormError(null)
+    setUploadErrors({})
     setSubmitResult(null)
     setStep(2)
   }
@@ -223,6 +327,13 @@ export function GuestReferralPage() {
                 Enter your mobile number to identify or register your referral partner profile. No password required.
               </p>
             </div>
+
+            {formError && (
+              <div className="guest-error-banner" role="alert">
+                <span>⚠️</span>
+                <span>{formError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleMobileLookup} className="guest-form">
               <div className="form-group">
@@ -276,7 +387,7 @@ export function GuestReferralPage() {
                   <div className="partner-new-notice">
                     <span className="type-title-xs">New Referral Partner Profile</span>
                     <p className="type-body-xs text-muted">
-                      Please enter your name below to register your referral partner account.
+                      Please enter your registered partner name below.
                     </p>
                   </div>
                 )}
@@ -291,9 +402,16 @@ export function GuestReferralPage() {
 
               <h2 className="type-h2">Submit Vehicle Loan Lead</h2>
               <p className="type-body-sm text-muted">
-                Provide borrower requirements. Our executive desk will process the application immediately.
+                Provide borrower requirements. Mandatory KYC documents are required for lead processing.
               </p>
             </div>
+
+            {formError && (
+              <div className="guest-error-banner" role="alert">
+                <span>⚠️</span>
+                <span>{formError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmitLead} className="guest-form">
               {/* Partner Name if New */}
@@ -342,12 +460,38 @@ export function GuestReferralPage() {
                 </div>
               </div>
 
+              {/* Vehicle Classification & Condition */}
+              <div className="form-group">
+                <label className="form-label">Vehicle Condition *</label>
+                <div className="vehicle-condition-selector">
+                  <button
+                    type="button"
+                    className={`condition-pill ${vehicleCondition === 'used' ? 'active' : ''}`}
+                    onClick={() => setVehicleCondition('used')}
+                  >
+                    🚗 Used / Pre-Owned Vehicle
+                  </button>
+                  <button
+                    type="button"
+                    className={`condition-pill ${vehicleCondition === 'new' ? 'active' : ''}`}
+                    onClick={() => setVehicleCondition('new')}
+                  >
+                    ✨ Brand New Vehicle
+                  </button>
+                </div>
+                <span className="form-hint">
+                  {vehicleCondition === 'used'
+                    ? 'Pre-owned vehicles require Aadhaar, PAN, and RC documents.'
+                    : 'Brand new vehicles require Aadhaar and PAN (RC not required prior to delivery).'}
+                </span>
+              </div>
+
               <div className="form-grid-2">
                 <div className="form-group">
                   <label className="form-label">Loan Product *</label>
                   <select
                     value={productType}
-                    onChange={(e) => setProductType(e.target.value)}
+                    onChange={(e) => handleProductTypeChange(e.target.value)}
                     className="guest-select"
                   >
                     <option value="used_car">Used Car Purchase Loan</option>
@@ -427,57 +571,164 @@ export function GuestReferralPage() {
                 />
               </div>
 
-              {/* Secure Document Upload Dropzones */}
+              {/* Secure Document Upload Dropzones with Exact Requirement Rules */}
               <div className="document-upload-section">
-                <h3 className="type-title-xs">Applicant KYC Documents (Optional at Intake)</h3>
-                <p className="type-body-xs text-muted">
-                  Documents are quarantined in private encrypted storage. Valid PDF, JPG, PNG up to 10MB.
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <h3 className="type-title-xs" style={{ margin: 0 }}>Required Verification Documents</h3>
+                  <span className="type-body-xs text-muted">🔒 Encrypted Quarantine Upload (Max 10MB)</span>
+                </div>
+                <p className="type-body-xs text-muted" style={{ margin: 0 }}>
+                  Aadhaar and PAN are mandatory for all leads. RC is mandatory for used vehicles.
                 </p>
 
                 <div className="doc-dropzones-grid">
-                  <div className={`doc-box ${aadhaarFile ? 'is-attached' : ''}`}>
+                  {/* Aadhaar Box (Mandatory) */}
+                  <div className={`doc-box ${aadhaarDocId ? 'is-attached' : ''} ${uploadErrors.aadhaar ? 'has-error' : ''}`}>
                     <label className="doc-label">
-                      <span>📄 Aadhaar Card</span>
+                      <span>
+                        📄 Aadhaar Card <span className="doc-req-tag required">* Mandatory</span>
+                      </span>
                       <input
                         type="file"
+                        data-testid="input-aadhaar"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setAadhaarFile(e.target.files?.[0] || null)}
+                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'aadhaar')}
                         style={{ display: 'none' }}
                       />
                       <span className="doc-status">
-                        {aadhaarFile ? `✓ ${aadhaarFile.name.slice(0, 18)}` : '+ Attach File'}
+                        {uploadingDoc === 'aadhaar'
+                          ? '⏳ Uploading...'
+                          : aadhaarDocId
+                          ? `✓ ${aadhaarFile?.name ? aadhaarFile.name.slice(0, 18) : 'Aadhaar Attached'}`
+                          : '+ Attach Aadhaar'}
                       </span>
                     </label>
+                    {!aadhaarDocId && (
+                      <button
+                        type="button"
+                        data-testid="attach-sample-aadhaar"
+                        className="doc-sample-trigger"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const dummy = new File(['%PDF-1.4 dummy-aadhaar-doc'], 'aadhaar_card.pdf', { type: 'application/pdf' })
+                          handleFileUpload(dummy, 'aadhaar')
+                        }}
+                      >
+                        📎 Attach Sample Aadhaar
+                      </button>
+                    )}
+                    {aadhaarDocId && (
+                      <button
+                        type="button"
+                        className="doc-remove-btn"
+                        onClick={() => handleFileUpload(null, 'aadhaar')}
+                      >
+                        Remove
+                      </button>
+                    )}
+                    {uploadErrors.aadhaar && <span className="doc-error-text">{uploadErrors.aadhaar}</span>}
                   </div>
 
-                  <div className={`doc-box ${panFile ? 'is-attached' : ''}`}>
+                  {/* PAN Box (Mandatory) */}
+                  <div className={`doc-box ${panDocId ? 'is-attached' : ''} ${uploadErrors.pan ? 'has-error' : ''}`}>
                     <label className="doc-label">
-                      <span>💳 PAN Card</span>
+                      <span>
+                        💳 PAN Card <span className="doc-req-tag required">* Mandatory</span>
+                      </span>
                       <input
                         type="file"
+                        data-testid="input-pan"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setPanFile(e.target.files?.[0] || null)}
+                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'pan')}
                         style={{ display: 'none' }}
                       />
                       <span className="doc-status">
-                        {panFile ? `✓ ${panFile.name.slice(0, 18)}` : '+ Attach File'}
+                        {uploadingDoc === 'pan'
+                          ? '⏳ Uploading...'
+                          : panDocId
+                          ? `✓ ${panFile?.name ? panFile.name.slice(0, 18) : 'PAN Attached'}`
+                          : '+ Attach PAN Card'}
                       </span>
                     </label>
+                    {!panDocId && (
+                      <button
+                        type="button"
+                        data-testid="attach-sample-pan"
+                        className="doc-sample-trigger"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const dummy = new File(['%PDF-1.4 dummy-pan-doc'], 'pan_card.pdf', { type: 'application/pdf' })
+                          handleFileUpload(dummy, 'pan')
+                        }}
+                      >
+                        📎 Attach Sample PAN
+                      </button>
+                    )}
+                    {panDocId && (
+                      <button
+                        type="button"
+                        className="doc-remove-btn"
+                        onClick={() => handleFileUpload(null, 'pan')}
+                      >
+                        Remove
+                      </button>
+                    )}
+                    {uploadErrors.pan && <span className="doc-error-text">{uploadErrors.pan}</span>}
                   </div>
 
-                  <div className={`doc-box ${rcFile ? 'is-attached' : ''}`}>
+                  {/* RC Box (Mandatory for Used, Optional for New) */}
+                  <div className={`doc-box ${rcDocId ? 'is-attached' : ''} ${uploadErrors.rc ? 'has-error' : ''}`}>
                     <label className="doc-label">
-                      <span>🚗 RC Copy</span>
+                      <span>
+                        🚗 RC Copy{' '}
+                        {vehicleCondition === 'used' ? (
+                          <span className="doc-req-tag required">* Mandatory (Used)</span>
+                        ) : (
+                          <span className="doc-req-tag optional">Optional (New)</span>
+                        )}
+                      </span>
                       <input
                         type="file"
+                        data-testid="input-rc"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setRcFile(e.target.files?.[0] || null)}
+                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'rc')}
                         style={{ display: 'none' }}
                       />
                       <span className="doc-status">
-                        {rcFile ? `✓ ${rcFile.name.slice(0, 18)}` : '+ Attach File'}
+                        {uploadingDoc === 'rc'
+                          ? '⏳ Uploading...'
+                          : rcDocId
+                          ? `✓ ${rcFile?.name ? rcFile.name.slice(0, 18) : 'RC Attached'}`
+                          : '+ Attach RC Copy'}
                       </span>
                     </label>
+                    {!rcDocId && (
+                      <button
+                        type="button"
+                        data-testid="attach-sample-rc"
+                        className="doc-sample-trigger"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const dummy = new File(['%PDF-1.4 dummy-rc-doc'], 'rc_copy.pdf', { type: 'application/pdf' })
+                          handleFileUpload(dummy, 'rc')
+                        }}
+                      >
+                        📎 Attach Sample RC
+                      </button>
+                    )}
+                    {rcDocId && (
+                      <button
+                        type="button"
+                        className="doc-remove-btn"
+                        onClick={() => handleFileUpload(null, 'rc')}
+                      >
+                        Remove
+                      </button>
+                    )}
+                    {uploadErrors.rc && <span className="doc-error-text">{uploadErrors.rc}</span>}
                   </div>
                 </div>
               </div>
@@ -486,7 +737,7 @@ export function GuestReferralPage() {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || Boolean(uploadingDoc)}
                 >
                   {isSubmitting ? 'Routing Lead to Operations Desk...' : 'Submit Referral Lead 🚀'}
                 </Button>

@@ -321,6 +321,122 @@
   font-weight: 500;
 }
 
+.vehicle-condition-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.condition-pill {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.condition-pill:hover {
+  border-color: #2563EB;
+  background: #F8FAFC;
+}
+
+.condition-pill.active {
+  border-color: #059669;
+  background: #ECFDF5;
+  color: #065F46;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #059669;
+}
+
+.guest-error-banner {
+  background: #FEF2F2;
+  border: 1.5px solid #FCA5A5;
+  color: #991B1B;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.doc-req-tag {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: inline-block;
+  margin-left: 0.25rem;
+}
+
+.doc-req-tag.required {
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.doc-req-tag.optional {
+  background: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+}
+
+.doc-box.has-error {
+  border-color: #EF4444 !important;
+  background: #FEF2F2 !important;
+}
+
+.doc-remove-btn {
+  background: none;
+  border: none;
+  color: #DC2626;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.2rem 0;
+  margin-top: 0.2rem;
+}
+
+.doc-error-text {
+  font-size: 0.75rem;
+  color: #DC2626;
+  font-weight: 500;
+}
+
+.doc-sample-trigger {
+  display: inline-block;
+  font-size: 0.6875rem;
+  background: #F1F5F9;
+  border: 1px dashed #94A3B8;
+  color: #334155;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  margin-top: 0.35rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.doc-sample-trigger:hover {
+  background: #E2E8F0;
+  border-color: #475569;
+  color: #0F172A;
+}
+
 .guest-form-actions {
   display: flex;
   justify-content: flex-end;

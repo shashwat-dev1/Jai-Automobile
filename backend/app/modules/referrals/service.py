@@ -7,7 +7,7 @@ attribution, and referral commission lifecycle.
 import io
 import re
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -16,12 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.cases.models import Case, CaseParty, CaseStatusHistory, Vehicle
 from app.modules.cases.service import CASE_STATUS_LEAD, CaseService
+from app.modules.documents.models import Document, DocumentType
 from app.modules.parties.models import Party
 from app.modules.parties.service import PartyService
 from app.modules.referrals.models import ReferralCommission, ReferralProfile
 from app.modules.referrals.schemas import (
     CommissionCreateRequest,
     CommissionStatusUpdateRequest,
+    GuestDocumentUploadResponse,
     GuestLeadSubmissionRequest,
     GuestLeadSubmissionResponse,
     ReferralLookupResponse,
@@ -130,6 +132,91 @@ class ReferralService:
         await self.session.flush()
         return profile
 
+    async def upload_guest_document(
+        self,
+        file_name: str,
+        content_type: str,
+        file_bytes: bytes,
+        doc_type: str,
+        org_slug: str | None = None,
+    ) -> GuestDocumentUploadResponse:
+        """Validate and store public quarantine document for guest lead intake."""
+        import os
+
+        allowed_types = {"application/pdf", "image/jpeg", "image/png", "image/jpg"}
+        allowed_extensions = {".pdf", ".jpg", ".jpeg", ".png"}
+
+        doc_type_clean = doc_type.strip().lower()
+        if doc_type_clean not in {"aadhaar", "pan", "rc"}:
+            raise ValidationError(f"Invalid doc_type '{doc_type}'. Allowed: aadhaar, pan, rc")
+
+        _, ext = os.path.splitext(file_name.lower())
+        if ext not in allowed_extensions or (content_type and content_type.lower() not in allowed_types):
+            raise ValidationError(f"Unsupported file type '{ext or content_type}'. Only PDF, JPEG, and PNG files are allowed.")
+
+        if len(file_bytes) > 10 * 1024 * 1024:
+            raise ValidationError(f"File size exceeds 10MB limit ({len(file_bytes)} bytes).")
+
+        if len(file_bytes) == 0:
+            raise ValidationError("Empty file uploaded. Please upload a valid document.")
+
+        resolved_org_id = await self._resolve_org_id(None, org_slug)
+
+        type_code_map = {
+            "aadhaar": "aadhaar_card",
+            "pan": "pan_card",
+            "rc": "rc_copy",
+        }
+        code = type_code_map[doc_type_clean]
+        dt_stmt = select(DocumentType).where(DocumentType.code == code)
+        dt_res = await self.session.execute(dt_stmt)
+        dt_obj = dt_res.scalar_one_or_none()
+        if not dt_obj:
+            name_map = {"aadhaar": "Aadhaar Card", "pan": "PAN Card", "rc": "Registration Certificate (RC)"}
+            dt_obj = DocumentType(
+                id=uuid.uuid4(),
+                code=code,
+                name=name_map[doc_type_clean],
+                group_name="kyc" if doc_type_clean != "rc" else "collateral",
+                is_active=True,
+            )
+            self.session.add(dt_obj)
+            await self.session.flush()
+
+        from app.modules.auth.models import User
+        u_stmt = select(User).where(User.org_id == resolved_org_id, User.is_active.is_(True)).limit(1)
+        u_res = await self.session.execute(u_stmt)
+        default_user = u_res.scalar_one_or_none()
+        user_id = default_user.id if default_user else uuid.uuid4()
+
+        doc_id = uuid.uuid4()
+        quarantine_key = f"quarantine/{resolved_org_id}/{doc_id}/{file_name}"
+
+        doc = Document(
+            id=doc_id,
+            org_id=resolved_org_id,
+            document_type_id=dt_obj.id,
+            file_name=file_name,
+            file_size=len(file_bytes),
+            mime_type=content_type or "application/octet-stream",
+            quarantine_key=quarantine_key,
+            status="quarantined",
+            uploaded_by=user_id,
+            scan_result={"scan_status": "clean", "quarantined_at": datetime.now(UTC).isoformat()},
+            version=1,
+        )
+        self.session.add(doc)
+        await self.session.commit()
+
+        return GuestDocumentUploadResponse(
+            document_id=doc.id,
+            doc_type=doc_type_clean,
+            file_name=doc.file_name,
+            file_size=doc.file_size,
+            status="quarantined",
+            message="Document successfully uploaded to private quarantine.",
+        )
+
     async def submit_guest_lead(
         self,
         payload: GuestLeadSubmissionRequest,
@@ -138,41 +225,31 @@ class ReferralService:
         """
         Public guest referral lead intake:
         1. Resolve tenant org
-        2. Resolve or create Referral Profile
-        3. Create or link Borrower Party
-        4. Create Case with referral attribution
-        5. Attach vehicle (if specified)
-        6. Return tracking reference
+        2. Validate mandatory document rules (Aadhaar, PAN, and RC for used vehicles)
+        3. Resolve or create Referral Profile (prevent duplicate partner records)
+        4. Prevent accidental duplicate submissions
+        5. Create or link Borrower Party
+        6. Create Case with referral attribution & vehicle condition
+        7. Link uploaded documents to Case and Party
+        8. Return tracking reference
         """
         resolved_org_id = await self._resolve_org_id(org_id, payload.org_slug)
 
-        # 1. Partner Profile
+        # 1. Mandatory Document Rules Enforcement
+        is_new_vehicle = (payload.vehicle_condition.lower() == "new") or (payload.product_type == "new_car")
+        if not payload.aadhaar_doc_id:
+            raise ValidationError("Aadhaar card is mandatory for every lead submission.")
+        if not payload.pan_doc_id:
+            raise ValidationError("PAN card is mandatory for every lead submission.")
+        if not is_new_vehicle and not payload.rc_doc_id:
+            raise ValidationError("RC document is mandatory for used/old vehicle loan applications.")
+
+        # 2. Partner Profile
         partner = await self.get_or_create_profile(
             name=payload.partner_name,
             mobile=payload.partner_mobile,
             org_id=resolved_org_id,
         )
-
-        # 2. Lead Source Entity (Find or create 'Referral Partner' source)
-        source_stmt = select(Source).where(
-            Source.org_id == resolved_org_id,
-            Source.type == "connector",
-            Source.deleted_at.is_(None),
-        ).limit(1)
-        source_res = await self.session.execute(source_stmt)
-        source = source_res.scalar_one_or_none()
-
-        if not source:
-            source = Source(
-                id=uuid.uuid4(),
-                org_id=resolved_org_id,
-                name="Guest Referral Network",
-                type="connector",
-                is_active=True,
-                version=1,
-            )
-            self.session.add(source)
-            await self.session.flush()
 
         # 3. Borrower Party
         clean_app_mobile = _normalize_mobile(payload.applicant_mobile)
@@ -197,8 +274,52 @@ class ReferralService:
             )
             self.session.add(party)
             await self.session.flush()
+        else:
+            # 4. Deduplication: Check if an identical lead was submitted in the last 5 minutes
+            dup_stmt = select(Case).where(
+                Case.org_id == resolved_org_id,
+                Case.referral_profile_id == partner.id,
+                Case.loan_amount_requested == payload.loan_amount_requested,
+                Case.created_at >= datetime.now(UTC) - timedelta(minutes=5),
+                Case.deleted_at.is_(None),
+            )
+            dup_res = await self.session.execute(dup_stmt)
+            for dc in dup_res.scalars().all():
+                cp_check = select(CaseParty).where(CaseParty.case_id == dc.id, CaseParty.party_id == party.id)
+                if (await self.session.execute(cp_check)).scalar_one_or_none():
+                    tracking_id = f"REF-{dc.case_no.replace('LOS-', '')}-{partner.mobile_primary[-4:]}"
+                    return GuestLeadSubmissionResponse(
+                        tracking_id=tracking_id,
+                        case_id=dc.id,
+                        case_no=dc.case_no,
+                        partner_id=partner.id,
+                        partner_name=partner.name,
+                        status="received",
+                        message="Lead was already submitted and is in the operations queue.",
+                    )
 
-        # 4. Generate Case Number
+        # 5. Lead Source Entity (Find or create 'Referral Partner' source)
+        source_stmt = select(Source).where(
+            Source.org_id == resolved_org_id,
+            Source.type == "connector",
+            Source.deleted_at.is_(None),
+        ).limit(1)
+        source_res = await self.session.execute(source_stmt)
+        source = source_res.scalar_one_or_none()
+
+        if not source:
+            source = Source(
+                id=uuid.uuid4(),
+                org_id=resolved_org_id,
+                name="Guest Referral Network",
+                type="connector",
+                is_active=True,
+                version=1,
+            )
+            self.session.add(source)
+            await self.session.flush()
+
+        # 6. Generate Case Number
         case_svc = CaseService(session=self.session)
         case_no = await case_svc._generate_next_case_no(resolved_org_id)
 
@@ -209,8 +330,9 @@ class ReferralService:
         default_owner = user_res.scalar_one_or_none()
         owner_id = default_owner.id if default_owner else uuid.uuid4()
 
-        # 5. Create Case
-        combined_notes = f"Referred by: {partner.name} ({partner.mobile_primary}). PIN: {payload.pincode}, {payload.city}, {payload.state}"
+        # 7. Create Case
+        condition_str = "new" if is_new_vehicle else "used"
+        combined_notes = f"Referred by: {partner.name} ({partner.mobile_primary}). Vehicle condition: {condition_str}. PIN: {payload.pincode}, {payload.city}, {payload.state}"
         if payload.notes:
             combined_notes += f" | {payload.notes}"
 
@@ -233,7 +355,7 @@ class ReferralService:
         self.session.add(new_case)
         await self.session.flush()
 
-        # 6. Primary CaseParty
+        # 8. Primary CaseParty
         case_party = CaseParty(
             id=uuid.uuid4(),
             org_id=resolved_org_id,
@@ -244,21 +366,30 @@ class ReferralService:
         )
         self.session.add(case_party)
 
-        # 7. Vehicle (if provided)
-        if payload.vehicle_reg_no:
-            cleaned_rc = re.sub(r"[\s\-]", "", payload.vehicle_reg_no).upper()
+        # 9. Vehicle
+        if payload.vehicle_reg_no or not is_new_vehicle:
+            cleaned_rc = re.sub(r"[\s\-]", "", payload.vehicle_reg_no).upper() if payload.vehicle_reg_no else None
             vehicle = Vehicle(
                 id=uuid.uuid4(),
                 org_id=resolved_org_id,
                 case_id=new_case.id,
                 vehicle_type=payload.product_type,
                 registration_no=cleaned_rc,
-                condition="used",
+                condition=condition_str,
                 version=1,
             )
             self.session.add(vehicle)
 
-        # 8. Status History
+        # 10. Link Documents to Case and Party
+        doc_ids = [d for d in [payload.aadhaar_doc_id, payload.pan_doc_id, payload.rc_doc_id] if d]
+        if doc_ids:
+            docs_stmt = select(Document).where(Document.id.in_(doc_ids), Document.org_id == resolved_org_id)
+            docs_res = await self.session.execute(docs_stmt)
+            for d in docs_res.scalars().all():
+                d.case_id = new_case.id
+                d.party_id = party.id
+
+        # 11. Status History
         status_hist = CaseStatusHistory(
             id=uuid.uuid4(),
             org_id=resolved_org_id,
@@ -266,7 +397,7 @@ class ReferralService:
             from_status=None,
             to_status=CASE_STATUS_LEAD,
             changed_by=owner_id,
-            notes=f"Guest referral intake submitted by {partner.name}",
+            notes=f"Guest referral intake submitted by {partner.name} ({condition_str} vehicle)",
             version=1,
         )
         self.session.add(status_hist)

@@ -47,7 +47,9 @@ async def get_case_checklist(
 ) -> ApiResponse[CaseChecklistResponse]:
     """Get the dynamic document checklist and missing document count for a case."""
     service = DocumentService(session)
-    items, missing_count = await service.get_checklist(current_user.org_id, case_id)
+    items, missing_count = await service.get_checklist(
+        current_user.org_id, case_id, user_role=current_user.role, user_id=current_user.id
+    )
     checklist_resp = CaseChecklistResponse(
         case_id=case_id,
         missing_mandatory_count=missing_count,
@@ -119,7 +121,7 @@ async def get_download_url(
     """
     service = DocumentService(session)
     url, filename = await service.get_download_url(
-        current_user.org_id, current_user.id, document_id
+        current_user.org_id, current_user.id, document_id, user_role=current_user.role
     )
     return ApiResponse(data=
         DownloadUrlResponse(download_url=url, expires_in_seconds=300, file_name=filename)

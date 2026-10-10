@@ -9,7 +9,7 @@ import io
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -19,6 +19,7 @@ from app.modules.auth.permissions import PERM_REFERRALS_MANAGE, PERM_REFERRALS_R
 from app.modules.referrals.schemas import (
     CommissionCreateRequest,
     CommissionStatusUpdateRequest,
+    GuestDocumentUploadResponse,
     GuestLeadSubmissionRequest,
     GuestLeadSubmissionResponse,
     ReferralCommissionResponse,
@@ -52,7 +53,35 @@ async def lookup_partner(
     return ApiResponse(data=result)
 
 
+@router.post(
+    "/upload-document",
+    response_model=ApiResponse[GuestDocumentUploadResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_guest_document(
+    file: UploadFile = File(...),
+    doc_type: str = Form(..., description="aadhaar, pan, or rc"),
+    org_slug: str | None = Form(None),
+    session: AsyncSession = Depends(get_db),
+) -> ApiResponse[GuestDocumentUploadResponse]:
+    """
+    Public guest document quarantine upload.
+    Validates file format, size, and uploads to secure quarantined storage.
+    """
+    service = ReferralService(session=session)
+    file_bytes = await file.read()
+    result = await service.upload_guest_document(
+        file_name=file.filename or f"doc_{doc_type}.pdf",
+        content_type=file.content_type or "application/octet-stream",
+        file_bytes=file_bytes,
+        doc_type=doc_type,
+        org_slug=org_slug,
+    )
+    return ApiResponse(data=result)
+
+
 @router.post("/submit", response_model=ApiResponse[GuestLeadSubmissionResponse], status_code=status.HTTP_201_CREATED)
+@router.post("/guest-submit", response_model=ApiResponse[GuestLeadSubmissionResponse], status_code=status.HTTP_201_CREATED)
 async def submit_guest_lead(
     payload: GuestLeadSubmissionRequest,
     session: AsyncSession = Depends(get_db),
@@ -60,6 +89,7 @@ async def submit_guest_lead(
     """
     Public guest referral lead intake.
     Captures referral partner info, customer details, loan request, and attribution.
+    Enforces mandatory Aadhaar, PAN, and RC (for used vehicles) document requirements.
     """
     service = ReferralService(session=session)
     result = await service.submit_guest_lead(payload=payload)
