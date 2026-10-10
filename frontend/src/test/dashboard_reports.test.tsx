@@ -29,7 +29,7 @@ describe('Dashboard & Reports Component Suite (Phase 08)', () => {
     expect(formatINR('0.00')).toContain('0')
   })
 
-  it('KPIStrip renders core financial and pipeline metric cards', () => {
+  it('KPIStrip renders core lead operations and telecalling metric cards', () => {
     const pipeline = {
       active_files_count: 14,
       total_loan_amount_requested: '8500000.00',
@@ -52,17 +52,20 @@ describe('Dashboard & Reports Component Suite (Phase 08)', () => {
 
     render(<KPIStrip pipeline={pipeline} payout={payout} />)
 
-    expect(screen.getByText('Active Pipeline')).toBeInTheDocument()
+    expect(screen.getByText('Cold Leads Intake')).toBeInTheDocument()
     expect(screen.getByText('14')).toBeInTheDocument()
     expect(screen.getByText('5 new inflow')).toBeInTheDocument()
 
-    expect(screen.getByText('Expected Commission')).toBeInTheDocument()
-    expect(screen.getByText(/68,000/)).toBeInTheDocument()
+    expect(screen.getByText('Active Calling Queue')).toBeInTheDocument()
+    expect(screen.getByText('Interested Prospects')).toBeInTheDocument()
+    expect(screen.getByText('Converted to Clients')).toBeInTheDocument()
+    expect(screen.getByText(/34,00,000/)).toBeInTheDocument()
 
-    expect(screen.getByText('Collected Payout')).toBeInTheDocument()
-    expect(screen.getByText(/64,600/)).toBeInTheDocument()
+    expect(screen.getByText('Referral Attribution')).toBeInTheDocument()
+    expect(screen.getByText(/68,000/)).toBeInTheDocument()
     expect(screen.getByText(/95.00% realisation/)).toBeInTheDocument()
   })
+
 
   it('StageVelocity renders pipeline stages and highlights bottlenecks', () => {
     const stages = [

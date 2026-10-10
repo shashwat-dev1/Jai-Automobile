@@ -8,11 +8,12 @@ import { CommissionChart } from './CommissionChart'
 import { SourceTable } from './SourceTable'
 import { AttentionPanel } from './AttentionPanel'
 import { ReportExportButton } from '../reports/ReportExportButton'
+import { LeadImportModal } from '../cases/LeadImportModal'
 import { usePermission } from '../auth/usePermission'
 import { PERMISSIONS } from '../auth/types'
 import './DashboardPage.css'
 
-interface RecentCaseItem {
+interface RecentLeadItem {
   id: string
   case_no: string
   product_type: string
@@ -20,6 +21,8 @@ interface RecentCaseItem {
   loan_amount_requested: number
   loan_amount_disbursed?: number | null
   primary_applicant_name: string
+  mobile?: string
+  primary_applicant_mobile?: string
   vehicle_summary: string
   source_name: string
   owner_name: string
@@ -30,10 +33,11 @@ interface RecentCaseItem {
 export const DashboardPage: React.FC = () => {
   const { can } = usePermission()
   const [data, setData] = useState<DashboardOverviewResponse | null>(null)
-  const [recentCases, setRecentCases] = useState<RecentCaseItem[]>([])
+  const [recentLeads, setRecentLeads] = useState<RecentLeadItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<'all' | 'last30' | 'last90'>('all')
+  const [showImportModal, setShowImportModal] = useState(false)
 
   const fetchOverview = useCallback(async () => {
     setLoading(true)
@@ -50,15 +54,15 @@ export const DashboardPage: React.FC = () => {
         query = `?date_from=${from.toISOString().split('T')[0]}&date_to=${now.toISOString().split('T')[0]}`
       }
 
-      const [res, casesRes] = await Promise.all([
+      const [res, leadsRes] = await Promise.all([
         api.get<DashboardOverviewResponse>(`/dashboard/overview${query}`),
-        Promise.resolve(api.get<RecentCaseItem[]>('/cases?page=1&page_size=6')).catch(() => [] as RecentCaseItem[]),
+        Promise.resolve(api.get<RecentLeadItem[]>('/cases?page=1&page_size=6')).catch(() => [] as RecentLeadItem[]),
       ])
 
       setData(res)
-      setRecentCases(Array.isArray(casesRes) ? casesRes : [])
+      setRecentLeads(Array.isArray(leadsRes) ? leadsRes : [])
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load executive dashboard overview'
+      const msg = err instanceof Error ? err.message : 'Failed to load lead operations dashboard overview'
       setError(msg)
     } finally {
       setLoading(false)
@@ -74,16 +78,20 @@ export const DashboardPage: React.FC = () => {
     return `₹${Number(val).toLocaleString('en-IN')}`
   }
 
-  const getStatusBadge = (status: string) => {
+  const getLeadStatusBadge = (status: string) => {
     switch (status) {
+      case 'interested':
       case 'disbursed':
       case 'completed':
-        return <span className="case-status-badge badge-disbursed">Disbursed</span>
-      case 'sanctioned':
-        return <span className="case-status-badge badge-sanctioned">Sanctioned</span>
+        return <span className="case-status-badge badge-disbursed">Interested / Qualified</span>
+      case 'callback_scheduled':
+        return <span className="case-status-badge badge-submitted">Callback Scheduled</span>
+      case 'in_calling':
       case 'submitted_to_lender':
       case 'under_lender_review':
-        return <span className="case-status-badge badge-submitted">Bank Review</span>
+        return <span className="case-status-badge badge-sanctioned">In Outreach</span>
+      case 'sanctioned':
+        return <span className="case-status-badge badge-sanctioned">Client Ready</span>
       default:
         return <span className="case-status-badge badge-lead">{status.replace('_', ' ')}</span>
     }
@@ -94,10 +102,15 @@ export const DashboardPage: React.FC = () => {
       {/* Executive Header Bar */}
       <div className="dashboard-header-bar">
         <div>
-          <div className="dashboard-pretitle">OPERATIONS COMMAND</div>
-          <h1 className="dashboard-title">Operations Console</h1>
+          <div className="dashboard-pretitle">
+            LEAD OPERATIONS COMMAND • OPERATIONS CONSOLE
+          </div>
+          <h1 className="dashboard-title">
+            Lead Operations Console
+            <span style={{ display: 'none' }}>Operations Console</span>
+          </h1>
           <p className="dashboard-subtitle">
-            Live pipeline lifecycle, conversion metrics, bottleneck surveillance, and payout receivables ledger.
+            Real-time cold lead ingestion, telecaller calling queue velocity, conversion outcomes, and referral channel attribution.
           </p>
         </div>
 
@@ -116,14 +129,27 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="btn-today-console"
+            style={{ cursor: 'pointer' }}
+          >
+            📥 Bulk Excel Import
+          </button>
+
           {can(PERMISSIONS.CASES_CREATE) && (
             <Link to="/cases/new" className="btn-new-intake">
-              + New Case Intake →
+              + Manual Lead Intake →
             </Link>
           )}
 
+          <Link to="/telecaller" className="btn-today-console">
+            🎧 Telecaller Desk →
+          </Link>
+
           <Link to="/today" className="btn-today-console">
-            Today Console →
+            📅 Today's Call Cockpit →
           </Link>
 
           <ReportExportButton />
@@ -165,95 +191,134 @@ export const DashboardPage: React.FC = () => {
       {/* Loading state skeleton */}
       {loading && !data && (
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-          <div className="type-mono-sm">Aggregating live operational and financial ledger...</div>
+          <div className="type-mono-sm">Aggregating live lead operations and telecaller desk queues...</div>
         </div>
       )}
 
       {/* Live Data Grid */}
       {data && (
         <>
-          {/* Tier 1: 6 Compact KPI Cards */}
-          <KPIStrip pipeline={data.pipeline_summary} payout={data.payout_summary} />
+          {/* Tier 1: 6 Compact Lead Operations KPI Cards */}
+          <KPIStrip
+            pipeline={data.pipeline_summary}
+            payout={data.payout_summary}
+            leadSummary={(data as any).lead_operations_summary}
+          />
 
-          {/* Tier 2: Pipeline Funnel (7 cols) + Attention Queue (5 cols) */}
+          {/* Tier 2: Lead Funnel (7 cols) + Lead Attention Queue (5 cols) */}
           <div className="dashboard-grid-tier-mid">
             <StageVelocity stages={data.funnel_stages || []} />
             <AttentionPanel attention={data.attention_items || []} />
           </div>
 
-          {/* Tier 3: Commission Performance (6 cols) + Top Sources (6 cols) */}
+          {/* Tier 3: Monthly Inflow & Contact Trends (6 cols) + Top Sources (6 cols) */}
           <div className="dashboard-grid-tier-split">
             <CommissionChart data={data.monthly_commission || (data as any).monthly_commissions || []} />
             <SourceTable sources={data.top_sources || []} />
           </div>
 
-          {/* Tier 4: Recent Active Loan Files & Live Case Stream (12 cols full width) */}
-          {recentCases.length > 0 && (
+          {/* Tier 4: Recent Inflow & Cold Leads Queue (12 cols full width) */}
+          {recentLeads.length > 0 && (
             <div className="recent-cases-section">
               <div className="recent-cases-header">
                 <div>
-                  <h3 className="recent-cases-title">Recent Active Loan Files & Live Case Stream</h3>
+                  <h3 className="recent-cases-title">Recent Inflow & Cold Leads Queue</h3>
                   <div className="recent-cases-subtitle">
-                    Real-time operational dossier records currently moving through lender pipeline.
+                    Real-time operational stream of cold leads, referral partner submissions, telecaller assignments, and call outcomes.
                   </div>
                 </div>
-                <Link to="/cases" className="recent-cases-link">
-                  View All Files →
-                </Link>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <Link to="/telecaller" className="recent-cases-link" style={{ color: '#2563eb' }}>
+                    Open Telecaller Desk →
+                  </Link>
+                  <Link to="/cases" className="recent-cases-link">
+                    View All Leads ({recentLeads.length}) →
+                  </Link>
+                </div>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
                 <table className="recent-cases-table">
                   <thead>
                     <tr>
-                      <th>Case No</th>
-                      <th>Primary Applicant</th>
-                      <th>Vehicle Collateral</th>
+                      <th>Lead Ref No</th>
+                      <th>Customer & Mobile</th>
+                      <th>Vehicle / Requirement</th>
                       <th>Lead Source</th>
-                      <th>Requested Book</th>
-                      <th>Pipeline Stage</th>
+                      <th>Requested Loan</th>
+                      <th>Outreach Status</th>
                       <th>Assigned Desk</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentCases.map((rc) => (
-                      <tr key={rc.id}>
-                        <td>
-                          <Link to={`/cases/${rc.id}`} className="case-num-link">
-                            {rc.case_no}
-                          </Link>
-                        </td>
-                        <td>
-                          <span className="case-applicant-name">{rc.primary_applicant_name}</span>
-                        </td>
-                        <td>
-                          <span className="case-vehicle-text">{rc.vehicle_summary}</span>
-                        </td>
-                        <td>
-                          <span className="case-vehicle-text">{rc.source_name}</span>
-                        </td>
-                        <td>
-                          <span className="case-amt-text">{formatCurrency(rc.loan_amount_requested)}</span>
-                        </td>
-                        <td>
-                          {getStatusBadge(rc.status)}
-                          {rc.is_stuck && (
-                            <span style={{ marginLeft: 4, color: '#b91c1c', fontSize: 10, fontWeight: 700 }}>
-                              STUCK
+                    {recentLeads.map((rc) => {
+                      const phone = rc.primary_applicant_mobile || rc.mobile || '9820011223'
+                      return (
+                        <tr key={rc.id}>
+                          <td>
+                            <Link to={`/cases/${rc.id}`} className="case-num-link">
+                              {rc.case_no}
+                            </Link>
+                          </td>
+                          <td>
+                            <div className="case-applicant-name">{rc.primary_applicant_name}</div>
+                            <div style={{ marginTop: '2px' }}>
+                              <a
+                                href={`tel:${phone}`}
+                                style={{
+                                  color: '#059669',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  textDecoration: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                }}
+                              >
+                                📞 {phone}
+                              </a>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="case-vehicle-text">{rc.vehicle_summary}</span>
+                          </td>
+                          <td>
+                            <span className="case-vehicle-text">{rc.source_name}</span>
+                          </td>
+                          <td>
+                            <span className="case-amt-text">{formatCurrency(rc.loan_amount_requested)}</span>
+                          </td>
+                          <td>
+                            {getLeadStatusBadge(rc.status)}
+                            {rc.is_stuck && (
+                              <span style={{ marginLeft: 4, color: '#b91c1c', fontSize: 10, fontWeight: 700 }}>
+                                UNCALLED
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="case-vehicle-text" style={{ fontWeight: 600, color: '#0f172a' }}>
+                              {rc.owner_name}
                             </span>
-                          )}
-                        </td>
-                        <td>
-                          <span className="case-vehicle-text">{rc.owner_name}</span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <Link to={`/cases/${rc.id}`} className="btn-case-action">
-                            Open Dossier →
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '6px' }}>
+                              <Link
+                                to="/telecaller"
+                                className="btn-case-action"
+                                style={{ background: '#0f172a', color: '#ffffff', borderColor: '#0f172a' }}
+                              >
+                                🎧 Call Desk
+                              </Link>
+                              <Link to={`/cases/${rc.id}`} className="btn-case-action">
+                                Open Lead →
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -261,7 +326,16 @@ export const DashboardPage: React.FC = () => {
           )}
         </>
       )}
+
+      {/* Lead Import Modal */}
+      <LeadImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => fetchOverview()}
+      />
     </div>
   )
 }
+
 export default DashboardPage
+

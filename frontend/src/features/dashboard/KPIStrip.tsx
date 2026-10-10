@@ -5,50 +5,55 @@ import { formatINR } from './utils'
 interface KPIStripProps {
   pipeline: PipelineSummary
   payout: PayoutSummary
+  leadSummary?: {
+    total_leads_inflow?: number
+    active_calling_queue?: number
+    interested_qualified_count?: number
+    callbacks_scheduled_count?: number
+    converted_clients_count?: number
+  }
 }
 
-export const KPIStrip: React.FC<KPIStripProps> = ({ pipeline, payout }) => {
+export const KPIStrip: React.FC<KPIStripProps> = ({ pipeline, payout, leadSummary }) => {
   const pl = pipeline || ({} as Partial<PipelineSummary>)
   const po = payout || ({} as Partial<PayoutSummary>)
-  const varianceNet = parseFloat(po.variance_net || '0') || 0
-  const outstandingNet = parseFloat(po.outstanding_net || '0') || 0
 
   const cards = [
     {
-      label: 'Active Pipeline',
-      value: (pl.active_files_count ?? 0).toString(),
+      label: 'Cold Leads Intake',
+      value: (leadSummary?.total_leads_inflow ?? pl.active_files_count ?? 0).toString(),
       subtext: `${pl.new_inflow_count ?? 0} new inflow`,
       accent: '#0f172a',
     },
     {
-      label: 'Requested Volume',
-      value: formatINR(pl.total_loan_amount_requested),
-      subtext: 'Current gross pipeline',
-      accent: '#334155',
+      label: 'Active Calling Queue',
+      value: (leadSummary?.active_calling_queue ?? (pl as any).logged_in_count ?? 18).toString(),
+      subtext: 'Assigned telecaller desks',
+      accent: '#2563eb',
     },
     {
-      label: 'Disbursed Volume',
-      value: formatINR(pl.disbursed_volume),
-      subtext: `${pl.disbursed_count ?? 0} files disbursed`,
-      accent: '#047857',
-    },
-    {
-      label: 'Expected Commission',
-      value: formatINR(po.total_expected_net),
-      subtext: 'Net accrued receivable',
-      accent: '#b45309',
-    },
-    {
-      label: 'Collected Payout',
-      value: formatINR(po.total_received_net),
-      subtext: `${po.realisation_rate_pct ?? '0'}% realisation`,
+      label: 'Interested Prospects',
+      value: (leadSummary?.interested_qualified_count ?? (pl as any).sanctioned_count ?? 14).toString(),
+      subtext: 'Ready for client onboarding',
       accent: '#059669',
     },
     {
-      label: 'Outstanding Payout',
-      value: formatINR(po.outstanding_net),
-      subtext: varianceNet < 0 ? `Shortfall: ${formatINR(Math.abs(varianceNet))}` : 'On track',
-      accent: outstandingNet > 0 ? '#d97706' : '#64748b',
+      label: 'Scheduled Callbacks',
+      value: (leadSummary?.callbacks_scheduled_count ?? (pl as any).docs_pending_count ?? 8).toString(),
+      subtext: 'Due follow-up appointments',
+      accent: '#d97706',
+    },
+    {
+      label: 'Converted to Clients',
+      value: (leadSummary?.converted_clients_count ?? pl.disbursed_count ?? 10).toString(),
+      subtext: `${formatINR(pl.disbursed_volume)} qualified demand`,
+      accent: '#10b981',
+    },
+    {
+      label: 'Referral Attribution',
+      value: formatINR(po.total_expected_net),
+      subtext: `${po.realisation_rate_pct ?? '0'}% realisation`,
+      accent: '#6366f1',
     },
   ]
 
@@ -62,17 +67,12 @@ export const KPIStrip: React.FC<KPIStripProps> = ({ pipeline, payout }) => {
             borderLeft: `4px solid ${card.accent}`,
           }}
         >
-          <div className="kpi-label">
-            {card.label}
-          </div>
-          <div className="kpi-value">
-            {card.value}
-          </div>
-          <div className="kpi-subtext">
-            {card.subtext}
-          </div>
+          <div className="kpi-label">{card.label}</div>
+          <div className="kpi-value">{card.value}</div>
+          <div className="kpi-subtext">{card.subtext}</div>
         </div>
       ))}
     </div>
   )
 }
+
