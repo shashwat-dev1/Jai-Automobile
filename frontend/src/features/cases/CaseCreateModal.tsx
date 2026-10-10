@@ -53,10 +53,18 @@ const PRODUCT_OPTIONS: { value: ProductType; label: string }[] = [
   { value: 'balance_transfer', label: 'Balance Transfer' },
 ]
 
+const DEFAULT_DOC_TYPES: DocumentTypeOption[] = [
+  { id: 'dt-pan', code: 'pan', name: 'Borrower PAN Card', group_name: 'KYC Documents' },
+  { id: 'dt-aadhaar', code: 'aadhaar', name: 'Aadhaar Card', group_name: 'KYC Documents' },
+  { id: 'dt-bank-stmt', code: 'bank_stmt', name: 'Bank Statement (6M)', group_name: 'Financial Documents' },
+  { id: 'dt-rc', code: 'rc', name: 'Vehicle RC Copy', group_name: 'Vehicle Documents' },
+  { id: 'dt-form34', code: 'form_34', name: 'Form 34 Hypothecation', group_name: 'PDD Documents' },
+]
+
 export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
   const [sources, setSources] = useState<SourceOption[]>([])
-  const [docTypes, setDocTypes] = useState<DocumentTypeOption[]>([])
+  const [docTypes, setDocTypes] = useState<DocumentTypeOption[]>(DEFAULT_DOC_TYPES)
 
   // Form Fields
   const [partyName, setPartyName] = useState('')
@@ -243,7 +251,7 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
       }
 
       // If documents were uploaded in this modal, link them to the newly created case
-      const createdCase = res.case
+      const createdCase = res?.case || (res as unknown as CaseDetail)
       for (const staged of stagedDocs) {
         if (staged.uploadedDoc) {
           // Confirm link to case

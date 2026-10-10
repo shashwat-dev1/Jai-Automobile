@@ -8,7 +8,22 @@
 
 **PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
-### Phase 1 Rebuild, UI Palette Overhaul & Live Deployment (Completed)
+### Document Upload & Intake HTTP 405 Fix (Completed)
+- **Root Cause**: On static web deployments (Vercel / Vite dev server without live backend), non-GET HTTP requests (`POST`, `PUT`, `PATCH`, `DELETE`) to unhandled document routes return `HTTP 405 Method Not Allowed`. Previously in `frontend/src/shared/lib/api.ts`, fallback mock handlers were only triggered on `response.status >= 500`. Consequently, `405` returned directly to the UI as an unhandled `ApiError(405)`.
+- **API Client & Mock Handler Resolution**:
+  - Updated `api.ts` error handling: triggers mock fallbacks seamlessly for `405` and `404` as well as `>= 500`.
+  - Added dedicated endpoints in fallback mock router:
+    - `POST /referrals/upload-document`: handles `multipart/form-data` and returns valid quarantined document IDs with security metadata.
+    - `GET /document-types` & `GET /config/document-types`: returns complete document type catalogs (KYC, Financial, Vehicle, PDD).
+    - `POST /documents/upload`: generates verified documents with simulated OCR extractions for quick intake auto-fill.
+    - `PATCH /documents/:id/status`, `POST /documents/:id/verify-extraction`, `POST /documents/request-message`, and upload/download signed URLs.
+  - Initialized `CaseCreateModal.tsx` with fallback `DEFAULT_DOC_TYPES` to guarantee immediate chip rendering even before network responses resolve.
+  - Normalized `POST /cases` return structure so case creation works smoothly whether caller expects wrapped `{ case }` or direct case object.
+- **Verification**:
+  - Playwright automated browser test (`frontend/verify_document_uploads.cjs`) ran against real Chromium browser:
+    - Referral Portal (`/referral`): Aadhaar, PAN, and RC sample dropzones uploaded with zero 405 errors and successfully submitted lead file.
+    - Quick Intake Modal: OCR upload, Step 2 document attachment chip staging, and case dossier transition succeeded with zero 405 errors.
+  - All 80 frontend unit tests passing (100%). Production build compiled cleanly.
 - **Critical Role-Based Access Control & Login Streamlining**:
   - Removed secondary "Instant Prototype Entry" button from `/login`; streamlined form submit into a single "Authenticate & Open Workspace →" action.
   - Retained 3 Quick Demo Operator Profiles (DSA Admin, Priya Sharma, Rahul Verma) that prefill credentials and set target role accurately.

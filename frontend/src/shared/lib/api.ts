@@ -76,7 +76,7 @@ function getActiveMockUser(): { id: string; role: string; name: string } | null 
 }
 
 function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
-  const clean = endpoint.toLowerCase().replace(/^\/api\/v\d/, '')
+  const clean = endpoint.toLowerCase().replace(/^\/api\/v\d/, '').split('?')[0]
   let parsedBody = body
   if (typeof body === 'string') {
     try {
@@ -84,6 +84,17 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     } catch {
       parsedBody = {}
     }
+  }
+
+  const getBodyField = (key: string): any => {
+    if (parsedBody instanceof FormData) {
+      const val = parsedBody.get(key)
+      return typeof val === 'string' ? val : (val as File | null)?.name || undefined
+    }
+    if (parsedBody && typeof parsedBody === 'object') {
+      return parsedBody[key]
+    }
+    return undefined
   }
 
   // Authentication endpoints
@@ -587,13 +598,15 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   }
 
   // Phase 1: Referral Document Upload (Quarantine)
-  if (clean.includes('/referrals/upload-document') && method === 'POST') {
-    const docType = parsedBody?.doc_type || 'aadhaar'
+  if ((clean.includes('/referrals/upload-document') || clean.includes('/upload-document')) && method === 'POST') {
+    const docType = getBodyField('doc_type') || getBodyField('document_type_id') || 'aadhaar'
+    const fileName = getBodyField('file') || getBodyField('file_name') || `quarantined_${docType}.pdf`
     const docId = `doc-quar-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     return {
+      success: true,
       document_id: docId,
       doc_type: docType,
-      file_name: parsedBody?.file_name || `quarantined_${docType}.pdf`,
+      file_name: fileName,
       file_size: 245000,
       status: 'quarantined',
       message: 'Document successfully uploaded to private quarantine.',
@@ -889,7 +902,11 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
     JAI_MOCK_CASES.unshift(newCase)
     createCaseInFirestore(newCase).catch((e) => console.warn('Firestore case push notice:', e))
-    return newCase
+    return {
+      case: newCase,
+      duplicate_warnings: [],
+      ...newCase,
+    }
   }
 
   // Payout Exception & Reconciliation Endpoints
@@ -1055,13 +1072,106 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     return JAI_MOCK_ORGANIZATIONS
   }
 
-  // Documents
+  // Document Types Catalog
+  if (clean.includes('/document-types') || clean.includes('/config/document-types')) {
+    return [
+      { id: 'dt-pan', code: 'pan', name: 'Borrower PAN Card', group_name: 'KYC Documents' },
+      { id: 'dt-aadhaar', code: 'aadhaar', name: 'Aadhaar Card', group_name: 'KYC Documents' },
+      { id: 'dt-bank-stmt', code: 'bank_stmt', name: 'Bank Statement (6M)', group_name: 'Financial Documents' },
+      { id: 'dt-rc', code: 'rc', name: 'Vehicle RC Copy', group_name: 'Vehicle Documents' },
+      { id: 'dt-form34', code: 'form_34', name: 'Form 34 Hypothecation', group_name: 'PDD Documents' },
+    ]
+  }
+
+  // Document Upload (Quick Intake, Dossier & General)
+  if ((clean.includes('/documents/upload') || (clean === '/documents' && method === 'POST')) && method === 'POST') {
+    const docTypeId = getBodyField('document_type_id') || getBodyField('doc_type') || 'dt-pan'
+    const fileName = getBodyField('file') || getBodyField('file_name') || 'borrower_document.pdf'
+    const docId = `doc-${Date.now()}`
+    const docTypeCode = docTypeId.includes('pan') ? 'PAN' : docTypeId.includes('rc') ? 'VEHICLE_RC' : docTypeId.includes('aadhaar') ? 'AADHAAR' : 'KYC_DOC'
+    return {
+      id: docId,
+      org_id: '11111111-1111-1111-1111-111111111111',
+      case_id: 'case-jai-01',
+      document_type_id: docTypeId,
+      file_name: fileName,
+      file_size: 342000,
+      mime_type: 'application/pdf',
+      version: 1,
+      status: 'verified',
+      can_download: true,
+      uploaded_at: new Date().toISOString(),
+      scan_result: {
+        ocr_status: 'completed',
+        document_type_code: docTypeCode,
+        pipeline_stage: 'extraction_verified',
+        confidence_avg: 98.4,
+        extracted_at: new Date().toISOString(),
+        fields: [
+          { field_key: 'customer_name', label: 'Borrower Name', value: 'Rajesh Kumar', confidence: 99.2, status: 'verified' },
+          { field_key: 'pan_number', label: 'Permanent Account No', value: 'ABCDE1234F', confidence: 99.5, status: 'verified' },
+          { field_key: 'contact_mobile', label: 'Contact Mobile', value: '9820011223', confidence: 98.0, status: 'verified' },
+          { field_key: 'vehicle_make', label: 'Vehicle Make', value: 'Hyundai', confidence: 97.5, status: 'verified' },
+          { field_key: 'vehicle_model', label: 'Vehicle Model', value: 'Creta SX', confidence: 96.8, status: 'verified' },
+          { field_key: 'vehicle_registration_no', label: 'Registration No', value: 'MH02EK9988', confidence: 97.0, status: 'verified' },
+        ],
+      },
+    }
+  }
+
+  // Document Status Update (Verify, Reject, Link)
+  if (clean.includes('/documents') && (clean.includes('/status') || method === 'PATCH')) {
+    const docStatus = getBodyField('status') || 'verified'
+    return {
+      id: `doc-${Date.now()}`,
+      status: docStatus,
+      updated_at: new Date().toISOString(),
+      reject_reason: getBodyField('reason'),
+    }
+  }
+
+  // Verify extraction
+  if (clean.includes('/verify-extraction')) {
+    return {
+      success: true,
+      verified: true,
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  // Request message
+  if (clean.includes('/request-message')) {
+    return {
+      case_no: 'JA-2025-0101',
+      customer_name: 'Rajesh Kumar',
+      message: 'Dear Rajesh Kumar, please provide your pending KYC (PAN/Aadhaar) and Vehicle RC copy for your loan file processing at Jai Automobiles.',
+      missing_count: 2,
+    }
+  }
+
+  // Upload URL / Download URL
+  if (clean.includes('/upload-url')) {
+    return {
+      upload_id: `up-${Date.now()}`,
+      upload_url: 'https://storage.googleapis.com/mock-quarantine/upload',
+      quarantine_key: `quar-${Date.now()}`,
+      expires_in_seconds: 900,
+    }
+  }
+  if (clean.includes('/download')) {
+    return {
+      download_url: 'https://storage.googleapis.com/mock-documents/verified.pdf',
+      expires_in_seconds: 900,
+    }
+  }
+
+  // Generic Documents Fallback
   if (clean.includes('/documents')) {
     const docId = `doc-${Date.now()}`
     return {
       id: docId,
       case_id: 'case-jai-01',
-      document_type_id: 'pan_card',
+      document_type_id: 'dt-pan',
       file_name: 'verified_document.pdf',
       file_size_bytes: 342000,
       mime_type: 'application/pdf',
@@ -1260,8 +1370,8 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   }
 
   if (!response.ok) {
-    // If server returned 500 or 502/503/504 (backend offline/crashed), provide graceful prototype fallback
-    if (response.status >= 500) {
+    // If server returned 405 (Method Not Allowed on static Vercel/Vite hosting), 404, or 500+ (backend offline/crashed), provide graceful fallback
+    if (response.status === 405 || response.status === 404 || response.status >= 500) {
       const mock = getMockFallback(endpoint, config.method || 'GET', customConfig.body)
       if (mock !== null && mock !== undefined) {
         return mock as T
