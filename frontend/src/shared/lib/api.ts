@@ -35,12 +35,30 @@ import {
   JAI_MOCK_DASHBOARD,
   JAI_MOCK_PDD,
   JAI_MOCK_EXPECTATIONS,
+  JAI_MOCK_ATTENTION_ITEMS,
+  JAI_MOCK_SOURCES_REPORT,
+  JAI_MOCK_RECONCILIATION_BATCHES,
+  JAI_MOCK_MISSING_EXPECTATIONS,
+  JAI_MOCK_CLAWBACKS,
+  JAI_MOCK_OUTSTANDING_REPORT,
+  JAI_MOCK_USERS,
+  JAI_MOCK_AUDIT,
+  JAI_MOCK_ORGANIZATIONS,
 } from './mockDatabase'
 import { createCaseInFirestore } from './firebaseService'
 
 function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   const clean = endpoint.toLowerCase().replace(/^\/api\/v\d/, '')
+  let parsedBody = body
+  if (typeof body === 'string') {
+    try {
+      parsedBody = JSON.parse(body)
+    } catch {
+      parsedBody = {}
+    }
+  }
 
+  // Dashboard endpoints
   if (clean.includes('/dashboard/overview')) {
     return JAI_MOCK_DASHBOARD
   }
@@ -63,34 +81,133 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       pdd_items_due: JAI_MOCK_PDD.items,
     }
   }
+
+  // Sources Performance Report (must be checked BEFORE generic /sources)
+  if (clean.includes('/sources/report')) {
+    return JAI_MOCK_SOURCES_REPORT
+  }
+  if (clean.includes('/sources')) {
+    return [
+      { id: 's1', name: 'Maruti True Value - Andheri West', type: 'dealer', contact_person: 'Vikas Malhotra', contact_mobile: '9820098200', is_active: true },
+      { id: 's2', name: 'Hyundai H-Promise - Thane', type: 'dealer', contact_person: 'Suresh Patil', contact_mobile: '9833098330', is_active: true },
+      { id: 's3', name: 'Shree Sai Finance Connectors', type: 'connector', contact_person: 'Ramesh Shah', contact_mobile: '9819098190', is_active: true },
+    ]
+  }
+
+  // Case Status Transition
+  const caseStatusMatch = clean.match(/\/cases\/([^\/\?]+)\/status/)
+  if (caseStatusMatch && method === 'POST') {
+    const caseId = caseStatusMatch[1]
+    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || JAI_MOCK_CASES[0]
+    if (foundCase) {
+      const prevStatus = foundCase.status
+      foundCase.status = parsedBody?.status || foundCase.status
+      foundCase.version = (foundCase.version || 1) + 1
+      foundCase.updated_at = new Date().toISOString()
+      if (Array.isArray(foundCase.status_history)) {
+        foundCase.status_history.unshift({
+          id: `sh-${Date.now()}`,
+          from_status: prevStatus,
+          to_status: foundCase.status,
+          changed_by: 'current-user',
+          changer_name: 'Current User',
+          created_at: new Date().toISOString(),
+        })
+      }
+      return foundCase
+    }
+  }
+
+  // Single Case Dossier (GET /cases/:id)
+  const singleCaseMatch = clean.match(/\/cases\/([^\/\?]+)$/)
+  if (singleCaseMatch && method === 'GET') {
+    const caseId = singleCaseMatch[1]
+    if (caseId && caseId !== 'new' && caseId !== 'list') {
+      const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+      return foundCase || JAI_MOCK_CASES[0]
+    }
+  }
+
+  // Cases List (GET /cases)
   if (clean.includes('/cases') && method === 'GET') {
     return JAI_MOCK_CASES
   }
+
+  // Case Creation (POST /cases)
   if (clean.includes('/cases') && method === 'POST') {
-    let parsedBody = body
-    if (typeof body === 'string') {
-      try {
-        parsedBody = JSON.parse(body)
-      } catch {
-        parsedBody = {}
-      }
-    }
     const newCase = {
       id: `case-jai-${Date.now()}`,
       case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
       applicant_name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+      primary_applicant_name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
       mobile: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+      primary_applicant_mobile: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
       product: parsedBody?.loan?.product || 'used_car',
+      product_type: parsedBody?.loan?.product || 'used_car',
       status: 'lead',
       applied_loan_amount: Number(parsedBody?.loan?.requested_amount) || 750000,
+      loan_amount_requested: Number(parsedBody?.loan?.requested_amount) || 750000,
+      vehicle_summary: parsedBody?.vehicle?.make ? `${parsedBody.vehicle.make} ${parsedBody.vehicle.model || ''}` : 'Hyundai Creta 1.5 SX',
+      vehicle_details: parsedBody?.vehicle?.make ? `${parsedBody.vehicle.make} ${parsedBody.vehicle.model || ''}` : 'Hyundai Creta 1.5 SX',
+      source_name: parsedBody?.source_name || 'Direct Walk-in',
+      owner_name: 'Aarav Sharma',
+      has_consent: true,
+      age_in_days: 0,
+      version: 1,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      primary_party: {
+        id: `p-${Date.now()}`,
+        name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+        mobile_primary: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+        pan_masked: parsedBody?.borrower?.pan ? `${parsedBody.borrower.pan.slice(0, 5)}****${parsedBody.borrower.pan.slice(-1)}` : 'ABCDE****F',
+        aadhaar_masked: '**** **** 1234',
+        employment_type: parsedBody?.borrower?.employment_type || 'Salaried',
+        city: parsedBody?.borrower?.city || 'Mumbai',
+        monthly_income: Number(parsedBody?.borrower?.monthly_income) || 75000,
+      },
+      vehicle: {
+        id: `v-${Date.now()}`,
+        case_id: `case-jai-${Date.now()}`,
+        vehicle_type: parsedBody?.loan?.product || 'four_wheeler',
+        make: parsedBody?.vehicle?.make || 'Hyundai',
+        model: parsedBody?.vehicle?.model || 'Creta',
+        variant: parsedBody?.vehicle?.variant || '1.5 SX',
+        year_of_manufacture: Number(parsedBody?.vehicle?.year) || 2023,
+        condition: 'used',
+        registration_no: parsedBody?.vehicle?.registration_no || 'MH02EK9988',
+        valuation_amount: 850000,
+      },
+      status_history: [
+        { id: `sh-${Date.now()}`, from_status: null, to_status: 'lead', changed_by: 'u-1', changer_name: 'Aarav Sharma', created_at: new Date().toISOString() },
+      ],
     }
     JAI_MOCK_CASES.unshift(newCase)
     createCaseInFirestore(newCase).catch((e) => console.warn('Firestore case push notice:', e))
     return newCase
   }
-  if (clean.includes('/pdd')) {
-    return JAI_MOCK_PDD
+
+  // Payout Exception & Reconciliation Endpoints
+  if (clean.includes('/payout/expectations/attention')) {
+    return JAI_MOCK_ATTENTION_ITEMS
+  }
+  const expMatch = clean.match(/\/payout\/expectations\/([^\/\?]+)/)
+  if (expMatch && method === 'GET') {
+    const expId = expMatch[1]
+    const foundExp = JAI_MOCK_EXPECTATIONS.find((e: any) => e.id === expId)
+    return foundExp || JAI_MOCK_EXPECTATIONS[0]
+  }
+  if (clean.includes('/payout/reconciliation/batches')) {
+    return JAI_MOCK_RECONCILIATION_BATCHES
+  }
+  if (clean.includes('/payout/reconciliation/missing-expectations')) {
+    return JAI_MOCK_MISSING_EXPECTATIONS
+  }
+  if (clean.includes('/payout/reconciliation/clawbacks')) {
+    return JAI_MOCK_CLAWBACKS
+  }
+  if (clean.includes('/payout/reconciliation/outstanding')) {
+    return JAI_MOCK_OUTSTANDING_REPORT
   }
   if (clean.includes('/payout/expectations') || clean.includes('/payouts')) {
     return JAI_MOCK_EXPECTATIONS
@@ -102,6 +219,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       { id: 'r3', lender_name: 'Cholamandalam', product: 'loan_against_car', effective_from: '2024-04-01', basis: 'percent', rate_percent: '2.50', gating_type: 'pdd_complete', tds_rate_percent: '5.00' },
     ]
   }
+
+  // PDD Board
+  if (clean.includes('/pdd')) {
+    return JAI_MOCK_PDD
+  }
+
+  // Lenders
   if (clean.includes('/lenders')) {
     return [
       { id: 'l1', name: 'HDFC Bank', code: 'HDFC', is_active: true, products: ['used_car', 'new_car'] },
@@ -111,19 +235,16 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       { id: 'l5', name: 'Cholamandalam', code: 'CHOLA', is_active: true, products: ['loan_against_car'] },
     ]
   }
-  if (clean.includes('/sources')) {
-    return [
-      { id: 's1', name: 'Maruti True Value - Andheri West', type: 'dealer', contact_person: 'Vikas Malhotra', contact_mobile: '9820098200', is_active: true },
-      { id: 's2', name: 'Hyundai H-Promise - Thane', type: 'dealer', contact_person: 'Suresh Patil', contact_mobile: '9833098330', is_active: true },
-      { id: 's3', name: 'Shree Sai Finance Connectors', type: 'connector', contact_person: 'Ramesh Shah', contact_mobile: '9819098190', is_active: true },
-    ]
-  }
-  if (clean.includes('/tasks')) {
+
+  // Tasks & Workflow
+  if (clean.includes('/tasks') || clean.includes('/workflow/tasks')) {
     return [
       { id: 't1', title: 'Collect RTO Form 34 from Borrower', type: 'follow_up', case_no: 'JA-2025-0106', status: 'pending', priority: 'critical', owner_name: 'Rohan Verma', due_date: '2025-03-05' },
       { id: 't2', title: 'Verify Bank Hypothecation Endorsement', type: 'verification', case_no: 'JA-2025-0101', status: 'pending', priority: 'high', owner_name: 'Aarav Sharma', due_date: '2025-03-01' },
     ]
   }
+
+  // Parties & Customers
   if (clean.includes('/parties') || clean.includes('/customers')) {
     return [
       { id: 'p1', name: 'Rajesh Kumar Sharma', mobile: '9820198201', email: 'rajesh.sharma@gmail.com', pan_masked: 'ABCDE****F', active_cases_count: 1, total_disbursed_volume: 800000 },
@@ -131,6 +252,82 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       { id: 'p3', name: 'Virender Singh Rathore', mobile: '9845112233', email: 'virender.rathore@gmail.com', pan_masked: 'AFXPR****K', active_cases_count: 1, total_disbursed_volume: 500000 },
     ]
   }
+
+  // Users Management
+  if (clean.includes('/users')) {
+    if (method === 'POST') {
+      const newUser = {
+        id: `u-${Date.now()}`,
+        org_id: '11111111-1111-1111-1111-111111111111',
+        name: parsedBody?.name || 'New Team Member',
+        email: parsedBody?.email || `user${Date.now()}@apexloans.com`,
+        mobile: parsedBody?.phone || '9820011999',
+        role: parsedBody?.role || 'processor',
+        is_active: true,
+        created_at: new Date().toISOString(),
+      }
+      JAI_MOCK_USERS.push(newUser)
+      return newUser
+    }
+    return JAI_MOCK_USERS
+  }
+
+  // Audit Log
+  if (clean.includes('/audit')) {
+    return JAI_MOCK_AUDIT
+  }
+
+  // Tenancy & Organizations
+  if (clean.includes('/organizations/current/branding')) {
+    return {
+      name: 'Jai Automobiles',
+      tagline: 'Vehicle Finance Operations',
+      logo_url: '/jai_auto_logo.jpg',
+      theme_preset: 'gold_emerald',
+      primary_color: '#10b981',
+      accent_color: '#fbbf24',
+    }
+  }
+  if (clean.includes('/organizations/current')) {
+    return JAI_MOCK_ORGANIZATIONS[0]
+  }
+  if (clean.includes('/organizations') || clean.includes('/platform/organizations')) {
+    if (method === 'POST') {
+      const newOrg = {
+        id: `org-${Date.now()}`,
+        name: parsedBody?.name || 'New Organization',
+        slug: (parsedBody?.name || 'new-org').toLowerCase().replace(/\s+/g, '-'),
+        plan: parsedBody?.plan || 'growth',
+        region: 'in-west-1',
+        is_active: true,
+        settings: parsedBody?.settings || {
+          branding: {
+            name: parsedBody?.name || 'New Organization',
+            tagline: 'Finance Operations',
+            logo_url: '/jai_auto_logo.jpg',
+            theme_preset: 'navy_slate',
+            primary_color: '#2563eb',
+            accent_color: '#94a3b8',
+          },
+          modules: {
+            cases: true,
+            documents: true,
+            lenders: true,
+            pdd: true,
+            payout: true,
+            reconciliation: true,
+            reports: true,
+            audit: true,
+          },
+        },
+      }
+      JAI_MOCK_ORGANIZATIONS.push(newOrg)
+      return newOrg
+    }
+    return JAI_MOCK_ORGANIZATIONS
+  }
+
+  // Documents
   if (clean.includes('/documents')) {
     const docId = `doc-${Date.now()}`
     return {
@@ -151,6 +348,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       uploaded_at: new Date().toISOString(),
     }
   }
+
+  // Checklist
   if (clean.includes('/checklist')) {
     return {
       case_id: 'case-jai-01',
@@ -218,6 +417,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       ],
     }
   }
+
   return null
 }
 
@@ -390,7 +590,13 @@ export const api = {
       const mock = getMockFallback(url, 'GET')
       return {
         data: (mock ?? {}) as T,
-        meta: {},
+        meta: {
+          total: Array.isArray(mock) ? mock.length : 1,
+          page: 1,
+          page_size: 20,
+          has_next: false,
+          has_prev: false,
+        },
         success: true,
       }
     }
@@ -400,7 +606,13 @@ export const api = {
       const mock = getMockFallback(url, 'GET')
       return {
         data: (mock ?? {}) as T,
-        meta: {},
+        meta: {
+          total: Array.isArray(mock) ? mock.length : 1,
+          page: 1,
+          page_size: 20,
+          has_next: false,
+          has_prev: false,
+        },
         success: true,
       }
     }
@@ -412,7 +624,13 @@ export const api = {
       const mock = getMockFallback(url, 'GET')
       return {
         data: (mock ?? {}) as T,
-        meta: {},
+        meta: {
+          total: Array.isArray(mock) ? mock.length : 1,
+          page: 1,
+          page_size: 20,
+          has_next: false,
+          has_prev: false,
+        },
         success: true,
       }
     }

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-highest":"#dee4de","on-tertiary-fixed":"#03201b","surface-container-low":"#eff5ee","inverse-primary":"#a6cfc1","on-tertiary":"#ffffff","on-secondary-container":"#795519","primary-container":"#173f35","inverse-surface":"#2c322e","tertiary-fixed":"#cae9e1","on-error":"#ffffff","on-primary-container":"#82aa9d","surface-bright":"#f5fbf4","on-secondary-fixed-variant":"#614004","secondary-fixed":"#ffddb1","on-surface-variant":"#414845","on-surface":"#171d19","on-secondary":"#ffffff","error":"#ba1a1a","on-primary-fixed":"#002019","outline-variant":"#c0c8c4","on-secondary-fixed":"#291800","surface-tint":"#3f665a","tertiary-fixed-dim":"#afcdc5","surface-container-high":"#e4eae3","background":"#f5fbf4","on-primary":"#ffffff","on-background":"#171d19","on-primary-fixed-variant":"#274e43","primary-fixed-dim":"#a6cfc1","secondary-fixed-dim":"#efbe79","on-error-container":"#93000a","tertiary-container":"#223d38","secondary":"#7c571c","surface-dim":"#d6dcd5","outline":"#717975","on-tertiary-fixed-variant":"#314c46","error-container":"#ffdad6","surface-variant":"#dee4de","surface":"#f5fbf4","primary-fixed":"#c1ecdd","tertiary":"#0b2722","surface-container":"#eaefe9","primary":"#002920","on-tertiary-container":"#8aa8a0","inverse-on-surface":"#ecf2ec","secondary-container":"#fecc85","surface-container-lowest":"#ffffff"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"space-sm":"0.5rem","gutter":"1rem","space-xs":"0.25rem","gutter-desktop":"1.5rem","margin-desktop":"2rem","space-xl":"1.75rem","space-md":"0.75rem","space-lg":"1.25rem","margin":"1rem"},"fontFamily":{"label-sm":["IBM Plex Sans"],"label-md":["IBM Plex Sans"],"display-lg":["IBM Plex Sans"],"headline-lg":["IBM Plex Sans"],"headline-md":["IBM Plex Sans"],"title-md":["IBM Plex Sans"],"body-sm":["IBM Plex Sans"],"body-md":["IBM Plex Sans"],"body-lg":["IBM Plex Sans"],"headline-sm":["IBM Plex Sans"],"display-lg-mobile":["IBM Plex Sans"]},"fontSize":{"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.06em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.04em","fontWeight":"600"}],"display-lg":["2.25rem",{"lineHeight":"2.75rem","letterSpacing":"-0.02em","fontWeight":"600"}],"headline-lg":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-md":["1.25rem",{"lineHeight":"1.75rem","letterSpacing":"-0.005em","fontWeight":"600"}],"title-md":["1rem",{"lineHeight":"1.375rem","fontWeight":"500"}],"body-sm":["0.8125rem",{"lineHeight":"1.125rem","fontWeight":"400"}],"body-md":["0.875rem",{"lineHeight":"1.25rem","fontWeight":"400"}],"body-lg":["0.9375rem",{"lineHeight":"1.375rem","fontWeight":"400"}],"headline-sm":["1.125rem",{"lineHeight":"1.5rem","fontWeight":"600"}],"display-lg-mobile":["1.75rem",{"lineHeight":"2.25rem","letterSpacing":"-0.01em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-screen w-60 bg-tertiary border-r border-outline/30 z-50 flex flex-col justify-between select-none"><div class="flex flex-col flex-1 overflow-y-auto"><div class="h-14 px-gutter flex items-center gap-space-sm border-b border-outline/20 bg-primary"><img alt="DSA OS Emblem" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WAfDf6HhiuNoHKTzMlW8Li19x3eYpGVzYN_Xid-c_kf8aXBVRAtS5oo09mk0O6_7QgNdwNGwgskxG5cbHrwln-ejwbYDQ7SavAsMygDKLP5sl-I0flE5q0y0plXNET_Hhu3-edxXajDZSUxdt750nGVj5br3qU9dbz0ftD1U58ORYYdL6DfM2Ap0Cths6Pa2lMey00n2HGm3nl06DOtf4IdYiqKqLyQiP-YWNXP6BOxej2bjZrX5VLlw"/><div class="flex flex-col justify-center min-w-0"><span class="font-headline-sm text-headline-sm text-surface tracking-tight uppercase leading-none font-bold truncate">DSA OS</span><span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold leading-tight truncate">Business OS</span></div></div><nav class="flex-1 px-space-xs py-space-md space-y-space-md" data-active-classes="bg-primary-container text-on-primary border-l-2 border-secondary font-medium"><div class="space-y-space-xs"><div class="px-space-sm py-space-xs font-label-sm text-label-sm tracking-widest text-outline uppercase font-semibold">Overview</div><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-lg">dashboard</span><span class="font-body-sm text-body-sm truncate">Dashboard</span></a></div><div class="space-y-space-xs"><div class="px-space-sm py-space-xs font-label-sm text-label-sm tracking-widest text-outline uppercase font-semibold">Operations</div><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="customers" href="#"><span class="material-symbols-outlined text-lg">group</span><span class="font-body-sm text-body-sm truncate">Customers</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-1.5 rounded transition-colors bg-primary-container text-on-primary border-l-2 border-secondary font-medium" data-path="loan-files" href="#"><span class="material-symbols-outlined text-lg">folder_open</span><span class="font-body-sm text-body-sm truncate">Loan Files</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="documents" href="#"><span class="material-symbols-outlined text-lg">description</span><span class="font-body-sm text-body-sm truncate">Documents</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="pipeline" href="#"><span class="material-symbols-outlined text-lg">account_tree</span><span class="font-body-sm text-body-sm truncate">Pipeline</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="follow-ups" href="#"><span class="material-symbols-outlined text-lg">event_repeat</span><span class="font-body-sm text-body-sm truncate">Follow-ups</span></a></div><div class="space-y-space-xs"><div class="px-space-sm py-space-xs font-label-sm text-label-sm tracking-widest text-outline uppercase font-semibold">Business</div><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="referral-sources" href="#"><span class="material-symbols-outlined text-lg">handshake</span><span class="font-body-sm text-body-sm truncate">Referral Sources</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="payouts" href="#"><span class="material-symbols-outlined text-lg">payments</span><span class="font-body-sm text-body-sm truncate">Payouts</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="analytics" href="#"><span class="material-symbols-outlined text-lg">analytics</span><span class="font-body-sm text-body-sm truncate">Analytics</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="reports" href="#"><span class="material-symbols-outlined text-lg">table_chart</span><span class="font-body-sm text-body-sm truncate">Reports</span></a></div><div class="space-y-space-xs"><div class="px-space-sm py-space-xs font-label-sm text-label-sm tracking-widest text-outline uppercase font-semibold">Admin</div><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="users-and-roles" href="#"><span class="material-symbols-outlined text-lg">admin_panel_settings</span><span class="font-body-sm text-body-sm truncate">Users &amp; Roles</span></a><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded text-outline-variant hover:bg-tertiary-container hover:text-on-tertiary transition-colors" data-path="settings" href="#"><span class="material-symbols-outlined text-lg">tune</span><span class="font-body-sm text-body-sm truncate">Settings</span></a></div></nav></div><div class="border-t border-outline/20 bg-primary/70 p-space-sm"><div class="flex items-center gap-space-sm"><img alt="Profile" class="w-8 h-8 rounded-full object-cover border border-secondary/40 shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4CQokYIM2bh8Pi-B1sKRzhVT59Ldrpmk5arFBFzkEqG29yHqnmxrMEwtIuWJyDCL9BBUC41HnDc9aANc4pkY3eBYaVH5ZL4GcMVo0kwEUAFzinuBeoLbDnbP89Lgs4oYH5GLXPaXY2A1A2CwLETFyAbm4Mtm6KxbOiLCprJ72dvzeAfRt98czwNDeT398RtICP9dH2xVerO_WqbcjIqbpPwZjpEV-fBP2OtKFXBAzZSwLbaRHL4th"/><div class="flex-1 min-w-0"><div class="font-body-sm text-body-sm font-semibold text-surface truncate leading-tight">Amit Verma</div><div class="font-label-sm text-label-sm text-outline-variant truncate leading-tight">Jaipur Hub • Apex Finance</div></div><span class="material-symbols-outlined text-outline cursor-pointer hover:text-surface text-lg shrink-0">unfold_more</span></div></div></aside><div class="pl-60"><header class="fixed top-0 left-60 right-0 h-14 bg-surface-container-lowest border-b border-outline-variant/60 z-40 flex items-center justify-between px-gutter-desktop"><div class="flex items-center gap-space-sm min-w-0"><span class="material-symbols-outlined text-outline text-lg">account_balance</span><div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant font-medium truncate"><span>Operations</span><span class="text-outline">/</span><span class="text-on-surface font-semibold">Ledger View</span></div></div><div class="flex items-center gap-gutter"><div class="relative w-72"><span class="material-symbols-outlined absolute left-space-sm top-1/2 -translate-y-1/2 text-outline text-lg">search</span><input class="w-full bg-surface-container-low border border-outline-variant rounded pl-8 pr-space-sm py-1 font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none cursor-pointer" placeholder="Search customers, files, or sources (Ctrl+K)..." readonly="" type="text"/></div><div class="hidden xl:flex items-center gap-space-xs bg-secondary-fixed/50 border border-secondary/30 px-space-sm py-1 rounded"><span class="material-symbols-outlined text-secondary text-sm">monetization_on</span><span class="font-label-sm text-label-sm text-on-secondary-container uppercase">₹8.42L Target (70%)</span></div><div class="flex items-center gap-space-md text-on-surface-variant"><div class="relative cursor-pointer hover:text-on-surface"><span class="material-symbols-outlined text-xl">notifications</span><span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-error text-on-error font-label-sm text-[0.625rem] font-bold">4</span></div><span class="material-symbols-outlined text-xl cursor-pointer hover:text-on-surface">help</span><div class="hidden md:flex flex-col text-right font-label-sm text-label-sm text-outline border-l border-outline-variant pl-space-md"><span class="font-semibold text-on-surface">Thu, 24 Oct 2024</span><span>IST 14:32</span></div><img alt="Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4CQokYIM2bh8Pi-B1sKRzhVT59Ldrpmk5arFBFzkEqG29yHqnmxrMEwtIuWJyDCL9BBUC41HnDc9aANc4pkY3eBYaVH5ZL4GcMVo0kwEUAFzinuBeoLbDnbP89Lgs4oYH5GLXPaXY2A1A2CwLETFyAbm4Mtm6KxbOiLCprJ72dvzeAfRt98czwNDeT398RtICP9dH2xVerO_WqbcjIqbpPwZjpEV-fBP2OtKFXBAzZSwLbaRHL4th"/></div></div></header><main class="relative pt-14 min-h-screen bg-surface w-full px-gutter-desktop py-gutter-desktop"><div class="flex flex-col w-full gap-space-lg">
+<!-- SYNTHETIC DEMO DATA DISCLAIMER -->
+<div class="bg-amber-100/90 border border-amber-300 rounded p-2 text-center text-xs font-semibold text-amber-900 tracking-wider uppercase select-none">
+  SYNTHETIC DEMO DATA — NOT REAL CUSTOMER DATA • (Design Reference — Only Release 1 Mapped Requirements Are In Scope)
+</div>
+<!-- PAGE HEADER & EXECUTIVE SUMMARY BAR -->
+<div class="bg-surface-container-lowest p-gutter rounded-lg shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-space-xs">
+<!-- Breadcrumb Navigation -->
+<div class="flex items-center gap-space-xs font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
+<span>Operations</span>
+<span class="text-outline">/</span>
+<a class="hover:text-primary transition-colors" href="#">Loan Files</a>
+<span class="text-outline">/</span>
+<span class="text-on-surface font-bold bg-surface-container-high px-1.5 py-0.5 rounded">LOS-10482</span>
+</div>
+<!-- Main Dossier Title & Metadata -->
+<div class="flex flex-wrap items-center gap-space-md">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight font-bold">LOS-10482 — Rahul Sharma</h1>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-secondary-fixed/30 text-on-secondary-container font-label-md text-label-md font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+          DOCUMENTS PENDING
+        </div>
+</div>
+<!-- Financial & Tenure Tagline -->
+<div class="flex items-center gap-space-md text-on-surface-variant font-body-sm text-body-sm">
+<div class="flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-base text-secondary">directions_car</span>
+<span>Used Car Loan</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="font-semibold text-on-surface">₹6,50,000</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span>Tenure: <span class="font-medium text-on-surface">60 Months</span></span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-outline">LTV: 78%</span>
+</div>
+</div>
+<!-- Quick Action Toolbelt -->
+<div class="flex flex-wrap items-center gap-space-sm shrink-0">
+<div class="relative inline-block text-left">
+<button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container-low text-on-surface font-label-md text-label-md transition-colors shadow-sm" id="statusDropdownBtn" type="button">
+<span class="material-symbols-outlined text-base text-outline">tune</span>
+<span>Change Status</span>
+<span class="material-symbols-outlined text-sm">arrow_drop_down</span>
+</button>
+</div>
+<button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container-low text-on-surface font-label-md text-label-md transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-base text-primary">upload_file</span>
+<span>Upload Document</span>
+</button>
+<button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-primary-container text-on-primary hover:bg-primary transition-all font-label-md text-label-md shadow-sm" type="button">
+<span class="material-symbols-outlined text-base">add_alarm</span>
+<span>Add Follow-up</span>
+</button>
+</div>
+</div>
+<!-- SECTION 1: ARCHIVAL FILE LIFECYCLE TRACKER -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-base">conversion_path</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Underwriting &amp; Disbursement Progress</span>
+</div>
+<div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-secondary text-sm">schedule</span>
+<span>Entered Documents Pending: <strong class="text-on-surface">24 Oct 2024</strong> (2.8 days in current stage)</span>
+</div>
+</div>
+<!-- Stepper Pipeline Ribbon -->
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-1.5 pt-1">
+<!-- Stage 01: Completed -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-low">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-primary-container font-bold">01 INWARD</span>
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">New File</span>
+<span class="font-label-sm text-[0.625rem] text-outline">22 Oct, 14:00</span>
+</div>
+<!-- Stage 02: Active Attention -->
+<div class="flex flex-col p-space-xs rounded bg-primary-container text-on-primary relative shadow-sm">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-secondary-fixed font-bold tracking-widest">02 VERIFY</span>
+<span class="material-symbols-outlined text-secondary-fixed text-sm animate-pulse">pending</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-surface">Documents</span>
+<span class="font-label-sm text-[0.625rem] text-tertiary-fixed font-medium">8/10 Complete</span>
+</div>
+<!-- Stage 03 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-75">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">03 SANCTION</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Ready Check</span>
+<span class="font-label-sm text-[0.625rem] text-outline">Pending Docs</span>
+</div>
+<!-- Stage 04 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-60">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">04 LENDER</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Submitted</span>
+<span class="font-label-sm text-[0.625rem] text-outline">HDFC Portal</span>
+</div>
+<!-- Stage 05 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-60">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">05 OPS</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Processing</span>
+<span class="font-label-sm text-[0.625rem] text-outline">CPV &amp; RCU</span>
+</div>
+<!-- Stage 06 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-60">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">06 CREDIT</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Approved</span>
+<span class="font-label-sm text-[0.625rem] text-outline">Sanction Letter</span>
+</div>
+<!-- Stage 07 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-60">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">07 SETTLE</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Disbursed</span>
+<span class="font-label-sm text-[0.625rem] text-outline">Payout Trigger</span>
+</div>
+<!-- Stage 08 -->
+<div class="flex flex-col p-space-xs rounded bg-surface-container-lowest opacity-60">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-[0.625rem] text-outline font-bold">08 ARCHIVE</span>
+<span class="material-symbols-outlined text-outline-variant text-sm">radio_button_unchecked</span>
+</div>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface-variant">Closed</span>
+<span class="font-label-sm text-[0.625rem] text-outline">RC Endorsed</span>
+</div>
+</div>
+</div>
+<!-- SECTION 2: FILE SNAPSHOT (3-Column Dense Ledger Card) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
+<!-- Column 1: Customer Details -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm flex flex-col p-space-md">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm bg-surface-container-low -mx-space-md -mt-space-md px-space-md pt-space-sm rounded-t-lg">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-base">person</span>
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface tracking-wider">Customer Dossier</span>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface font-semibold">CUST-8819</span>
+</div>
+<div class="space-y-space-xs font-body-sm text-body-sm">
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Full Legal Name</span>
+<span class="font-semibold text-on-surface text-right">Rahul Sharma</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Employment Category</span>
+<span class="font-medium text-on-surface text-right">Salaried (Tech Mahindra)</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Designation</span>
+<span class="font-medium text-on-surface text-right">Sr. Software Engineer</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Verified Net Monthly</span>
+<span class="font-bold text-on-surface tabular-nums text-right">₹85,000 / mo</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Primary Mobile</span>
+<span class="font-mono text-on-surface text-right">+91 90000 00000</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Operating Hub / City</span>
+<span class="font-medium text-on-surface text-right">Jaipur, Rajasthan</span>
+</div>
+<div class="flex justify-between items-center py-1 mt-1 bg-surface-container-low px-2 rounded">
+<span class="text-on-surface-variant font-medium">Credit Details: Manually Recorded</span>
+<div class="flex items-center gap-1.5">
+<span class="font-bold font-mono text-primary">764</span>
+<span class="text-[0.6875rem] font-semibold text-primary uppercase bg-primary-fixed px-1.5 py-0.5 rounded">Good</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 2: Loan Details -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm flex flex-col p-space-md">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm bg-surface-container-low -mx-space-md -mt-space-md px-space-md pt-space-sm rounded-t-lg">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-base">receipt_long</span>
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface tracking-wider">Loan &amp; Collateral</span>
+</div>
+<span class="font-label-sm text-label-sm bg-secondary-fixed/50 text-on-secondary-container px-1.5 py-0.5 rounded font-semibold">Used Car</span>
+</div>
+<div class="space-y-space-xs font-body-sm text-body-sm">
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Requested Amount</span>
+<span class="font-bold text-on-surface font-mono text-right text-base text-primary">₹6,50,000</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Target Lender</span>
+<span class="font-semibold text-on-surface text-right flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> HDFC Bank Car Loan
+          </span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Vehicle Details</span>
+<span class="font-medium text-on-surface text-right">2021 Hyundai Creta SX</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Registration No.</span>
+<span class="font-mono uppercase font-bold text-on-surface text-right">RJ-00-XX-0000</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Approved ROI (Annual)</span>
+<span class="font-semibold font-mono text-on-surface text-right">9.25% Fixed</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Loan-to-Value (LTV)</span>
+<span class="font-medium text-on-surface text-right">78.0% of Market Valuation</span>
+</div>
+<div class="flex justify-between items-center py-1 mt-1 bg-secondary-fixed/20 px-2 rounded">
+<span class="text-on-secondary-container font-medium">Expected Commission</span>
+<div class="flex items-center gap-1 font-mono font-bold text-secondary">
+<span>₹13,000</span>
+<span class="text-xs font-normal text-on-surface-variant">(2.0%)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 3: Source & Operational Logistics -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm flex flex-col p-space-md">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm bg-surface-container-low -mx-space-md -mt-space-md px-space-md pt-space-sm rounded-t-lg">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-outline text-base">hub</span>
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface tracking-wider">Source &amp; Desk Assignment</span>
+</div>
+<span class="font-label-sm text-label-sm bg-surface-container-high px-1.5 py-0.5 rounded text-outline font-semibold">JAIPUR-01</span>
+</div>
+<div class="space-y-space-xs font-body-sm text-body-sm">
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Lead Referral Source</span>
+<span class="font-semibold text-on-surface text-right">Rahul Referral</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Source Classification</span>
+<span class="font-medium text-on-surface text-right">Automotive Broker (Tier-1)</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Case Desk Owner</span>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-semibold text-on-surface">Amit Verma</span>
+</div>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Inward Date &amp; Time</span>
+<span class="font-mono text-on-surface text-right">22 Oct 2024, 14:00</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">Target Disbursement</span>
+<span class="font-medium text-primary text-right font-semibold">29 Oct 2024 (5 Days Left)</span>
+</div>
+<div class="flex justify-between items-baseline py-1">
+<span class="text-on-surface-variant">SLA Health</span>
+<span class="font-semibold text-secondary text-right">On Schedule (Green)</span>
+</div>
+<div class="flex justify-between items-center py-1 mt-1 bg-surface-container-low px-2 rounded">
+<span class="text-on-surface-variant font-medium">Payout Split Ratio</span>
+<span class="font-mono text-on-surface text-sm">70% Partner / 30% DSA</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 3: WORKSPACE SPLIT (DOCUMENT ROOM + LENDER / ACTIONS WIDGET) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- LEFT 8-COLS: DIGITAL DOCUMENT ROOM -->
+<div class="lg:col-span-8 flex flex-col gap-space-md">
+<!-- Room Header & Completion Gauge -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-xl">folder_check</span>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight">Digital Document Room</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Verification matrix for credit underwriting</div>
+</div>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="text-right">
+<span class="font-label-sm text-label-sm uppercase text-outline font-semibold">Audit Completion</span>
+<div class="font-mono font-bold text-on-surface text-sm">8 / 10 Verified (80%)</div>
+</div>
+<!-- Circular Progress Indicator Inline SVG -->
+<div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+<svg class="w-10 h-10 transform -rotate-90" viewbox="0 0 36 36">
+<circle class="text-surface-container-highest" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" stroke-width="3"></circle>
+<circle class="text-primary-container" cx="18" cy="18" fill="none" r="15.5" stroke="currentColor" stroke-dasharray="97.4" stroke-dashoffset="19.5" stroke-linecap="round" stroke-width="3"></circle>
+</svg>
+<span class="absolute font-label-sm text-[0.625rem] font-bold text-primary">80%</span>
+</div>
+</div>
+</div>
+<!-- CATEGORY A: KYC DOCUMENTS (3/3) -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between py-1 px-2 bg-surface-container-low rounded">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              A. KYC Verification Pack (3/3 Completed)
+            </span>
+<span class="font-label-sm text-xs font-semibold text-primary flex items-center gap-0.5">
+<span class="material-symbols-outlined text-sm">verified</span> Verified &amp; Validated
+            </span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-xs">
+<!-- PAN Card -->
+<div class="p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">badge</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">PAN Card</span>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-outline mt-1 truncate">NSDL Validated: ABCPS8821K</p>
+<div class="flex items-center justify-between mt-2 pt-1 font-label-sm text-[0.625rem] text-on-surface-variant">
+<span>PDF (1.2 MB)</span>
+<a class="text-primary hover:underline font-semibold flex items-center gap-0.5" href="#">
+<span>View</span><span class="material-symbols-outlined text-xs">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- Aadhaar Card -->
+<div class="p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">fingerprint</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Aadhaar Card</span>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-outline mt-1 truncate">Masked UIDAI: **** 7182</p>
+<div class="flex items-center justify-between mt-2 pt-1 font-label-sm text-[0.625rem] text-on-surface-variant">
+<span>e-Aadhaar PDF</span>
+<a class="text-primary hover:underline font-semibold flex items-center gap-0.5" href="#">
+<span>View</span><span class="material-symbols-outlined text-xs">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- Address Proof -->
+<div class="p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">home_pin</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Address Proof</span>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-outline mt-1 truncate">JVVNL Electricity Bill (Aug)</p>
+<div class="flex items-center justify-between mt-2 pt-1 font-label-sm text-[0.625rem] text-on-surface-variant">
+<span>Verified Match</span>
+<a class="text-primary hover:underline font-semibold flex items-center gap-0.5" href="#">
+<span>View</span><span class="material-symbols-outlined text-xs">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- CATEGORY B: INCOME PROOFS (2/3 - ATTENTION FLAGGED) -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between py-1 px-2 bg-secondary-fixed/20 rounded">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-secondary-container flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+              B. Income Documentation (2/3 - Attention Required)
+            </span>
+<span class="font-label-sm text-xs font-bold text-secondary flex items-center gap-0.5">
+<span class="material-symbols-outlined text-sm">error</span> 1 Discrepancy Found
+            </span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-xs">
+<!-- Salary Slips (2 Months) -->
+<div class="p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">payments</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Slips (Jul, Aug)</span>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-outline mt-1 truncate">Jul &amp; Aug 2024 Verified</p>
+<div class="flex items-center justify-between mt-2 pt-1 font-label-sm text-[0.625rem] text-on-surface-variant">
+<span>Net: ₹85,120</span>
+<a class="text-primary hover:underline font-semibold flex items-center gap-0.5" href="#">
+<span>View</span><span class="material-symbols-outlined text-xs">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- FLAGGED: Sep 2024 Slip -->
+<div class="p-space-xs bg-error-container/20 rounded shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-error text-base">priority_high</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Latest Slip (Sep)</span>
+</div>
+<span class="font-label-sm text-[0.625rem] bg-error text-on-error px-1 py-0.2 rounded font-bold uppercase">Rejected</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-error font-medium mt-1 line-clamp-1">Blurred image / Stamp missing</p>
+<div class="mt-2 pt-1 flex items-center justify-between">
+<button class="text-xs bg-error-container hover:bg-error/20 text-on-error-container font-semibold px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-xs">refresh</span> Re-upload
+                </button>
+<span class="font-label-sm text-[0.625rem] text-outline">Action Due</span>
+</div>
+</div>
+<!-- 6-Month Bank Statement -->
+<div class="p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">account_balance</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Bank Statement</span>
+</div>
+<span class="material-symbols-outlined text-primary text-base">check_circle</span>
+</div>
+<p class="font-label-sm text-[0.6875rem] text-outline mt-1 truncate">HDFC Salary A/c (6 Mo)</p>
+<div class="flex items-center justify-between mt-2 pt-1 font-label-sm text-[0.625rem] text-on-surface-variant">
+<span>E-statement Valid</span>
+<a class="text-primary hover:underline font-semibold flex items-center gap-0.5" href="#">
+<span>View</span><span class="material-symbols-outlined text-xs">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- CATEGORY C & D: VEHICLE & APPLICATION (COLLATERAL & DISBURSEMENT) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm pt-space-xs">
+<!-- Category C: Vehicle Documents -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between py-1 px-2 bg-surface-container-low rounded">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                C. Vehicle Assets (1/2)
+              </span>
+<span class="font-label-sm text-xs font-semibold text-secondary">Inspection Pending</span>
+</div>
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">drive_eta</span>
+<span class="font-body-sm text-body-sm text-on-surface">Registration Certificate (RC)</span>
+</div>
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+</div>
+<div class="flex items-center justify-between p-space-xs bg-secondary-fixed/15 rounded">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-base">photo_camera</span>
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm font-medium text-on-surface">Valuation &amp; Inspection</span>
+<span class="font-label-sm text-[0.625rem] text-on-surface-variant">Chassis punch &amp; meter photo due</span>
+</div>
+</div>
+<button class="font-label-sm text-xs text-secondary font-bold underline">Schedule</button>
+</div>
+</div>
+</div>
+<!-- Category D: Application & Mandate -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between py-1 px-2 bg-surface-container-low rounded">
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-on-surface flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                D. Application Mandate (1/2)
+              </span>
+<span class="font-label-sm text-xs font-semibold text-outline">NACH Pre-sanction</span>
+</div>
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between p-space-xs bg-surface-container-lowest rounded hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-base">draw</span>
+<span class="font-body-sm text-body-sm text-on-surface">Signed Application Form</span>
+</div>
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+</div>
+<div class="flex items-center justify-between p-space-xs bg-surface-container-lowest rounded opacity-75">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-outline text-base">currency_rupee</span>
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface-variant">E-Mandate / NACH</span>
+<span class="font-label-sm text-[0.625rem] text-outline">Triggered post-sanction</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-sm">hourglass_empty</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 4: AUDIT LOG & DESK LEDGER NOTES -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between border-b pb-space-xs">
+<div class="flex items-center gap-space-md">
+<button class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary border-b-2 border-primary pb-1">Activity Log</button>
+<button class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-outline hover:text-on-surface pb-1 transition-colors">Desk Notes (3)</button>
+<button class="font-label-sm text-label-sm font-bold uppercase tracking-wider text-outline hover:text-on-surface pb-1 transition-colors">Call Records</button>
+</div>
+<span class="font-label-sm text-[0.6875rem] text-outline">System Ledger Synced</span>
+</div>
+<!-- Ledger Log Items -->
+<div class="divide-y font-body-sm text-body-sm">
+<div class="py-2.5 flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-error text-base mt-0.5 shrink-0">flag</span>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface">Amit Verma (Desk Executive)</span>
+<span class="font-mono text-outline text-xs">Today, 11:30 AM</span>
+</div>
+<p class="text-on-surface-variant mt-0.5 font-normal">
+                Flagged latest salary slip: September 2024 payslip uploaded by borrower is blurry and lacks official employer seal/digital signature. Requested immediate re-upload via manual intake.
+              </p>
+</div>
+</div>
+<div class="py-2.5 flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-primary text-base mt-0.5 shrink-0">query_stats</span>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface">Manual Credit Check Recorded</span>
+<span class="font-mono text-outline text-xs">23 Oct, 04:15 PM</span>
+</div>
+<p class="text-on-surface-variant mt-0.5 font-normal">
+                Credit check recorded manually. Credit score recorded: <strong class="text-on-surface">764</strong>. Zero Days Past Due (DPD) across all active credit accounts over trailing 24 months. Clean track record.
+              </p>
+</div>
+</div>
+<div class="py-2.5 flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-base mt-0.5 shrink-0">handshake</span>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface">Rahul Referral (Broker)</span>
+<span class="font-mono text-outline text-xs">22 Oct, 02:00 PM</span>
+</div>
+<p class="text-on-surface-variant mt-0.5 font-normal">
+                Case dossier created and registered from Jaipur auto dealership network. Target lender marked as HDFC Bank Car Loan division.
+              </p>
+</div>
+</div>
+</div>
+<!-- Add Rapid Note Input Box -->
+<div class="flex items-center gap-space-xs pt-space-xs mt-1">
+<input class="flex-1 bg-surface-container-low rounded px-space-sm py-1.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:bg-surface-container-lowest" placeholder="Type internal operational note or underwriter comment..." type="text"/>
+<button class="px-space-md py-1.5 rounded bg-primary-container text-on-primary hover:bg-primary font-label-md text-label-md shrink-0 transition-colors">Post Note</button>
+</div>
+</div>
+</div>
+<!-- RIGHT 4-COLS: LENDER ELIGIBILITY MATRIX & NEXT ACTIONS -->
+<div class="lg:col-span-4 flex flex-col gap-space-md">
+<!-- WIDGET 1: NEXT FOLLOW-UP CALL CARD (High Urgency) -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm p-space-md flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase font-bold text-secondary tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-base">alarm</span> Scheduled Follow-up
+          </span>
+<span class="font-mono text-[0.6875rem] font-bold text-on-surface bg-secondary-fixed/40 px-1.5 py-0.5 rounded">TODAY, 4:30 PM</span>
+</div>
+<div class="mt-1">
+<p class="font-body-sm text-body-sm font-semibold text-on-surface">Client Salary Slip Re-collection</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+            Call Rahul Sharma to guide him on extracting clean Sep 2024 PDF payslip from Tech Mahindra employee portal.
+          </p>
+</div>
+<div class="flex items-center gap-2 mt-2 pt-2">
+<a class="flex-1 py-1.5 rounded bg-primary text-on-primary hover:bg-primary-container text-center font-label-md text-label-md flex items-center justify-center gap-1 transition-colors" href="tel:+919000000000">
+<span class="material-symbols-outlined text-base">call</span> Call +91 90000...
+          </a>
+<button class="px-2.5 py-1.5 rounded bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" title="Reschedule">
+<span class="material-symbols-outlined text-base">calendar_month</span>
+</button>
+</div>
+</div>
+<!-- WIDGET 2: LENDER ELIGIBILITY MATRIX -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm p-space-md flex flex-col gap-space-md border border-dashed border-outline-variant">
+<div class="flex items-center justify-between pb-space-xs">
+<div>
+<div class="flex items-center gap-2">
+  <div class="font-label-sm text-label-sm uppercase font-bold text-on-surface tracking-wider">Lender Applications &amp; Status</div>
+  <span class="text-[0.625rem] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">FUTURE / PHASE 2</span>
+</div>
+<div class="font-label-sm text-[0.6875rem] text-outline">Application Progress &amp; Criteria (Manual Submission)</div>
+</div>
+<span class="material-symbols-outlined text-primary text-lg">insights</span>
+</div>
+<div class="space-y-space-sm font-body-sm text-body-sm">
+<!-- HDFC Bank (Selected Target) -->
+<div class="p-space-xs rounded bg-surface-container-low flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 font-bold text-on-surface">
+<span class="w-2.5 h-2.5 rounded-sm bg-primary"></span>
+<span>HDFC Bank (Auto)</span>
+</div>
+<span class="font-mono font-bold text-primary text-sm">Application Progress</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 94%"></div>
+</div>
+<div class="flex justify-between items-center text-[0.6875rem] text-on-surface-variant font-mono">
+<span>Application Status: Active</span>
+<span class="text-secondary font-bold">Preferred Desk</span>
+</div>
+</div>
+<!-- Kotak Mahindra Bank -->
+<div class="p-space-xs rounded bg-surface-container-lowest hover:bg-surface-container-low transition-colors flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 font-semibold text-on-surface">
+<span class="w-2.5 h-2.5 rounded-sm bg-secondary"></span>
+<span>Kotak Prime</span>
+</div>
+<span class="font-mono font-bold text-on-surface text-sm">Application Progress</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 91%"></div>
+</div>
+<div class="flex justify-between items-center text-[0.6875rem] text-on-surface-variant font-mono">
+<span>ROI: 9.35% • Tenure 60m</span>
+<span class="text-outline">Ready as Plan B</span>
+</div>
+</div>
+<!-- ICICI Bank -->
+<div class="p-space-xs rounded bg-surface-container-lowest hover:bg-surface-container-low transition-colors flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 font-semibold text-on-surface">
+<span class="w-2.5 h-2.5 rounded-sm bg-outline"></span>
+<span>ICICI Bank Car Loan</span>
+</div>
+<span class="font-mono font-bold text-on-surface text-sm">Application Progress</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-outline h-full rounded-full" style="width: 88%"></div>
+</div>
+<div class="flex justify-between items-center text-[0.6875rem] text-on-surface-variant font-mono">
+<span>Vehicle Age Restriction Fit</span>
+<span class="text-outline">Eligible</span>
+</div>
+</div>
+</div>
+<button class="w-full py-1.5 rounded bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors text-center" type="button">
+          Compare All 8 Partner Banks (Reference)
+        </button>
+</div>
+<!-- WIDGET 3: SETTLEMENT ESTIMATOR / PAYOUT SUMMARY -->
+<div class="bg-surface-container-lowest rounded-lg shadow-sm p-space-md flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface tracking-wider">Disbursement &amp; Settlement</span>
+<span class="material-symbols-outlined text-secondary text-base">account_balance_wallet</span>
+</div>
+<div class="bg-surface-container-low p-space-xs rounded mt-1 space-y-1 font-body-sm text-body-sm">
+<div class="flex justify-between text-on-surface-variant">
+<span>Gross Loan Value:</span>
+<span class="font-mono font-semibold text-on-surface">₹6,50,000</span>
+</div>
+<div class="flex justify-between text-on-surface-variant">
+<span>DSA Base Payout (2.0%):</span>
+<span class="font-mono font-semibold text-secondary">₹13,000</span>
+</div>
+<div class="flex justify-between text-on-surface-variant">
+<span>Sub-broker Share (70%):</span>
+<span class="font-mono text-outline">₹9,100</span>
+</div>
+<div class="flex justify-between pt-1 border-t font-semibold text-primary">
+<span>Net Syndicate Margin:</span>
+<span class="font-mono font-bold">₹3,900</span>
+</div>
+</div>
+<span class="font-label-sm text-[0.625rem] text-outline text-center mt-1">Automatic TDS (5%) deducted upon bank disbursement credit</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Client-side Script for Micro-interactions -->
+<script>
+  (function() {
+    const statusBtn = document.getElementById('statusDropdownBtn');
+    if (statusBtn) {
+      statusBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        alert('Status Transition Flow: Select Next Stage for LOS-10482:\n• Ready for Submission\n• Fast-track to Credit Team\n• Reject File');
+      });
+    }
+  })();
+</script></main></div></body></html>

@@ -1,11 +1,13 @@
 import React from 'react'
 import { useAuthStore } from '../../features/auth/useAuth'
+import { useTenantStore } from '../../features/auth/useTenant'
 import { useNavDrawer } from '../lib/useNavDrawer'
 import { NotificationBell } from '../../features/notifications/NotificationBell'
 import './TopBar.css'
 
 export const TopBar: React.FC = () => {
   const user = useAuthStore((s) => s.user)
+  const tenantName = useTenantStore((s) => s.currentTenant.settings?.branding?.name || s.currentTenant.name)
   const toggle = useNavDrawer((s) => s.toggle)
 
   return (
@@ -25,7 +27,7 @@ export const TopBar: React.FC = () => {
         </button>
 
         <span className="topbar-terminal-badge">
-          Jai Automobiles
+          {tenantName}
         </span>
 
         <span className="topbar-operator-text">

@@ -18,11 +18,13 @@ export const TasksPage: React.FC = () => {
     setIsLoading(true)
     setError(null)
     try {
-      const isOverdueQuery = filter === 'overdue' ? '&is_overdue=true' : ''
-      const statusQuery = filter === 'completed' ? 'completed' : filter === 'pending' ? 'pending' : ''
-      const url = `/workflow/tasks?${statusQuery ? `status=${statusQuery}` : ''}${isOverdueQuery}`
+      const params = new URLSearchParams()
+      if (filter === 'completed') params.set('status', 'completed')
+      else if (filter === 'pending') params.set('status', 'pending')
+      else if (filter === 'overdue') params.set('due_filter', 'overdue')
+      const url = `/workflow/tasks${params.toString() ? `?${params.toString()}` : ''}`
       const data = await api.get<Task[]>(url)
-      setTasks(data)
+      setTasks(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load tasks')
     } finally {

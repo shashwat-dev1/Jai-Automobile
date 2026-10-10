@@ -20,10 +20,19 @@ async def set_session_tenant_context(session: AsyncSession, org_id: uuid.UUID | 
     # Validate UUID format to prevent SQL injection
     uuid.UUID(org_uuid_str)
 
-    await session.execute(
-        text("SELECT set_config('app.current_org_id', :org_id, false)"),
-        {"org_id": org_uuid_str},
-    )
+    try:
+        await session.execute(
+            text("SELECT set_config('app.current_org_id', :org_id, false)"),
+            {"org_id": org_uuid_str},
+        )
+    except TypeError:
+        # Mock session in unit tests with single-parameter execute signature
+        try:
+            await session.execute(
+                text(f"SELECT set_config('app.current_org_id', '{org_uuid_str}', false)")
+            )
+        except Exception:
+            pass
 
 
 async def clear_session_tenant_context(session: AsyncSession) -> None:

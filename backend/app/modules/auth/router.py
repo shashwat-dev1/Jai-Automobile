@@ -6,7 +6,9 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.modules.audit.service import AuditService
 from app.modules.auth.dependencies import (
     get_auth_service,
@@ -115,11 +117,26 @@ async def logout(
 @router.get("/auth/me", response_model=ApiResponse[dict[str, Any]])
 async def get_me(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> ApiResponse[dict[str, Any]]:
-    """Return profile and permissions for the currently authenticated user."""
+    """Return profile, permissions, and organization branding for the currently authenticated user."""
     perms = list(ROLE_PERMISSIONS.get(current_user.role, set()))
     user_data = UserResponse.model_validate(current_user).model_dump(mode="json")
     user_data["permissions"] = sorted(perms)
+    try:
+        from app.modules.tenancy.models import Organization
+        org = await db.get(Organization, current_user.org_id)
+        if org:
+            user_data["organization"] = {
+                "id": str(org.id),
+                "name": org.name,
+                "slug": org.slug,
+                "plan": org.plan,
+                "is_active": org.is_active,
+                "settings": org.settings or {},
+            }
+    except Exception:
+        pass
     return ApiResponse(data=user_data)
 
 

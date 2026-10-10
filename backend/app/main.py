@@ -157,6 +157,7 @@ def create_app() -> FastAPI:
     from app.modules.privacy.router import router as privacy_router
     from app.modules.reports.router import router as reports_router
     from app.modules.sources.router import router as sources_router
+    from app.modules.tenancy.router import router as tenancy_router
     from app.modules.workflow.router import router as workflow_router
     from app.routers.api_root import router as api_root_router
     from app.routers.health import router as health_router
@@ -166,6 +167,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(api_root_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(tenancy_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(parties_router, prefix="/api/v1")

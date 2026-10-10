@@ -26,9 +26,11 @@ export const PDDBoardPage: React.FC = () => {
     setIsLoading(true)
     setError(null)
     try {
-      const bucketParam = selectedBucket !== 'all' ? `&bucket=${selectedBucket}` : ''
-      const statusParam = statusFilter ? `&status=${statusFilter}` : ''
-      const data = await api.get<PDDBoardResponse>(`/pdd?${bucketParam}${statusParam}`)
+      const params = new URLSearchParams()
+      if (selectedBucket !== 'all') params.set('bucket', selectedBucket)
+      if (statusFilter) params.set('status', statusFilter)
+      const url = `/pdd${params.toString() ? `?${params.toString()}` : ''}`
+      const data = await api.get<PDDBoardResponse>(url)
       setBoardData(data)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load PDD Board')

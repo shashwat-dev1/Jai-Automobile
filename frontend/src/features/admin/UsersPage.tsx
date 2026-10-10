@@ -43,7 +43,7 @@ export function UsersPage() {
     setError(null)
     try {
       const data = await api.get<User[]>('/users')
-      setUsers(data)
+      setUsers(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load organization users')
     } finally {

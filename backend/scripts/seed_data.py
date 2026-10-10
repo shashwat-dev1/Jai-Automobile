@@ -99,12 +99,55 @@ async def seed() -> None:
                 slug="apex-loans",
                 plan="growth",
                 region="in-west-1",
-                settings={"currency": "INR", "timezone": "Asia/Kolkata"},
+                settings={
+                    "currency": "INR",
+                    "timezone": "Asia/Kolkata",
+                    "branding": {
+                        "name": "Apex Capital Advisors",
+                        "tagline": "Commercial Vehicle & Equipment Lending",
+                        "logo_url": "/jai_auto_logo.jpg",
+                        "theme_preset": "navy_slate",
+                        "primary_color": "#2563eb",
+                        "accent_color": "#94a3b8",
+                    },
+                    "modules": {
+                        "cases": True,
+                        "documents": True,
+                        "lenders": True,
+                        "pdd": True,
+                        "payout": True,
+                        "reconciliation": True,
+                        "reports": True,
+                        "audit": True,
+                    },
+                },
                 is_active=True,
             )
             session.add(org_a)
         else:
             org_a.name = "Apex Capital Advisors"
+            org_a.settings = {
+                "currency": "INR",
+                "timezone": "Asia/Kolkata",
+                "branding": {
+                    "name": "Apex Capital Advisors",
+                    "tagline": "Commercial Vehicle & Equipment Lending",
+                    "logo_url": "/jai_auto_logo.jpg",
+                    "theme_preset": "navy_slate",
+                    "primary_color": "#2563eb",
+                    "accent_color": "#94a3b8",
+                },
+                "modules": {
+                    "cases": True,
+                    "documents": True,
+                    "lenders": True,
+                    "pdd": True,
+                    "payout": True,
+                    "reconciliation": True,
+                    "reports": True,
+                    "audit": True,
+                },
+            }
 
         org_b = await session.get(Organization, ORG_B_ID)
         if not org_b:
@@ -114,12 +157,55 @@ async def seed() -> None:
                 slug="bluestar",
                 plan="starter",
                 region="in-west-1",
-                settings={"currency": "INR", "timezone": "Asia/Kolkata"},
+                settings={
+                    "currency": "INR",
+                    "timezone": "Asia/Kolkata",
+                    "branding": {
+                        "name": "BlueStar Financial Services",
+                        "tagline": "Retail & Two-Wheeler Auto Finance",
+                        "logo_url": "/jai_auto_logo.jpg",
+                        "theme_preset": "sapphire_royal",
+                        "primary_color": "#4f46e5",
+                        "accent_color": "#38bdf8",
+                    },
+                    "modules": {
+                        "cases": True,
+                        "documents": True,
+                        "lenders": True,
+                        "pdd": True,
+                        "payout": True,
+                        "reconciliation": False,
+                        "reports": True,
+                        "audit": False,
+                    },
+                },
                 is_active=True,
             )
             session.add(org_b)
         else:
             org_b.name = "BlueStar Financial Services"
+            org_b.settings = {
+                "currency": "INR",
+                "timezone": "Asia/Kolkata",
+                "branding": {
+                    "name": "BlueStar Financial Services",
+                    "tagline": "Retail & Two-Wheeler Auto Finance",
+                    "logo_url": "/jai_auto_logo.jpg",
+                    "theme_preset": "sapphire_royal",
+                    "primary_color": "#4f46e5",
+                    "accent_color": "#38bdf8",
+                },
+                "modules": {
+                    "cases": True,
+                    "documents": True,
+                    "lenders": True,
+                    "pdd": True,
+                    "payout": True,
+                    "reconciliation": False,
+                    "reports": True,
+                    "audit": False,
+                },
+            }
 
         await session.commit()
 

@@ -42,7 +42,7 @@ export function SourcesPage() {
     setError(null)
     try {
       const data = await api.get<SourceItem[]>('/sources?active_only=false')
-      setSources(data)
+      setSources(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to query sources')
     } finally {

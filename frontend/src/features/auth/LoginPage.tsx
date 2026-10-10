@@ -6,6 +6,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './useAuth'
+import { useTenantStore } from './useTenant'
 import Button from '../../shared/components/Button'
 import './LoginPage.css'
 
@@ -25,7 +26,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
     orgSlug: 'jai-automobiles',
     identifier: 'owner@jaiautomobiles.com',
     pass: 'JaiAuto@123',
-    tag: 'Full Access',
+    tag: 'Full Access (Jai Auto)',
   },
   {
     role: 'Senior Loan Processor',
@@ -41,15 +42,23 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
     orgSlug: 'jai-automobiles',
     identifier: 'accountant@jaiautomobiles.com',
     pass: 'JaiAuto@123',
-    tag: 'Payouts & Recon Only (No Intake)',
+    tag: 'Payouts & Recon Only',
   },
   {
-    role: 'Field Executive',
-    roleKey: 'field_executive',
-    orgSlug: 'jai-automobiles',
-    identifier: 'field@jaiautomobiles.com',
-    pass: 'JaiAuto@123',
-    tag: 'Sourcing & Collection',
+    role: 'Apex Capital Owner (Org B)',
+    roleKey: 'owner',
+    orgSlug: 'apex-loans',
+    identifier: 'owner@apexloans.com',
+    pass: 'Apex@123',
+    tag: 'Navy Theme / Commercial',
+  },
+  {
+    role: 'BlueStar Owner (Org C)',
+    roleKey: 'owner',
+    orgSlug: 'bluestar',
+    identifier: 'owner@bluestar.com',
+    pass: 'BlueStar@123',
+    tag: 'Sapphire Theme / Retail',
   },
   {
     role: 'Internal Auditor',
@@ -71,6 +80,13 @@ export function LoginPage() {
   const loginAsDemo = useAuthStore((s) => s.loginAsDemo)
   const isLoading = useAuthStore((s) => s.isLoading)
   const storeError = useAuthStore((s) => s.error)
+  const currentTenant = useTenantStore((s) => s.currentTenant)
+  const switchTenant = useTenantStore((s) => s.switchTenant)
+  const branding = currentTenant?.settings?.branding || {
+    name: 'Jai Automobiles',
+    tagline: 'Vehicle Finance & Loan Operations Portal',
+    logo_url: '/jai_auto_logo.jpg',
+  }
 
   const [orgSlug, setOrgSlug] = useState('jai-automobiles')
   const [identifier, setIdentifier] = useState('owner@jaiautomobiles.com')
@@ -116,6 +132,7 @@ export function LoginPage() {
 
   const fillCredential = (c: DemoCredential) => {
     setOrgSlug(c.orgSlug)
+    switchTenant(c.orgSlug)
     setIdentifier(c.identifier)
     setPassword(c.pass)
     setSelectedRole(c.roleKey || 'owner')
@@ -134,11 +151,11 @@ export function LoginPage() {
         <div className="login-hero">
           <div className="login-hero-header">
             <div className="login-brand-monogram" style={{ background: 'transparent', padding: 0, overflow: 'hidden' }}>
-              <img src="/jai_auto_logo.jpg" alt="Jai Automobiles" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain' }} />
+              <img src={branding.logo_url || '/jai_auto_logo.jpg'} alt={branding.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain' }} />
             </div>
             <div>
-              <div className="login-brand-title">Jai Automobiles</div>
-              <div className="login-brand-tagline">Vehicle Finance & Loan Operations Portal</div>
+              <div className="login-brand-title">{branding.name}</div>
+              <div className="login-brand-tagline">{branding.tagline || 'Vehicle Finance & Loan Operations Portal'}</div>
             </div>
           </div>
 

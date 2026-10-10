@@ -208,8 +208,10 @@ class MockPayoutDbSession:
     async def refresh(self, entity: Any) -> None:
         pass
 
-    async def execute(self, statement: Any) -> Any:
+    async def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
         stmt_str = str(statement).lower()
+        if "set_config" in stmt_str:
+            return None
 
         # Handle DELETE payout_splits
         if "delete from payout_splits" in stmt_str:

@@ -4,6 +4,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
 import { UsersPage } from '../features/admin/UsersPage'
 import { AuditLogPage } from '../features/admin/AuditLogPage'
+import { TenantsPage } from '../features/admin/TenantsPage'
 import { PERMISSIONS } from '../features/auth/types'
 
 import { CaseListPage } from '../features/cases/CaseListPage'
@@ -124,6 +125,30 @@ function AppRoutes() {
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.AUDIT_READ}>
               <AuditLogPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/organizations"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
+              <TenantsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/branding"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
+              <TenantsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/tenants"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
+              <TenantsPage />
             </ProtectedRoute>
           }
         />

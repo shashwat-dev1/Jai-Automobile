@@ -56,7 +56,7 @@ class TestAuditEndpoints:
 
         # Mock database session returning empty audit list
         class MockSession:
-            async def execute(self, stmt):  # type: ignore[no-untyped-def]
+            async def execute(self, *args, **kwargs):  # type: ignore[no-untyped-def]
                 class MockResult:
                     def scalar_one(self) -> int:
                         return 0

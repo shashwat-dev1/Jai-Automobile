@@ -17,7 +17,7 @@ export const LendersPage: React.FC = () => {
     setError(null)
     try {
       const data = await api.get<Lender[]>('/lenders')
-      setLenders(data)
+      setLenders(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load partner lenders')
     } finally {

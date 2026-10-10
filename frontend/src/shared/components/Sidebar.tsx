@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../features/auth/useAuth'
 import { usePermission } from '../../features/auth/usePermission'
+import { useTenantStore } from '../../features/auth/useTenant'
 import { PERMISSIONS } from '../../features/auth/types'
 import { useNavDrawer } from '../lib/useNavDrawer'
 import './Sidebar.css'
@@ -156,6 +157,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: <AuditIcon />,
     permission: PERMISSIONS.AUDIT_READ,
   },
+  {
+    label: 'Tenants & Branding',
+    path: '/admin/organizations',
+    icon: <UsersIcon />,
+    permission: PERMISSIONS.USERS_MANAGE,
+  },
 ]
 
 function Sidebar() {
@@ -164,6 +171,12 @@ function Sidebar() {
   const { user, isAuthenticated, logout } = useAuthStore()
   const { can } = usePermission()
   const { isOpen, close } = useNavDrawer()
+  const currentTenant = useTenantStore((s) => s.currentTenant)
+  const branding = currentTenant?.settings?.branding || {
+    name: 'Jai Automobiles',
+    tagline: 'Vehicle Finance',
+    logo_url: '/jai_auto_logo.jpg',
+  }
   let lastSection: string | undefined
 
   useEffect(() => {
@@ -194,11 +207,11 @@ function Sidebar() {
         <div className="sidebar-brand">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
             <div className="sidebar-brand-logo" aria-hidden="true" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/jai_auto_logo.jpg" alt="JA" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={branding.logo_url || '/jai_auto_logo.jpg'} alt={branding.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <div>
-              <div className="sidebar-brand-name">Jai Automobiles</div>
-              <div className="sidebar-brand-tag">Vehicle Finance</div>
+              <div className="sidebar-brand-name">{branding.name}</div>
+              <div className="sidebar-brand-tag">{branding.tagline || 'Vehicle Finance'}</div>
             </div>
           </div>
           <button
