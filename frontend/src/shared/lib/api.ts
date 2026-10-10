@@ -31,7 +31,6 @@ export interface EnvelopeResponse<T> {
 
 import { useAuthStore } from '../../features/auth/useAuth'
 import {
-  JAI_MOCK_CASES,
   JAI_MOCK_DASHBOARD,
   JAI_MOCK_PDD,
   JAI_MOCK_EXPECTATIONS,
@@ -47,7 +46,16 @@ import {
   JAI_MOCK_REFERRAL_PROFILES,
   JAI_MOCK_REFERRAL_COMMISSIONS,
 } from './mockDatabase'
-import { createCaseInFirestore } from './firebaseService'
+import {
+  getStoredCases,
+  saveStoredCases,
+  addStoredCase,
+  getStoredReferralProfiles,
+  addOrUpdateReferralProfile,
+  getStoredDocuments,
+  saveStoredDocuments,
+  generateDeterministicOcrDocs,
+} from './storeSync'
 
 let currentMockSessionUser: any = null
 
@@ -491,22 +499,25 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   const caseStatusMatch = clean.match(/\/cases\/([^\/\?]+)\/status/)
   if (caseStatusMatch && method === 'POST') {
     const caseId = caseStatusMatch[1]
-    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || JAI_MOCK_CASES[0]
+    const cases = getStoredCases()
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || cases[0]
     if (foundCase) {
       const prevStatus = foundCase.status
       foundCase.status = parsedBody?.status || foundCase.status
       foundCase.version = (foundCase.version || 1) + 1
       foundCase.updated_at = new Date().toISOString()
-      if (Array.isArray(foundCase.status_history)) {
-        foundCase.status_history.unshift({
-          id: `sh-${Date.now()}`,
-          from_status: prevStatus,
-          to_status: foundCase.status,
-          changed_by: 'current-user',
-          changer_name: 'Current User',
-          created_at: new Date().toISOString(),
-        })
+      if (!Array.isArray(foundCase.status_history)) {
+        foundCase.status_history = []
       }
+      foundCase.status_history.unshift({
+        id: `sh-${Date.now()}`,
+        from_status: prevStatus,
+        to_status: foundCase.status,
+        changed_by: 'current-user',
+        changer_name: 'Current User',
+        created_at: new Date().toISOString(),
+      })
+      saveStoredCases(cases)
       return foundCase
     }
   }
@@ -515,7 +526,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   if (clean.includes('/cases/telecaller/workspace')) {
     const active = getActiveMockUser()
     const targetUserId = (active && active.role === 'telecaller') ? active.id : 'usr-telecaller-1'
-    const list = JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id === targetUserId)
+    const cases = getStoredCases()
+    const list = cases.filter((c: any) => c.assigned_telecaller_id === targetUserId)
     return {
       total_assigned: list.length,
       pending_leads: list.filter((c: any) => !c.call_outcome || c.call_outcome === 'new').length,
@@ -538,9 +550,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const tcUser = JAI_MOCK_USERS.find((u: any) => u.id === telecaller_id)
     const tcName = tcUser?.name || (telecaller_id === 'usr-telecaller-2' ? 'Rahul Verma' : 'Priya Sharma')
     let count = 0
+    const cases = getStoredCases()
     if (Array.isArray(case_ids)) {
       case_ids.forEach((cid: string) => {
-        const found = JAI_MOCK_CASES.find((c: any) => c.id === cid)
+        const found = cases.find((c: any) => c.id === cid)
         if (found) {
           found.assigned_telecaller_id = telecaller_id
           found.assigned_telecaller_name = tcName
@@ -548,6 +561,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           count++
         }
       })
+      saveStoredCases(cases)
     }
     return {
       assigned_count: count || (case_ids?.length || 1),
@@ -561,7 +575,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   if (callActivityMatch && method === 'POST') {
     const caseId = callActivityMatch[1]
     const active = getActiveMockUser()
-    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+    const cases = getStoredCases()
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
     if (!foundCase) {
       throw new ApiError('Case not found', 404, 'NOT_FOUND')
     }
@@ -586,6 +601,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       telecaller_name: active?.name || 'Priya Sharma',
       created_at: new Date().toISOString(),
     })
+    saveStoredCases(cases)
     return {
       case_id: foundCase.id,
       case_no: foundCase.case_no,
@@ -650,7 +666,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
 
     // Check duplicate submission within 5 mins
-    const recentDup = JAI_MOCK_CASES.find((c: any) => 
+    const storedCases = getStoredCases()
+    const recentDup = storedCases.find((c: any) => 
       c.referral_partner_mobile === rawMobile &&
       c.applicant_name === parsedBody?.applicant_name &&
       c.loan_amount_requested === Number(parsedBody?.loan_amount_requested) &&
@@ -668,7 +685,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       }
     }
 
-    let partner = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.mobile_primary.includes(rawMobile))
+    const referralProfiles = getStoredReferralProfiles()
+    let partner = referralProfiles.find((p: any) => p.mobile_primary?.includes(rawMobile))
     if (!partner) {
       partner = {
         id: `ref-p-${Date.now()}`,
@@ -685,10 +703,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         notes: 'Self-registered via public portal referral intake.',
         created_at: new Date().toISOString(),
       }
-      JAI_MOCK_REFERRAL_PROFILES.unshift(partner)
     } else {
-      partner.total_leads++
+      partner.total_leads = (partner.total_leads || 0) + 1
     }
+    addOrUpdateReferralProfile(partner)
 
     const newCaseNo = `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`
     const newCase: any = {
@@ -723,9 +741,41 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         name: parsedBody?.applicant_name || 'Referral Borrower',
         mobile_primary: parsedBody?.applicant_mobile || '9820011223',
         city: parsedBody?.city || 'Mumbai',
+        state: parsedBody?.state || 'Maharashtra',
+        pincode: parsedBody?.pincode || '400053',
       },
+      vehicle: {
+        id: `v-${Date.now()}`,
+        case_id: `case-jai-${Date.now()}`,
+        vehicle_type: parsedBody?.product_type || 'four_wheeler',
+        make: parsedBody?.vehicle_make || 'Hyundai',
+        model: parsedBody?.vehicle_model || 'Creta',
+        condition: isNew ? 'new' : 'used',
+        registration_no: parsedBody?.vehicle_reg_no || (isNew ? undefined : 'MH-02-CB-8821'),
+      },
+      status_history: [
+        { id: `sh-${Date.now()}`, from_status: null, to_status: 'lead', changed_by: 'system', changer_name: 'Referral Portal', created_at: new Date().toISOString() },
+      ],
     }
-    JAI_MOCK_CASES.unshift(newCase)
+    addStoredCase(newCase)
+
+    // Generate and store deterministic OCR documents for this case
+    const ocrDocs = generateDeterministicOcrDocs({
+      id: newCase.id,
+      case_no: newCase.case_no,
+      applicant_name: newCase.applicant_name,
+      mobile: newCase.mobile,
+      vehicle_make: parsedBody?.vehicle_make || 'Hyundai',
+      vehicle_model: parsedBody?.vehicle_model || 'Creta',
+      vehicle_reg_no: parsedBody?.vehicle_reg_no || (isNew ? undefined : 'MH-02-CB-8821'),
+      vehicle_condition: isNew ? 'new' : 'used',
+      city: parsedBody?.city || 'Mumbai',
+      state: parsedBody?.state || 'Maharashtra',
+      pincode: parsedBody?.pincode || '400053',
+      loan_amount: Number(parsedBody?.loan_amount_requested) || 500000,
+    })
+    saveStoredDocuments(newCase.id, ocrDocs)
+
     return {
       success: true,
       case_id: newCase.id,
@@ -741,8 +791,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   const profileDetailMatch = clean.match(/\/referrals\/profiles\/([^\/\?]+)$/)
   if (profileDetailMatch && method === 'GET') {
     const profileId = profileDetailMatch[1]
-    const profile = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.id === profileId) || JAI_MOCK_REFERRAL_PROFILES[0]
-    const associatedLeads = JAI_MOCK_CASES.filter((c: any) => c.referral_profile_id === profile.id || c.referral_partner_name === profile.name)
+    const profiles = getStoredReferralProfiles()
+    const allCases = getStoredCases()
+    const profile = profiles.find((p: any) => p.id === profileId) || profiles[0]
+    const associatedLeads = allCases.filter((c: any) => c.referral_profile_id === profile.id || c.referral_partner_name === profile.name)
     const associatedComms = JAI_MOCK_REFERRAL_COMMISSIONS.filter((c: any) => c.referral_profile_id === profile.id)
     return {
       profile,
@@ -823,13 +875,78 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
+  // Telecaller Workspace (GET /cases/telecaller/workspace)
+  if (clean.includes('/cases/telecaller/workspace')) {
+    const active = getActiveMockUser()
+    const cases = getStoredCases()
+    const myLeads = (active && active.role === 'telecaller')
+      ? cases.filter((c: any) => c.assigned_telecaller_id === active.id)
+      : cases
+    return {
+      total_assigned: myLeads.length,
+      pending_leads: myLeads.filter((l: any) => !l.call_outcome || l.call_outcome === 'new').length,
+      follow_ups_due: myLeads.filter((l: any) => l.call_outcome === 'follow_up').length,
+      interested_count: myLeads.filter((l: any) => l.call_outcome === 'interested').length,
+      completed_count: myLeads.filter((l: any) => ['interested', 'not_interested', 'duplicate'].includes(l.call_outcome || '')).length,
+      leads: myLeads,
+    }
+  }
+
+  // Lead Assignment to Telecaller (POST /cases/assign)
+  if (clean.includes('/cases/assign') && method === 'POST') {
+    const caseIds: string[] = parsedBody?.case_ids || []
+    const telecallerId: string = parsedBody?.telecaller_id || 'usr-telecaller-1'
+    const tcName = telecallerId === 'usr-telecaller-2' ? 'Rahul Verma' : 'Priya Sharma'
+
+    const stored = getStoredCases()
+    const updated = stored.map((c: any) => {
+      if (caseIds.includes(c.id) || caseIds.includes(c.case_no)) {
+        return {
+          ...c,
+          assigned_telecaller_id: telecallerId,
+          assigned_telecaller_name: tcName,
+        }
+      }
+      return c
+    })
+    saveStoredCases(updated)
+
+    return {
+      success: true,
+      assigned_count: caseIds.length,
+      assigned_telecaller_id: telecallerId,
+      assigned_telecaller_name: tcName,
+    }
+  }
+
+  // Call Activity Log (POST /cases/:id/call-activity)
+  if (clean.includes('/call-activity') && method === 'POST') {
+    const caseId = clean.match(/\/cases\/([^\/\?]+)/)?.[1]
+    const stored = getStoredCases()
+    const updated = stored.map((c: any) => {
+      if (c.id === caseId || c.case_no === caseId) {
+        return {
+          ...c,
+          call_outcome: parsedBody?.outcome,
+          telecaller_remarks: parsedBody?.remarks,
+          follow_up_at: parsedBody?.follow_up_at,
+          call_attempts_count: (c.call_attempts_count || 0) + 1,
+        }
+      }
+      return c
+    })
+    saveStoredCases(updated)
+    return { success: true }
+  }
+
   // Single Case Dossier (GET /cases/:id) with Server-Side Assignment Authorization
   const singleCaseMatch = clean.match(/\/cases\/([^\/\?]+)$/)
   if (singleCaseMatch && method === 'GET') {
     const caseId = singleCaseMatch[1]
-    if (caseId && caseId !== 'new' && caseId !== 'list') {
+    if (caseId && caseId !== 'new' && caseId !== 'list' && caseId !== 'assign') {
       const active = getActiveMockUser()
-      const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+      const cases = getStoredCases()
+      const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
       if (!foundCase) {
         throw new ApiError('Case not found', 404, 'NOT_FOUND')
       }
@@ -845,10 +962,11 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   // Cases List (GET /cases) with Strict Telecaller Assignment Filter
   if (clean.includes('/cases') && method === 'GET') {
     const active = getActiveMockUser()
+    const cases = getStoredCases()
     if (active && active.role === 'telecaller') {
-      return JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id === active.id)
+      return cases.filter((c: any) => c.assigned_telecaller_id === active.id)
     }
-    return JAI_MOCK_CASES
+    return cases
   }
 
   // Case Creation (POST /cases)
@@ -856,18 +974,18 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const newCase = {
       id: `case-jai-${Date.now()}`,
       case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
-      applicant_name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-      primary_applicant_name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-      mobile: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
-      primary_applicant_mobile: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
-      product: parsedBody?.loan?.product || 'used_car',
-      product_type: parsedBody?.loan?.product || 'used_car',
+      applicant_name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+      primary_applicant_name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+      mobile: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+      primary_applicant_mobile: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+      product: parsedBody?.product_type || parsedBody?.loan?.product || 'used_car',
+      product_type: parsedBody?.product_type || parsedBody?.loan?.product || 'used_car',
       status: 'lead',
-      applied_loan_amount: Number(parsedBody?.loan?.requested_amount) || 750000,
-      loan_amount_requested: Number(parsedBody?.loan?.requested_amount) || 750000,
-      vehicle_summary: parsedBody?.vehicle?.make ? `${parsedBody.vehicle.make} ${parsedBody.vehicle.model || ''}` : 'Hyundai Creta 1.5 SX',
-      vehicle_details: parsedBody?.vehicle?.make ? `${parsedBody.vehicle.make} ${parsedBody.vehicle.model || ''}` : 'Hyundai Creta 1.5 SX',
-      source_name: parsedBody?.source_name || 'Direct Walk-in',
+      applied_loan_amount: Number(parsedBody?.loan_amount_requested || parsedBody?.loan?.requested_amount) || 750000,
+      loan_amount_requested: Number(parsedBody?.loan_amount_requested || parsedBody?.loan?.requested_amount) || 750000,
+      vehicle_summary: parsedBody?.vehicle_make ? `${parsedBody.vehicle_make} ${parsedBody.vehicle_model || ''}` : 'Hyundai Creta 1.5 SX',
+      vehicle_details: parsedBody?.vehicle_make ? `${parsedBody.vehicle_make} ${parsedBody.vehicle_model || ''}` : 'Hyundai Creta 1.5 SX',
+      source_name: parsedBody?.source_name || 'Quick Intake Desk',
       owner_name: 'Aarav Sharma',
       has_consent: true,
       age_in_days: 0,
@@ -876,32 +994,47 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       updated_at: new Date().toISOString(),
       primary_party: {
         id: `p-${Date.now()}`,
-        name: parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-        mobile_primary: parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
-        pan_masked: parsedBody?.borrower?.pan ? `${parsedBody.borrower.pan.slice(0, 5)}****${parsedBody.borrower.pan.slice(-1)}` : 'ABCDE****F',
+        name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+        mobile_primary: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+        pan_masked: parsedBody?.party_pan ? `${parsedBody.party_pan.slice(0, 5)}****${parsedBody.party_pan.slice(-1)}` : 'ABCDE****F',
         aadhaar_masked: '**** **** 1234',
-        employment_type: parsedBody?.borrower?.employment_type || 'Salaried',
-        city: parsedBody?.borrower?.city || 'Mumbai',
-        monthly_income: Number(parsedBody?.borrower?.monthly_income) || 75000,
+        employment_type: 'Salaried',
+        city: 'Mumbai',
+        monthly_income: 75000,
       },
       vehicle: {
         id: `v-${Date.now()}`,
         case_id: `case-jai-${Date.now()}`,
-        vehicle_type: parsedBody?.loan?.product || 'four_wheeler',
-        make: parsedBody?.vehicle?.make || 'Hyundai',
-        model: parsedBody?.vehicle?.model || 'Creta',
-        variant: parsedBody?.vehicle?.variant || '1.5 SX',
-        year_of_manufacture: Number(parsedBody?.vehicle?.year) || 2023,
+        vehicle_type: parsedBody?.product_type || 'four_wheeler',
+        make: parsedBody?.vehicle_make || 'Hyundai',
+        model: parsedBody?.vehicle_model || 'Creta',
+        variant: '1.5 SX',
+        year_of_manufacture: 2023,
         condition: 'used',
-        registration_no: parsedBody?.vehicle?.registration_no || 'MH02EK9988',
+        registration_no: parsedBody?.vehicle_registration_no || 'MH02EK9988',
         valuation_amount: 850000,
       },
       status_history: [
         { id: `sh-${Date.now()}`, from_status: null, to_status: 'lead', changed_by: 'u-1', changer_name: 'Aarav Sharma', created_at: new Date().toISOString() },
       ],
     }
-    JAI_MOCK_CASES.unshift(newCase)
-    createCaseInFirestore(newCase).catch((e) => console.warn('Firestore case push notice:', e))
+    addStoredCase(newCase)
+
+    // Generate and store deterministic OCR docs
+    const ocrDocs = generateDeterministicOcrDocs({
+      id: newCase.id,
+      case_no: newCase.case_no,
+      applicant_name: newCase.applicant_name,
+      mobile: newCase.mobile,
+      pan: parsedBody?.party_pan,
+      vehicle_make: newCase.vehicle?.make,
+      vehicle_model: newCase.vehicle?.model,
+      vehicle_reg_no: newCase.vehicle?.registration_no,
+      vehicle_condition: 'used',
+      loan_amount: newCase.loan_amount_requested,
+    })
+    saveStoredDocuments(newCase.id, ocrDocs)
+
     return {
       case: newCase,
       duplicate_warnings: [],
@@ -1189,10 +1322,26 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Checklist
   if (clean.includes('/checklist')) {
+    const caseId = clean.match(/\/cases\/([^\/\?]+)\/checklist/)?.[1] || 'case-jai-01'
+    const docs = getStoredDocuments(caseId)
+    const items = docs.map((d) => ({
+      document_type_id: d.document_type_id,
+      code: d.scan_result?.document_type_code || d.document_type_id.replace('dt-', '').toUpperCase(),
+      name: d.file_name.replace(/_/g, ' ').replace('.pdf', ''),
+      group_name: d.document_type_id.includes('rc') ? 'Vehicle Documents' : 'KYC Documents',
+      is_mandatory: true,
+      status: d.status,
+      document_id: d.id,
+      file_name: d.file_name,
+      file_size: d.file_size,
+      can_download: true,
+      uploaded_at: d.uploaded_at,
+      scan_result: d.scan_result,
+    }))
     return {
-      case_id: 'case-jai-01',
-      missing_mandatory_count: 2,
-      items: [
+      case_id: caseId,
+      missing_mandatory_count: 0,
+      items: items.length > 0 ? items : [
         {
           document_type_id: 'dt-pan',
           code: 'PAN',
@@ -1220,40 +1369,63 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           uploaded_at: '2025-02-15T10:32:00Z',
         },
         {
-          document_type_id: 'dt-bank-stmt',
-          code: 'BANK_STMT',
-          name: 'Bank Statement (Latest 6 Months)',
-          group_name: 'Financial Documents',
-          is_mandatory: true,
-          status: 'under_review',
-          document_id: 'doc-stmt-01',
-          file_name: 'hdfc_bank_statement.pdf',
-          file_size: 890000,
-          can_download: true,
-          uploaded_at: '2025-02-16T14:10:00Z',
-        },
-        {
           document_type_id: 'dt-rc',
           code: 'VEHICLE_RC',
           name: 'Vehicle Registration Certificate (RC)',
           group_name: 'Vehicle Documents',
           is_mandatory: true,
-          status: 'requested',
-          document_id: null,
-          can_download: false,
-        },
-        {
-          document_type_id: 'dt-form34',
-          code: 'FORM_34',
-          name: 'Form 34 Hypothecation Application',
-          group_name: 'PDD Documents',
-          is_mandatory: true,
-          status: 'requested',
-          document_id: null,
-          can_download: false,
+          status: 'verified',
+          document_id: 'doc-rc-01',
+          file_name: 'vehicle_rc.pdf',
+          file_size: 412000,
+          can_download: true,
+          uploaded_at: '2025-02-15T10:35:00Z',
         },
       ],
     }
+  }
+
+  // Applications Fallback
+  if (clean.includes('/applications')) {
+    if (clean.includes('/pdd')) {
+      return []
+    }
+    return [
+      {
+        id: 'app-hdfc-01',
+        case_id: clean.match(/\/cases\/([^\/\?]+)/)?.[1] || 'case-jai-01',
+        lender_id: 'lender-hdfc',
+        lender_name: 'HDFC Bank',
+        status: 'in_review',
+        applied_at: new Date().toISOString(),
+        loan_amount_applied: 500000,
+        tenure_applied_months: 48,
+        interest_rate_offered: 10.5,
+        is_winning: false,
+      },
+    ]
+  }
+
+  // Workflow tasks Fallback
+  if (clean.includes('/tasks') || clean.includes('/workflow/tasks')) {
+    return []
+  }
+
+  // PDD Board Fallback
+  if (clean.includes('/pdd')) {
+    return { items: [] }
+  }
+
+  // Timeline / Audit Fallback
+  if (clean.includes('/timeline') || clean.includes('/audit')) {
+    return [
+      {
+        id: 'audit-01',
+        event_name: 'Case Initialized & Ingestion Completed',
+        created_at: new Date().toISOString(),
+        actor_name: 'System Intake Pipeline',
+      },
+    ]
   }
 
   return null

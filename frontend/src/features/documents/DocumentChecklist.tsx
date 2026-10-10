@@ -97,12 +97,12 @@ export function DocumentChecklist({ caseId, caseNo, customerName }: Props) {
   }
 
   // Group items by group_name
-  const groupedItems = checklist?.items.reduce<Record<string, ChecklistItem[]>>((acc, item) => {
+  const groupedItems = (checklist?.items || []).reduce<Record<string, ChecklistItem[]>>((acc, item) => {
     const group = item.group_name || 'General'
     if (!acc[group]) acc[group] = []
     acc[group].push(item)
     return acc
-  }, {}) || {}
+  }, {})
 
   return (
     <div className="doc-checklist-container">

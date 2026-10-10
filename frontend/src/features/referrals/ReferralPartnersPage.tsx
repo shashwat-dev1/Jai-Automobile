@@ -5,10 +5,10 @@ import Button from '../../shared/components/Button'
 import {
   JAI_MOCK_REFERRAL_PROFILES,
   JAI_MOCK_REFERRAL_COMMISSIONS,
-  JAI_MOCK_CASES,
   MockReferralProfile,
   MockReferralCommission,
 } from '../../shared/lib/mockDatabase'
+import { getStoredCases } from '../../shared/lib/storeSync'
 import './ReferralPartnersPage.css'
 
 export function ReferralPartnersPage() {
@@ -51,6 +51,18 @@ export function ReferralPartnersPage() {
 
   useEffect(() => {
     loadData()
+
+    const handleSync = () => {
+      loadData()
+    }
+    window.addEventListener('dsa_os_referrals_updated', handleSync)
+    window.addEventListener('dsa_os_cases_updated', handleSync)
+    window.addEventListener('storage', handleSync)
+    return () => {
+      window.removeEventListener('dsa_os_referrals_updated', handleSync)
+      window.removeEventListener('dsa_os_cases_updated', handleSync)
+      window.removeEventListener('storage', handleSync)
+    }
   }, [loadData])
 
   // Aggregate Top KPIs
@@ -95,12 +107,13 @@ export function ReferralPartnersPage() {
   // Associated leads for active dossier
   const partnerLeads = useMemo(() => {
     if (!selectedProfile) return []
-    return JAI_MOCK_CASES.filter(
+    const allCases = getStoredCases()
+    return allCases.filter(
       (c: any) =>
         c.referral_profile_id === selectedProfile.id ||
         c.referral_partner_name === selectedProfile.name
     )
-  }, [selectedProfile])
+  }, [selectedProfile, profiles])
 
   // Associated commissions for active dossier
   const partnerCommissions = useMemo(() => {

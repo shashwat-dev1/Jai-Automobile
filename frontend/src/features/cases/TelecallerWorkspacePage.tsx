@@ -97,6 +97,16 @@ export function TelecallerWorkspacePage() {
 
   useEffect(() => {
     loadWorkspace()
+
+    const handleSync = () => {
+      loadWorkspace()
+    }
+    window.addEventListener('dsa_os_cases_updated', handleSync)
+    window.addEventListener('storage', handleSync)
+    return () => {
+      window.removeEventListener('dsa_os_cases_updated', handleSync)
+      window.removeEventListener('storage', handleSync)
+    }
   }, [loadWorkspace])
 
   const handleOpenDrawer = (lead: TelecallerLead) => {

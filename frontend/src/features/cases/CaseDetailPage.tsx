@@ -14,6 +14,7 @@ import { LenderApplicationSection } from '../lenders/LenderApplicationSection'
 import { TaskListSection } from '../workflow/TaskListSection'
 import { PDDSection } from '../pdd/PDDSection'
 import { PayoutSection } from '../payout/PayoutSection'
+import { LeadOcrProfileSection } from './LeadOcrProfileSection'
 import type { CaseDetail, CaseStatus } from './types'
 import './CaseDetailPage.css'
 
@@ -166,6 +167,9 @@ export function CaseDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Prominent Lead Intake Profile & OCR Intelligence Matrix */}
+      <LeadOcrProfileSection caseData={caseData} onCaseUpdated={loadCase} />
 
       {/* 3-Column Dossier Grid */}
       <div className="dossier-grid">
@@ -396,7 +400,7 @@ export function CaseDetailPage() {
               <h2 className="dossier-card-title">Status Timeline</h2>
             </div>
             <div className="timeline-container">
-              {caseData.status_history.map((hist) => (
+              {(caseData.status_history || []).map((hist) => (
                 <div key={hist.id} className="timeline-item">
                   <div className="timeline-marker" />
                   <div className="timeline-content">

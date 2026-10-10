@@ -89,6 +89,16 @@ export function CaseListPage() {
 
   useEffect(() => {
     loadCases()
+
+    const handleSync = () => {
+      loadCases()
+    }
+    window.addEventListener('dsa_os_cases_updated', handleSync)
+    window.addEventListener('storage', handleSync)
+    return () => {
+      window.removeEventListener('dsa_os_cases_updated', handleSync)
+      window.removeEventListener('storage', handleSync)
+    }
   }, [loadCases])
 
   const handleFilterSubmit = (e: FormEvent) => {
