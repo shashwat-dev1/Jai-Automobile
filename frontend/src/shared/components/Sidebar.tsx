@@ -104,6 +104,7 @@ const NAV_ITEMS: NavItem[] = [
     path: '/referrals',
     icon: <ReferralsIcon />,
     section: 'Referral Network',
+    permission: PERMISSIONS.REFERRALS_READ,
   },
   {
     label: 'Public Referral Portal',
@@ -115,11 +116,13 @@ const NAV_ITEMS: NavItem[] = [
     path: '/parties',
     icon: <LeadsIcon />,
     section: 'Data & Channels',
+    permission: PERMISSIONS.PARTIES_READ,
   },
   {
     label: 'Lead Sources & Channels',
     path: '/sources',
     icon: <LendersIcon />,
+    permission: PERMISSIONS.SOURCES_MANAGE,
   },
   {
     label: 'Team & Telecallers',

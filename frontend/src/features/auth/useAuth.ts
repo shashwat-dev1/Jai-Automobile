@@ -53,6 +53,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'pdd:manage',
     'sources:manage',
     'lenders:manage',
+    'referrals:read',
+    'referrals:manage',
+    'parties:read',
   ],
   manager: [
     'cases:create',
@@ -116,7 +119,7 @@ const STORAGE_KEY = 'dsa_os_auth_state_v1'
 
 function getSavedSession() {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       if (parsed && parsed.accessToken && parsed.user) {
@@ -150,12 +153,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
       }
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        const serialized = JSON.stringify({
           accessToken,
           refreshToken: nextState.refreshToken,
           user: state.user,
           permissions: state.permissions,
-        }))
+        })
+        sessionStorage.setItem(STORAGE_KEY, serialized)
+        localStorage.setItem(STORAGE_KEY, serialized)
       } catch {}
       return nextState
     })
@@ -164,6 +169,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearAuth: () => {
     try {
       sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
     } catch {}
     set({
       accessToken: null,
@@ -179,11 +185,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const data = await api.post<LoginResponseData>('/auth/login', payload, { skipAuth: true })
+      const nextUser = data.user ?? null
+      const nextPerms = data.user?.permissions ?? []
+      
+      try {
+        const serialized = JSON.stringify({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          user: nextUser,
+          permissions: nextPerms,
+        })
+        sessionStorage.setItem(STORAGE_KEY, serialized)
+        localStorage.setItem(STORAGE_KEY, serialized)
+      } catch {}
+
       set({
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
-        user: data.user ?? null,
-        permissions: data.user?.permissions ?? [],
+        user: nextUser,
+        permissions: nextPerms,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -279,12 +299,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      const serialized = JSON.stringify({
         accessToken: nextState.accessToken,
         refreshToken: nextState.refreshToken,
         user: nextState.user,
         permissions: nextState.permissions,
-      }))
+      })
+      sessionStorage.setItem(STORAGE_KEY, serialized)
+      localStorage.setItem(STORAGE_KEY, serialized)
     } catch {}
 
     set(nextState)

@@ -49,6 +49,25 @@ import {
 } from './mockDatabase'
 import { createCaseInFirestore } from './firebaseService'
 
+let currentMockSessionUser: any = null
+
+export function resetMockSessionUser() {
+  currentMockSessionUser = null
+}
+
+function getActiveMockUser(): { id: string; role: string; name: string } | null {
+  try {
+    const authState = useAuthStore.getState()
+    if (!authState.isAuthenticated || !authState.user) {
+      currentMockSessionUser = null
+      return null
+    }
+    return authState.user
+  } catch {}
+  if (currentMockSessionUser) return currentMockSessionUser
+  return null
+}
+
 function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   const clean = endpoint.toLowerCase().replace(/^\/api\/v\d/, '')
   let parsedBody = body
@@ -62,75 +81,100 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Authentication endpoints
   if (clean.includes('/auth/login') && method === 'POST') {
-    const role = (parsedBody?.identifier || '').includes('accountant')
-      ? 'accountant'
-      : (parsedBody?.identifier || '').includes('processor')
-      ? 'processor'
-      : (parsedBody?.identifier || '').includes('field')
-      ? 'field_executive'
-      : (parsedBody?.identifier || '').includes('auditor')
-      ? 'auditor'
-      : (parsedBody?.identifier || '').includes('telecaller')
-      ? 'telecaller'
-      : (parsedBody?.identifier || '').includes('manager')
-      ? 'manager'
-      : 'owner'
-    const roleNames: Record<string, string> = {
-      owner: 'Aarav Sharma (MD)',
-      manager: 'Priya Patel (Branch Manager)',
-      processor: 'Rohan Verma (Sr. Loan Processor)',
-      accountant: 'Sanjay Gupta (Chief Accountant)',
-      field_executive: 'Kavita Singh (Field Officer)',
-      auditor: 'Meera Iyer (Internal Auditor)',
-      telecaller: 'Priya Nair (Telecaller)',
+    const idLower = (parsedBody?.identifier || '').toLowerCase()
+    let role = 'owner'
+    let userId = 'jai-user-owner'
+    let userName = 'Aarav Sharma (DSA Admin)'
+    let userEmail = parsedBody?.identifier || 'admin@jaiautomobiles.com'
+    let userPerms = [
+      'cases:create',
+      'cases:read',
+      'cases:update',
+      'cases:delete',
+      'cases:reassign',
+      'documents:upload',
+      'documents:read',
+      'documents:verify',
+      'documents:archive',
+      'payout:read',
+      'payout:update',
+      'recon:read',
+      'recon:update',
+      'recon:approve',
+      'reports:read',
+      'audit:read',
+      'users:manage',
+      'settings:manage',
+      'data:export',
+      'pdd:read',
+      'pdd:manage',
+      'sources:manage',
+      'lenders:manage',
+      'referrals:read',
+      'referrals:manage',
+    ]
+
+    if (idLower.includes('priya') || idLower.includes('telecaller-1') || idLower.includes('priya.sharma')) {
+      role = 'telecaller'
+      userId = 'usr-telecaller-1'
+      userName = 'Priya Sharma (Telecaller)'
+      userEmail = 'priya.sharma@jaiautomobiles.com'
+      userPerms = ['cases:read', 'cases:update', 'documents:read', 'documents:upload']
+    } else if (idLower.includes('rahul') || idLower.includes('telecaller-2') || idLower.includes('rahul.verma')) {
+      role = 'telecaller'
+      userId = 'usr-telecaller-2'
+      userName = 'Rahul Verma (Telecaller)'
+      userEmail = 'rahul.verma@jaiautomobiles.com'
+      userPerms = ['cases:read', 'cases:update', 'documents:read', 'documents:upload']
+    } else if (idLower.includes('accountant')) {
+      role = 'accountant'
+      userId = 'jai-user-accountant'
+      userName = 'Sanjay Gupta (Chief Accountant)'
+      userEmail = 'accountant@jaiautomobiles.com'
+    } else if (idLower.includes('processor')) {
+      role = 'processor'
+      userId = 'jai-user-processor'
+      userName = 'Rohan Verma (Sr. Loan Processor)'
+      userEmail = 'processor@jaiautomobiles.com'
+    } else if (idLower.includes('auditor')) {
+      role = 'auditor'
+      userId = 'jai-user-auditor'
+      userName = 'Meera Iyer (Internal Auditor)'
+      userEmail = 'auditor@jaiautomobiles.com'
     }
+
+    const loggedUser = {
+      id: userId,
+      org_id: '11111111-1111-1111-1111-111111111111',
+      name: userName,
+      email: userEmail,
+      role,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      permissions: userPerms,
+    }
+    currentMockSessionUser = loggedUser
     return {
-      access_token: 'demo-prototype-access-token',
-      refresh_token: 'demo-prototype-refresh-token',
+      access_token: `mock-token-${userId}`,
+      refresh_token: `mock-refresh-${userId}`,
       token_type: 'bearer',
-      user: {
-        id: `jai-user-${role}`,
-        org_id: '11111111-1111-1111-1111-111111111111',
-        name: roleNames[role] || 'Aarav Sharma',
-        email: parsedBody?.identifier || `${role}@jaiautomobiles.com`,
-        role,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        permissions: [
-          'cases:create',
-          'cases:read',
-          'cases:update',
-          'cases:delete',
-          'cases:reassign',
-          'documents:upload',
-          'documents:read',
-          'documents:verify',
-          'documents:archive',
-          'payout:read',
-          'payout:update',
-          'recon:read',
-          'recon:update',
-          'recon:approve',
-          'reports:read',
-          'audit:read',
-          'users:manage',
-          'settings:manage',
-          'data:export',
-          'pdd:read',
-          'pdd:manage',
-          'sources:manage',
-          'lenders:manage',
-        ],
-      },
+      user: loggedUser,
     }
   }
 
+  if (clean.includes('/auth/logout') && method === 'POST') {
+    currentMockSessionUser = null
+    return { success: true }
+  }
+
   if (clean.includes('/auth/me')) {
+    const active = getActiveMockUser()
+    if (active) return active
     return {
       id: 'jai-user-owner',
       org_id: '11111111-1111-1111-1111-111111111111',
-      name: 'Aarav Sharma (MD)',
-      email: 'owner@jaiautomobiles.com',
+      name: 'Aarav Sharma (DSA Admin)',
+      email: 'admin@jaiautomobiles.com',
       role: 'owner',
       is_active: true,
       created_at: '2025-01-01T00:00:00Z',
@@ -158,6 +202,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         'pdd:manage',
         'sources:manage',
         'lenders:manage',
+        'referrals:read',
+        'referrals:manage',
       ],
     }
   }
@@ -440,15 +486,18 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Phase 1: Telecaller Workspace
+  // Phase 1: Telecaller Workspace (Strict Scoping by Authenticated User)
   if (clean.includes('/cases/telecaller/workspace')) {
-    const assigned = JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id || c.assigned_telecaller_name)
-    const list = assigned.length > 0 ? assigned : JAI_MOCK_CASES
+    const active = getActiveMockUser()
+    const targetUserId = (active && active.role === 'telecaller') ? active.id : 'usr-telecaller-1'
+    const list = JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id === targetUserId)
     return {
       total_assigned: list.length,
       pending_leads: list.filter((c: any) => !c.call_outcome || c.call_outcome === 'new').length,
+      contacted_count: list.filter((c: any) => c.call_outcome && c.call_outcome !== 'new').length,
       follow_ups_due: list.filter((c: any) => c.call_outcome === 'follow_up').length,
       interested_count: list.filter((c: any) => c.call_outcome === 'interested').length,
+      not_interested_count: list.filter((c: any) => c.call_outcome === 'not_interested').length,
       completed_count: list.filter((c: any) => ['interested', 'not_interested', 'duplicate'].includes(c.call_outcome || '')).length,
       leads: list,
     }
@@ -456,9 +505,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Phase 1: Lead Assignment (Bulk / Single)
   if (clean.includes('/cases/assign') && method === 'POST') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Telecallers cannot assign or reassign leads.', 403, 'FORBIDDEN')
+    }
     const { case_ids, telecaller_id } = parsedBody || {}
     const tcUser = JAI_MOCK_USERS.find((u: any) => u.id === telecaller_id)
-    const tcName = tcUser?.name || 'Priya Nair'
+    const tcName = tcUser?.name || (telecaller_id === 'usr-telecaller-2' ? 'Rahul Verma' : 'Priya Sharma')
     let count = 0
     if (Array.isArray(case_ids)) {
       case_ids.forEach((cid: string) => {
@@ -478,37 +531,58 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Phase 1: Call Activity Logging
+  // Phase 1: Call Activity Logging (Strict Server-Side RBAC)
   const callActivityMatch = clean.match(/\/cases\/([^\/\?]+)\/call-activity/)
   if (callActivityMatch && method === 'POST') {
     const caseId = callActivityMatch[1]
-    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || JAI_MOCK_CASES[0]
-    if (foundCase) {
-      foundCase.call_outcome = parsedBody?.outcome || foundCase.call_outcome
-      foundCase.telecaller_remarks = parsedBody?.remarks || foundCase.telecaller_remarks
-      foundCase.follow_up_at = parsedBody?.follow_up_at || foundCase.follow_up_at
-      foundCase.call_attempts_count = (foundCase.call_attempts_count || 0) + 1
-      foundCase.updated_at = new Date().toISOString()
-      if (!Array.isArray(foundCase.call_activity_history)) {
-        foundCase.call_activity_history = []
+    const active = getActiveMockUser()
+    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+    if (!foundCase) {
+      throw new ApiError('Case not found', 404, 'NOT_FOUND')
+    }
+    if (active && active.role === 'telecaller') {
+      if (foundCase.assigned_telecaller_id !== active.id) {
+        throw new ApiError('Access denied: Cannot record call activity on unassigned lead.', 403, 'FORBIDDEN')
       }
-      foundCase.call_activity_history.unshift({
-        id: `act-${Date.now()}`,
-        outcome: parsedBody?.outcome,
-        remarks: parsedBody?.remarks,
-        follow_up_at: parsedBody?.follow_up_at,
-        telecaller_name: 'Priya Nair',
-        created_at: new Date().toISOString(),
-      })
-      return {
-        case_id: foundCase.id,
-        case_no: foundCase.case_no,
-        call_outcome: foundCase.call_outcome,
-        telecaller_remarks: foundCase.telecaller_remarks,
-        follow_up_at: foundCase.follow_up_at,
-        call_attempts_count: foundCase.call_attempts_count,
-        updated_at: foundCase.updated_at,
-      }
+    }
+    foundCase.call_outcome = parsedBody?.outcome || foundCase.call_outcome
+    foundCase.telecaller_remarks = parsedBody?.remarks || foundCase.telecaller_remarks
+    foundCase.follow_up_at = parsedBody?.follow_up_at || foundCase.follow_up_at
+    foundCase.call_attempts_count = (foundCase.call_attempts_count || 0) + 1
+    foundCase.updated_at = new Date().toISOString()
+    if (!Array.isArray(foundCase.call_activity_history)) {
+      foundCase.call_activity_history = []
+    }
+    foundCase.call_activity_history.unshift({
+      id: `act-${Date.now()}`,
+      outcome: parsedBody?.outcome,
+      remarks: parsedBody?.remarks,
+      follow_up_at: parsedBody?.follow_up_at,
+      telecaller_name: active?.name || 'Priya Sharma',
+      created_at: new Date().toISOString(),
+    })
+    return {
+      case_id: foundCase.id,
+      case_no: foundCase.case_no,
+      call_outcome: foundCase.call_outcome,
+      telecaller_remarks: foundCase.telecaller_remarks,
+      follow_up_at: foundCase.follow_up_at,
+      call_attempts_count: foundCase.call_attempts_count,
+      updated_at: foundCase.updated_at,
+    }
+  }
+
+  // Phase 1: Referral Document Upload (Quarantine)
+  if (clean.includes('/referrals/upload-document') && method === 'POST') {
+    const docType = parsedBody?.doc_type || 'aadhaar'
+    const docId = `doc-quar-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    return {
+      document_id: docId,
+      doc_type: docType,
+      file_name: parsedBody?.file_name || `quarantined_${docType}.pdf`,
+      file_size: 245000,
+      status: 'quarantined',
+      message: 'Document successfully uploaded to private quarantine.',
     }
   }
 
@@ -532,9 +606,41 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Phase 1: Guest Referral Lead Submission
-  if (clean.includes('/referrals/guest-submit') && method === 'POST') {
+  // Phase 1: Guest Referral Lead Submission with Mandatory Document Rules
+  if ((clean.includes('/referrals/submit') || clean.includes('/referrals/guest-submit')) && method === 'POST') {
     const rawMobile = (parsedBody?.partner_mobile || '').replace(/\D/g, '').slice(-10)
+    const isNew = parsedBody?.vehicle_condition === 'new' || parsedBody?.product_type === 'new_car'
+    
+    // Enforce mandatory document rules
+    if (!parsedBody?.aadhaar_doc_id) {
+      throw new ApiError('Aadhaar card is mandatory for every lead submission.', 422, 'VALIDATION_ERROR')
+    }
+    if (!parsedBody?.pan_doc_id) {
+      throw new ApiError('PAN card is mandatory for every lead submission.', 422, 'VALIDATION_ERROR')
+    }
+    if (!isNew && !parsedBody?.rc_doc_id) {
+      throw new ApiError('RC document is mandatory for used/old vehicle loan applications.', 422, 'VALIDATION_ERROR')
+    }
+
+    // Check duplicate submission within 5 mins
+    const recentDup = JAI_MOCK_CASES.find((c: any) => 
+      c.referral_partner_mobile === rawMobile &&
+      c.applicant_name === parsedBody?.applicant_name &&
+      c.loan_amount_requested === Number(parsedBody?.loan_amount_requested) &&
+      (Date.now() - new Date(c.created_at).getTime()) < 300000
+    )
+    if (recentDup) {
+      return {
+        success: true,
+        case_id: recentDup.id,
+        case_no: recentDup.case_no,
+        tracking_id: `REF-${recentDup.case_no.replace('JA-', '')}-${rawMobile.slice(-4)}`,
+        partner_id: recentDup.referral_profile_id,
+        partner_name: recentDup.referral_partner_name,
+        message: 'Lead was already submitted and is in the operations queue.',
+      }
+    }
+
     let partner = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.mobile_primary.includes(rawMobile))
     if (!partner) {
       partner = {
@@ -557,9 +663,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       partner.total_leads++
     }
 
+    const newCaseNo = `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`
     const newCase: any = {
       id: `case-jai-${Date.now()}`,
-      case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
+      case_no: newCaseNo,
       applicant_name: parsedBody?.applicant_name || 'Referral Borrower',
       primary_applicant_name: parsedBody?.applicant_name || 'Referral Borrower',
       mobile: parsedBody?.applicant_mobile || '9820011223',
@@ -569,12 +676,14 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       status: 'lead',
       applied_loan_amount: Number(parsedBody?.loan_amount_requested) || 500000,
       loan_amount_requested: Number(parsedBody?.loan_amount_requested) || 500000,
-      vehicle_summary: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : 'Vehicle Loan Application',
-      vehicle_details: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : 'Vehicle Loan Application',
+      vehicle_summary: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : `${isNew ? 'New' : 'Used'} Vehicle Loan`,
+      vehicle_details: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : `${isNew ? 'New' : 'Used'} Vehicle Loan`,
       source_name: `Referral: ${partner.name}`,
       owner_name: 'Aarav Sharma',
       referral_profile_id: partner.id,
       referral_partner_name: partner.name,
+      referral_partner_mobile: rawMobile,
+      vehicle_condition: isNew ? 'new' : 'used',
       call_outcome: 'new',
       call_attempts_count: 0,
       has_consent: true,
@@ -594,6 +703,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       success: true,
       case_id: newCase.id,
       case_no: newCase.case_no,
+      tracking_id: `REF-${newCase.case_no.replace('JA-', '')}-${rawMobile.slice(-4)}`,
       referral_profile_id: partner.id,
       partner_name: partner.name,
       message: `Lead successfully submitted and routed to Jai Automobiles lead desk. Reference: ${newCase.case_no}`,
@@ -686,18 +796,31 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Single Case Dossier (GET /cases/:id)
+  // Single Case Dossier (GET /cases/:id) with Server-Side Assignment Authorization
   const singleCaseMatch = clean.match(/\/cases\/([^\/\?]+)$/)
   if (singleCaseMatch && method === 'GET') {
     const caseId = singleCaseMatch[1]
     if (caseId && caseId !== 'new' && caseId !== 'list') {
+      const active = getActiveMockUser()
       const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
-      return foundCase || JAI_MOCK_CASES[0]
+      if (!foundCase) {
+        throw new ApiError('Case not found', 404, 'NOT_FOUND')
+      }
+      if (active && active.role === 'telecaller') {
+        if (foundCase.assigned_telecaller_id !== active.id) {
+          throw new ApiError('Access denied: You are not authorized to view this lead record.', 403, 'FORBIDDEN')
+        }
+      }
+      return foundCase
     }
   }
 
-  // Cases List (GET /cases)
+  // Cases List (GET /cases) with Strict Telecaller Assignment Filter
   if (clean.includes('/cases') && method === 'GET') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      return JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id === active.id)
+    }
     return JAI_MOCK_CASES
   }
 

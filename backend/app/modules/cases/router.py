@@ -103,7 +103,12 @@ async def get_case(
 ) -> ApiResponse[CaseDetailResponse]:
     """Get full case dossier, applicant, vehicle, source, and timeline."""
     service = CaseService(session=session)
-    detail = await service.get_case_detail(org_id=current_user.org_id, case_id=case_id)
+    detail = await service.get_case_detail(
+        org_id=current_user.org_id,
+        case_id=case_id,
+        actor_role=current_user.role,
+        actor_id=current_user.id,
+    )
     return ApiResponse(data=detail)
 
 
@@ -153,7 +158,12 @@ async def get_case_timeline(
 ) -> ApiResponse[list[StatusHistoryResponse]]:
     """Get chronological status timeline for a case."""
     service = CaseService(session=session)
-    detail = await service.get_case_detail(org_id=current_user.org_id, case_id=case_id)
+    detail = await service.get_case_detail(
+        org_id=current_user.org_id,
+        case_id=case_id,
+        actor_role=current_user.role,
+        actor_id=current_user.id,
+    )
     return ApiResponse(data=detail.status_history)
 
 
@@ -233,6 +243,7 @@ async def record_call_activity(
         payload=payload,
         actor_id=current_user.id,
         actor_name=current_user.name,
+        actor_role=current_user.role,
     )
     return ApiResponse(data=result)
 

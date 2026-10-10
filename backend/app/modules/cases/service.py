@@ -56,7 +56,7 @@ from app.modules.parties.service import PartyService
 from app.modules.sources.models import Source
 from app.modules.workflow.sla import compute_stage_sla
 from app.shared.encryption import mask_mobile
-from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
+from app.shared.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 
 
 class CaseService:
@@ -264,9 +264,11 @@ class CaseService:
         self,
         org_id: uuid.UUID,
         case_id: uuid.UUID,
+        actor_role: str | None = None,
+        actor_id: uuid.UUID | None = None,
     ) -> CaseDetailResponse:
         """Fetch full case dossier including applicant, vehicle, source, timeline."""
-        case = await self._get_case(org_id, case_id)
+        case = await self._get_case(org_id, case_id, actor_role=actor_role, actor_id=actor_id)
 
         # 1. Primary Party
         stmt_party = (
@@ -529,8 +531,8 @@ class CaseService:
         actor_id: uuid.UUID,
         actor_role: str,
     ) -> CaseDetailResponse:
-        """Update case with optimistic locking."""
-        case = await self._get_case(org_id, case_id)
+        """Update case with optimistic locking and RBAC enforcement."""
+        case = await self._get_case(org_id, case_id, actor_role=actor_role, actor_id=actor_id)
 
         if case.version != payload.version:
             raise ConflictError(
@@ -558,7 +560,7 @@ class CaseService:
             changes={"updated_fields": list(update_dict.keys()), "version": case.version},
         )
 
-        return await self.get_case_detail(org_id=org_id, case_id=case.id)
+        return await self.get_case_detail(org_id=org_id, case_id=case.id, actor_role=actor_role, actor_id=actor_id)
 
     async def change_status(
         self,
@@ -569,7 +571,7 @@ class CaseService:
         actor_role: str,
     ) -> CaseDetailResponse:
         """Enforce state machine transition and record status history with optimistic locking."""
-        case = await self._get_case(org_id, case_id)
+        case = await self._get_case(org_id, case_id, actor_role=actor_role, actor_id=actor_id)
 
         if case.version != payload.version:
             raise ConflictError(
@@ -631,7 +633,7 @@ class CaseService:
             },
         )
 
-        return await self.get_case_detail(org_id=org_id, case_id=case.id)
+        return await self.get_case_detail(org_id=org_id, case_id=case.id, actor_role=actor_role, actor_id=actor_id)
 
     async def upsert_vehicle(
         self,
@@ -642,7 +644,7 @@ class CaseService:
         actor_role: str,
     ) -> VehicleResponse:
         """Create or update vehicle asset tied to the loan case."""
-        case = await self._get_case(org_id, case_id)
+        case = await self._get_case(org_id, case_id, actor_role=actor_role, actor_id=actor_id)
 
         stmt = select(Vehicle).where(Vehicle.case_id == case.id, Vehicle.deleted_at.is_(None))
         res = await self.session.execute(stmt)
@@ -733,7 +735,13 @@ class CaseService:
 
         return ConsentResponse.model_validate(consent)
 
-    async def _get_case(self, org_id: uuid.UUID, case_id: uuid.UUID) -> Case:
+    async def _get_case(
+        self,
+        org_id: uuid.UUID,
+        case_id: uuid.UUID,
+        actor_role: str | None = None,
+        actor_id: uuid.UUID | None = None,
+    ) -> Case:
         stmt = select(Case).where(
             Case.id == case_id, Case.org_id == org_id, Case.deleted_at.is_(None)
         )
@@ -741,6 +749,17 @@ class CaseService:
         case = res.scalar_one_or_none()
         if not case:
             raise NotFoundError(f"Case with ID '{case_id}' not found.")
+
+        # Strict RBAC: Telecallers may only access leads assigned to them
+        if actor_role == "telecaller" and actor_id:
+            if case.assigned_telecaller_id != actor_id:
+                raise PermissionDeniedError("Access denied. You can only access leads assigned to you.")
+
+        # Strict RBAC: Field Executives may only access cases assigned to them
+        if actor_role == "field_executive" and actor_id:
+            if case.owner_id != actor_id:
+                raise PermissionDeniedError("Access denied. You can only access cases assigned to you.")
+
         return case
 
     async def assign_cases(
@@ -797,9 +816,10 @@ class CaseService:
         payload: CallActivityCreateRequest,
         actor_id: uuid.UUID,
         actor_name: str,
+        actor_role: str | None = None,
     ) -> CallActivityResponse:
         """Record telecaller call outcome, notes, and schedule callback."""
-        case = await self._get_case(org_id, case_id)
+        case = await self._get_case(org_id, case_id, actor_role=actor_role, actor_id=actor_id)
 
         valid_outcomes = ("new", "interested", "not_interested", "follow_up", "not_reachable", "duplicate")
         if payload.outcome not in valid_outcomes:

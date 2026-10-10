@@ -123,10 +123,10 @@ export function CaseDetailPage() {
 
   if (error || !caseData) {
     return (
-      <div className="case-detail-error">
-        <h2>Case Not Found</h2>
-        <p>{error || 'Requested loan file does not exist.'}</p>
-        <Link to="/cases">← Return to Case Pipeline</Link>
+      <div className="case-detail-error" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+        <h2>{error?.includes('Access denied') ? 'Access Denied (403 Forbidden)' : 'Case Dossier Error'}</h2>
+        <p style={{ color: '#64748B', maxWidth: 500, margin: '0.75rem auto 1.5rem' }}>{error || 'Requested loan file does not exist or access is restricted.'}</p>
+        <Link to="/cases" style={{ fontWeight: 600, color: '#2563EB' }}>← Return to Case Pipeline</Link>
       </div>
     )
   }

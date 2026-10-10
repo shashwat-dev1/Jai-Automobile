@@ -64,6 +64,8 @@ export const PERMISSIONS = {
   ORG_SETTINGS: 'org:settings',
   REFERRALS_READ: 'referrals:read',
   REFERRALS_MANAGE: 'referrals:manage',
+  SOURCES_MANAGE: 'sources:manage',
+  PARTIES_READ: 'parties:read',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
