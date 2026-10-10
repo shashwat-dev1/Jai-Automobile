@@ -1,0 +1,187 @@
+{
+  "testA": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "New referral partner identified correctly (partner name input visible)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:47.032Z"
+      },
+      {
+        "message": "Selected \"Brand New Vehicle\" condition pill",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:47.074Z"
+      },
+      {
+        "message": "Submission blocked without Aadhaar: \"⚠️\nAadhaar card is mandatory for every lead submission. Please attach and upload Aadhaar.\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:47.654Z"
+      },
+      {
+        "message": "Sample Aadhaar card attached successfully",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:48.117Z"
+      },
+      {
+        "message": "Submission blocked without PAN: \"⚠️\nPAN card is mandatory for every lead submission. Please attach and upload PAN card.\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:48.536Z"
+      },
+      {
+        "message": "Sample PAN card attached successfully",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:48.985Z"
+      },
+      {
+        "message": "Lead submitted successfully: File No = JA-2025-2070, Partner = Rohan Verma",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:49.046Z"
+      }
+    ]
+  },
+  "testB": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "Used / Pre-Owned vehicle condition active by default",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:50.282Z"
+      },
+      {
+        "message": "Submission blocked without RC for used vehicle: \"⚠️\nRC document is mandatory for used/old vehicle loan applications. Please attach and upload RC copy.\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:51.356Z"
+      },
+      {
+        "message": "Sample RC copy attached successfully",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:51.710Z"
+      },
+      {
+        "message": "Used vehicle lead submitted successfully: File No = JA-2025-2359",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:51.770Z"
+      }
+    ]
+  },
+  "testC": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "Returning partner recognized: \"✓\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:52.967Z"
+      },
+      {
+        "message": "Second lead attributed to Vikram Sharma: Case = JA-2025-7572",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:53.846Z"
+      }
+    ]
+  },
+  "testD": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "Telecaller A logged in: \"Welcome back, Priya Sharma (Telecaller)\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:57.526Z"
+      },
+      {
+        "message": "Telecaller A assigned leads KPI count = 4 (Expected: 4)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:57.528Z"
+      },
+      {
+        "message": "Telecaller A assigned leads table rows = 4 (Expected: 4)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:57.529Z"
+      },
+      {
+        "message": "Telecaller A recorded call outcome and remark for assigned lead",
+        "pass": true,
+        "timestamp": "2026-10-10T12:49:59.180Z"
+      },
+      {
+        "message": "Unauthorized access to case-jai-105 blocked with: \"Access Denied (403 Forbidden)\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:00.322Z"
+      },
+      {
+        "message": "Telecaller B logged in: \"Welcome back, Rahul Verma (Telecaller)\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:02.472Z"
+      },
+      {
+        "message": "Telecaller B assigned leads count = 2 (Expected: 2)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:02.472Z"
+      },
+      {
+        "message": "Telecaller B blocked from case-jai-101 with: \"Access Denied (403 Forbidden)\"",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:03.606Z"
+      }
+    ]
+  },
+  "testE": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "Admin authenticated into Organization Workspace",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:05.696Z"
+      },
+      {
+        "message": "Admin case pipeline table rows = 6 (Full org visibility >= 6)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:06.795Z"
+      },
+      {
+        "message": "Bulk reassignment action bar displayed on selection",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:07.157Z"
+      },
+      {
+        "message": "Admin referral partner analytics ledger accessible",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:08.246Z"
+      }
+    ]
+  },
+  "testF": {
+    "status": "PASSED",
+    "steps": [
+      {
+        "message": "Viewport iPhone SE (320px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:09.297Z"
+      },
+      {
+        "message": "Viewport Android Small (360px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:10.289Z"
+      },
+      {
+        "message": "Viewport iPhone 8 (375px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:11.278Z"
+      },
+      {
+        "message": "Viewport iPhone 13 (390px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:12.239Z"
+      },
+      {
+        "message": "Viewport iPhone 14 Pro Max (430px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:13.215Z"
+      },
+      {
+        "message": "Viewport Desktop HD (1280px): No horizontal overflow (Referral: true, Dashboard: true)",
+        "pass": true,
+        "timestamp": "2026-10-10T12:50:14.194Z"
+      }
+    ]
+  }
+}
