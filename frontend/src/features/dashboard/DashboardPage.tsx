@@ -10,6 +10,8 @@ import { AttentionPanel } from './AttentionPanel'
 import { ReportExportButton } from '../reports/ReportExportButton'
 import { LeadImportModal } from '../cases/LeadImportModal'
 import { usePermission } from '../auth/usePermission'
+import { useAuthStore } from '../auth/useAuth'
+import { TelecallerDashboard } from './TelecallerDashboard'
 import { PERMISSIONS } from '../auth/types'
 import './DashboardPage.css'
 
@@ -31,7 +33,14 @@ interface RecentLeadItem {
 }
 
 export const DashboardPage: React.FC = () => {
+  const user = useAuthStore((s) => s.user)
   const { can } = usePermission()
+
+  // If authenticated user is a telecaller, render their individual outreach dashboard
+  if (user?.role === 'telecaller') {
+    return <TelecallerDashboard />
+  }
+
   const [data, setData] = useState<DashboardOverviewResponse | null>(null)
   const [recentLeads, setRecentLeads] = useState<RecentLeadItem[]>([])
   const [loading, setLoading] = useState(true)

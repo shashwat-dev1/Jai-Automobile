@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { api } from '../../shared/lib/api'
 import { TodayViewResponse } from './types'
 
+import { useAuthStore } from '../auth/useAuth'
+
 export const TodayPage: React.FC = () => {
+  const user = useAuthStore((s) => s.user)
+  const isTelecaller = user?.role === 'telecaller'
+  const myName = (user?.name || '').toLowerCase()
+  const isRahul = myName.includes('rahul')
+
   const [data, setData] = useState<TodayViewResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,12 +35,45 @@ export const TodayPage: React.FC = () => {
   }, [])
 
   const rawData: any = data || {}
-  const callbacks = rawData.callbacks_due_today || []
-  const uncalled = rawData.uncalled_leads || []
-  const interested = rawData.interested_prospects || []
-  const unassigned = rawData.unassigned_leads || []
-  const retries = rawData.retry_leads || []
-  const tasksDue = data?.tasks_due_today || []
+  const rawCallbacks = rawData.callbacks_due_today || []
+  const rawInterested = rawData.interested_prospects || []
+  const rawRetries = rawData.retry_leads || []
+  const rawTasks = data?.tasks_due_today || []
+
+  const callbacks = isTelecaller
+    ? rawCallbacks.filter((c: any) =>
+        isRahul
+          ? c.telecaller_name?.toLowerCase().includes('rahul')
+          : c.telecaller_name?.toLowerCase().includes('priya')
+      )
+    : rawCallbacks
+
+  const uncalled = isTelecaller ? [] : rawData.uncalled_leads || []
+  const unassigned = isTelecaller ? [] : rawData.unassigned_leads || []
+
+  const interested = isTelecaller
+    ? rawInterested.filter((c: any) =>
+        isRahul
+          ? c.telecaller_name?.toLowerCase().includes('rahul')
+          : c.telecaller_name?.toLowerCase().includes('priya')
+      )
+    : rawInterested
+
+  const retries = isTelecaller
+    ? rawRetries.filter((c: any) =>
+        isRahul
+          ? c.telecaller_name?.toLowerCase().includes('rahul')
+          : c.telecaller_name?.toLowerCase().includes('priya')
+      )
+    : rawRetries
+
+  const tasksDue = isTelecaller
+    ? rawTasks.filter((t: any) =>
+        isRahul
+          ? t.owner_name?.toLowerCase().includes('rahul')
+          : t.owner_name?.toLowerCase().includes('priya')
+      )
+    : rawTasks
 
   return (
     <div style={{ padding: '24px', maxWidth: 1280, margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
