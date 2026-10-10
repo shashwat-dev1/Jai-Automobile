@@ -14,9 +14,13 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from decimal import Decimal
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.cases.models import Case, CaseParty, CaseStatusHistory, Vehicle
+from app.modules.cases.service import CASE_STATUS_LEAD, CaseService
 from app.modules.import_export.models import DataImportBatch
 from app.modules.import_export.schemas import ImportDryRunResponse, ImportRowError
 from app.modules.lenders.models import Lender
@@ -37,7 +41,7 @@ class ImportExportService:
         csv_content: str,
     ) -> ImportDryRunResponse:
         """Parse CSV and validate required fields, generating row-level error reports."""
-        valid_entities = ("parties", "sources", "lenders")
+        valid_entities = ("parties", "sources", "lenders", "cases")
         if entity_type not in valid_entities:
             raise ValidationError(f"Invalid entity_type '{entity_type}'. Must be one of: {valid_entities}")
 
@@ -111,6 +115,46 @@ class ImportExportService:
                         }
                     )
 
+            elif entity_type == "cases":
+                name = clean_row.get("name") or clean_row.get("applicant_name") or clean_row.get("customer_name")
+                mobile = clean_row.get("mobile") or clean_row.get("phone") or clean_row.get("customer_mobile")
+                amount_str = clean_row.get("loan_amount") or clean_row.get("amount") or clean_row.get("requested_amount")
+                prod = clean_row.get("product_type") or clean_row.get("product", "used_car")
+
+                if not name:
+                    row_errors.append(ImportRowError(row=row_idx, field="name", message="Customer name is required"))
+                clean_mob = "".join(filter(str.isdigit, mobile or ""))
+                if not clean_mob or len(clean_mob) != 10:
+                    row_errors.append(
+                        ImportRowError(row=row_idx, field="mobile", message="10-digit mobile number required")
+                    )
+                try:
+                    amt = float(amount_str or 0)
+                    if amt <= 0:
+                        row_errors.append(
+                            ImportRowError(row=row_idx, field="loan_amount", message="Positive loan amount required")
+                        )
+                except (ValueError, TypeError):
+                    row_errors.append(
+                        ImportRowError(row=row_idx, field="loan_amount", message="Invalid loan amount format")
+                    )
+                    amt = 0.0
+
+                if not row_errors:
+                    valid_records.append(
+                        {
+                            "applicant_name": name,
+                            "mobile": clean_mob,
+                            "loan_amount": amt,
+                            "product_type": prod,
+                            "city": clean_row.get("city") or "Mumbai",
+                            "state": clean_row.get("state") or "Maharashtra",
+                            "pincode": clean_row.get("pincode") or "400001",
+                            "vehicle_details": clean_row.get("vehicle_details") or clean_row.get("vehicle") or None,
+                            "notes": clean_row.get("notes") or clean_row.get("remarks") or None,
+                        }
+                    )
+
             errors.extend(row_errors)
 
         return ImportDryRunResponse(
@@ -158,7 +202,7 @@ class ImportExportService:
                     name=rec["name"],
                     type=rec.get("source_type", "dealer"),
                     contact_person=rec.get("contact_person"),
-                    mobile=rec.get("phone"),
+                    phone=rec.get("phone"),
                 )
                 self.db.add(source)
 
@@ -170,6 +214,63 @@ class ImportExportService:
                     type=rec.get("type", "bank"),
                 )
                 self.db.add(lender)
+
+            elif entity_type == "cases":
+                party = Party(
+                    id=uuid.uuid4(),
+                    org_id=org_id,
+                    name=rec["applicant_name"],
+                    mobile_primary=rec["mobile"],
+                    city=rec.get("city", "Mumbai"),
+                    state=rec.get("state", "Maharashtra"),
+                    pincode=rec.get("pincode", "400001"),
+                    version=1,
+                )
+                self.db.add(party)
+
+                source_stmt = select(Source).where(Source.org_id == org_id, Source.deleted_at.is_(None)).limit(1)
+                source_res = await self.db.execute(source_stmt)
+                src = source_res.scalar_one_or_none()
+                src_id = src.id if src else uuid.uuid4()
+
+                case_svc = CaseService(session=self.db)
+                case_no = await case_svc._generate_next_case_no(org_id)
+
+                case = Case(
+                    id=new_id,
+                    org_id=org_id,
+                    case_no=case_no,
+                    product_type=rec.get("product_type", "used_car"),
+                    status=CASE_STATUS_LEAD,
+                    call_outcome="new",
+                    loan_amount_requested=Decimal(str(rec["loan_amount"])),
+                    source_id=src_id,
+                    owner_id=user_id,
+                    notes=rec.get("notes"),
+                    version=1,
+                )
+                self.db.add(case)
+
+                cp = CaseParty(
+                    id=uuid.uuid4(),
+                    org_id=org_id,
+                    case_id=case.id,
+                    party_id=party.id,
+                    is_primary=True,
+                    version=1,
+                )
+                self.db.add(cp)
+
+                if rec.get("vehicle_details"):
+                    veh = Vehicle(
+                        id=uuid.uuid4(),
+                        org_id=org_id,
+                        case_id=case.id,
+                        vehicle_type=rec.get("product_type", "used_car"),
+                        condition="used",
+                        version=1,
+                    )
+                    self.db.add(veh)
 
         batch = DataImportBatch(
             id=uuid.uuid4(),
@@ -228,6 +329,8 @@ class ImportExportService:
             await self.db.execute(delete(Source).where(Source.id.in_(id_uuids), Source.org_id == org_id))
         elif batch.entity_type == "lenders":
             await self.db.execute(delete(Lender).where(Lender.id.in_(id_uuids), Lender.org_id == org_id))
+        elif batch.entity_type == "cases":
+            await self.db.execute(delete(Case).where(Case.id.in_(id_uuids), Case.org_id == org_id))
 
         batch.status = "reversed"
         batch.reversed_at = now

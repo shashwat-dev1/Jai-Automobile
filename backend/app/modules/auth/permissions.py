@@ -41,9 +41,19 @@ PERM_SLA_MANAGE: Final[str] = "sla:manage"
 PERM_PDD_READ: Final[str] = "pdd:read"
 PERM_PDD_MANAGE: Final[str] = "pdd:manage"
 
+PERM_REFERRALS_READ: Final[str] = "referrals:read"
+PERM_REFERRALS_MANAGE: Final[str] = "referrals:manage"
+
 
 # Mapping from role to allowed permissions
 ROLE_PERMISSIONS: dict[str, set[str]] = {
+    "platform_admin": {
+        PERM_USERS_MANAGE,
+        PERM_AUDIT_READ,
+        PERM_DATA_EXPORT,
+        PERM_CASES_READ,
+        PERM_REFERRALS_READ,
+    },
     "owner": {
         PERM_CASES_CREATE,
         PERM_CASES_READ,
@@ -69,6 +79,36 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PERM_SLA_MANAGE,
         PERM_PDD_READ,
         PERM_PDD_MANAGE,
+        PERM_REFERRALS_READ,
+        PERM_REFERRALS_MANAGE,
+    },
+    "admin": {
+        PERM_CASES_CREATE,
+        PERM_CASES_READ,
+        PERM_CASES_UPDATE,
+        PERM_CASES_STATUS,
+        PERM_DOCS_UPLOAD,
+        PERM_DOCS_READ,
+        PERM_DOCS_ARCHIVE,
+        PERM_DOCS_REVEAL,
+        PERM_PAYOUT_READ,
+        PERM_PAYOUT_UPDATE,
+        PERM_RECON_READ,
+        PERM_RECON_UPDATE,
+        PERM_SOURCES_MANAGE,
+        PERM_TEAM_READ,
+        PERM_DATA_EXPORT,
+        PERM_USERS_MANAGE,
+        PERM_AUDIT_READ,
+        PERM_LENDERS_READ,
+        PERM_LENDERS_MANAGE,
+        PERM_TASKS_READ,
+        PERM_TASKS_MANAGE,
+        PERM_SLA_MANAGE,
+        PERM_PDD_READ,
+        PERM_PDD_MANAGE,
+        PERM_REFERRALS_READ,
+        PERM_REFERRALS_MANAGE,
     },
     "manager": {
         PERM_CASES_CREATE,
@@ -90,6 +130,14 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PERM_TASKS_MANAGE,
         PERM_PDD_READ,
         PERM_PDD_MANAGE,
+        PERM_REFERRALS_READ,
+        PERM_REFERRALS_MANAGE,
+    },
+    "telecaller": {
+        PERM_CASES_READ,
+        PERM_CASES_UPDATE,
+        PERM_TASKS_READ,
+        PERM_DOCS_READ,
     },
     "processor": {
         PERM_CASES_CREATE,
@@ -103,6 +151,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PERM_TASKS_MANAGE,
         PERM_PDD_READ,
         PERM_PDD_MANAGE,
+        PERM_REFERRALS_READ,
     },
     "field_executive": {
         PERM_CASES_CREATE,
@@ -129,6 +178,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PERM_LENDERS_READ,
         PERM_TASKS_READ,
         PERM_PDD_READ,
+        PERM_REFERRALS_READ,
     },
     "auditor": {
         PERM_CASES_READ,
@@ -139,6 +189,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PERM_LENDERS_READ,
         PERM_TASKS_READ,
         PERM_PDD_READ,
+        PERM_REFERRALS_READ,
     },
 }
 

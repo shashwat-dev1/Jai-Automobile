@@ -1,0 +1,444 @@
+.referrals-page {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  color: var(--color-text, #f8fafc);
+}
+
+.referrals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.referrals-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.ref-kpi-card {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ref-kpi-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.ref-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-blue {
+  color: #38bdf8;
+}
+
+.text-green {
+  color: #10b981;
+}
+
+.text-amber {
+  color: #f59e0b;
+}
+
+.text-purple {
+  color: #a855f7;
+}
+
+.referrals-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: var(--color-surface, #1e293b);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #334155);
+}
+
+.filter-search-box {
+  flex: 1;
+  min-width: 260px;
+  max-width: 400px;
+}
+
+.filter-search-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.filter-search-input:focus {
+  border-color: #10b981;
+}
+
+.filter-pill-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary, #94a3b8);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.filter-pill:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.filter-pill.is-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.table-responsive-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  background: var(--color-surface, #1e293b);
+}
+
+.referrals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.referrals-table th {
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.75rem 1rem;
+  color: var(--color-text-secondary, #94a3b8);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border, #334155);
+  white-space: nowrap;
+}
+
+.referrals-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+  white-space: nowrap;
+}
+
+.status-chip {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.chip-verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.chip-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.action-button-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toggle-verify-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  color: var(--color-text-secondary, #94a3b8);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.toggle-verify-btn:hover {
+  color: #fff;
+  border-color: #64748b;
+}
+
+/* Dossier Slide-Over */
+.dossier-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dossier-drawer {
+  width: 100%;
+  max-width: 560px;
+  background: var(--color-surface, #1e293b);
+  border-left: 1px solid var(--color-border, #334155);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: -10px 0 25px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+}
+
+.dossier-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--color-border, #334155);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.dossier-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.dossier-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.dossier-tabs-strip {
+  display: flex;
+  border-bottom: 1px solid var(--color-border, #334155);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.dossier-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.dossier-tab-btn.is-active {
+  color: #34d399;
+  border-bottom-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.dossier-body {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.dossier-leads-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dossier-lead-card {
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lead-card-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.lead-applicant-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.lead-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.outcome-chip-small {
+  padding: 0.15rem 0.45rem;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.dossier-commissions-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.commissions-top-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.commission-item-card {
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.comm-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comm-amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.comm-status-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pending_review {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.status-approved,
+.status-payable {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.status-paid {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.status-rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.comm-actions-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.comm-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-approve {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.btn-reject {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-pay {
+  background: #10b981;
+  color: #0f172a;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.comm-modal {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .referrals-page {
+    padding: 1rem;
+  }
+}

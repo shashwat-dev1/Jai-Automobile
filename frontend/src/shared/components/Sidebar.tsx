@@ -48,13 +48,6 @@ const LendersIcon = () => (
   </svg>
 )
 
-const PayoutsIcon = () => (
-  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h3" />
-    <circle cx="14" cy="14" r="4" />
-    <path d="M14 12v2l1 1" />
-  </svg>
-)
 
 const UsersIcon = () => (
   <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -68,84 +61,68 @@ const AuditIcon = () => (
   </svg>
 )
 
+const TelecallerIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V17a2 2 0 01-2 2h-1C9.716 19 3 12.284 3 4V5z" />
+  </svg>
+)
+
+const ReferralsIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM13 15a4 4 0 00-6 0v2h6v-2zM16 17v-1a3 3 0 00-2-2.83M4 17v-1a3 3 0 012-2.83" />
+  </svg>
+)
+
+const LinkIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M11 3h6m0 0v6m0-6L9 11M5 7H4a2 2 0 00-2 2v7a2 2 0 002 2h7a2 2 0 002-2v-1" />
+  </svg>
+)
+
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
   { label: 'Today Console', path: '/today', icon: <DashboardIcon /> },
   {
-    label: 'Active Loan Files',
+    label: 'Cold Leads & Files',
     path: '/cases',
     icon: <CasesIcon />,
-    section: 'Operations',
+    section: 'Lead Operations',
   },
   {
-    label: '+ Case Intake',
+    label: '+ Quick Lead Intake',
     path: '/cases/new',
     icon: <LeadsIcon />,
     permission: PERMISSIONS.CASES_CREATE,
   },
   {
-    label: 'PDD Board',
-    path: '/pdd',
-    icon: <CasesIcon />,
+    label: 'Telecaller Workspace',
+    path: '/telecaller',
+    icon: <TelecallerIcon />,
   },
   {
-    label: 'Follow-ups',
-    path: '/tasks',
-    icon: <CasesIcon />,
+    label: 'Referral Partners',
+    path: '/referrals',
+    icon: <ReferralsIcon />,
+    section: 'Referral Network',
   },
   {
-    label: 'Customers',
+    label: 'Public Referral Portal',
+    path: '/referral',
+    icon: <LinkIcon />,
+  },
+  {
+    label: 'Borrowers & Customers',
     path: '/parties',
     icon: <LeadsIcon />,
+    section: 'Data & Channels',
   },
   {
-    label: 'Lead Sources',
+    label: 'Lead Sources & Channels',
     path: '/sources',
     icon: <LendersIcon />,
   },
   {
-    label: 'Source Analytics',
-    path: '/reports/sources',
-    icon: <LendersIcon />,
-  },
-  {
-    label: 'Partner Lenders',
-    path: '/lenders',
-    icon: <LendersIcon />,
-  },
-  {
-    label: 'Payouts',
-    path: '/payouts',
-    icon: <PayoutsIcon />,
-    section: 'Finance',
-    permission: PERMISSIONS.PAYOUT_READ,
-  },
-  {
-    label: 'Commission Rules',
-    path: '/payout/rules',
-    icon: <PayoutsIcon />,
-    permission: PERMISSIONS.PAYOUT_READ,
-  },
-  {
-    label: 'Attention Queue',
-    path: '/payout/attention',
-    icon: <PayoutsIcon />,
-    permission: PERMISSIONS.PAYOUT_READ,
-  },
-  {
-    label: 'Reconciliation',
-    path: '/payout/reconciliation',
-    icon: <PayoutsIcon />,
-    permission: PERMISSIONS.PAYOUT_READ,
-  },
-  {
-    label: 'Receivables Ledger',
-    path: '/payout/outstanding',
-    icon: <PayoutsIcon />,
-    permission: PERMISSIONS.PAYOUT_READ,
-  },
-  {
-    label: 'Team Members',
+    label: 'Team & Telecallers',
     path: '/admin/users',
     icon: <UsersIcon />,
     section: 'Administration',
@@ -158,7 +135,7 @@ const NAV_ITEMS: NavItem[] = [
     permission: PERMISSIONS.AUDIT_READ,
   },
   {
-    label: 'Tenants & Branding',
+    label: 'Organizations & Branding',
     path: '/admin/organizations',
     icon: <UsersIcon />,
     permission: PERMISSIONS.USERS_MANAGE,

@@ -27,6 +27,9 @@ from app.modules.cases.models import (
     Vehicle,
 )
 from app.modules.cases.schemas import (
+    BulkAssignResponse,
+    CallActivityCreateRequest,
+    CallActivityResponse,
     CaseCreate,
     CaseDetailResponse,
     CaseListItemResponse,
@@ -36,6 +39,7 @@ from app.modules.cases.schemas import (
     ConsentResponse,
     DuplicateCaseWarning,
     StatusHistoryResponse,
+    TelecallerWorkspaceSummary,
     VehicleCreateUpdate,
     VehicleResponse,
 )
@@ -52,7 +56,7 @@ from app.modules.parties.service import PartyService
 from app.modules.sources.models import Source
 from app.modules.workflow.sla import compute_stage_sla
 from app.shared.encryption import mask_mobile
-from app.shared.exceptions import ConflictError, NotFoundError
+from app.shared.exceptions import ConflictError, NotFoundError, ValidationError
 
 
 class CaseService:
@@ -337,6 +341,14 @@ class CaseService:
             entity_type="case",
         )
 
+        # Telecaller name lookup
+        telecaller_name = None
+        if case.assigned_telecaller_id:
+            tc_res = await self.session.execute(
+                select(User.name).where(User.id == case.assigned_telecaller_id)
+            )
+            telecaller_name = tc_res.scalar_one_or_none()
+
         return CaseDetailResponse(
             id=case.id,
             org_id=case.org_id,
@@ -353,6 +365,14 @@ class CaseService:
             owner_name=owner_name,
             assigned_processor_id=case.assigned_processor_id,
             assigned_processor_name=proc_name,
+            assigned_telecaller_id=case.assigned_telecaller_id,
+            assigned_telecaller_name=telecaller_name,
+            call_outcome=case.call_outcome or "new",
+            telecaller_remarks=case.telecaller_remarks,
+            follow_up_at=case.follow_up_at,
+            call_attempts_count=case.call_attempts_count or 0,
+            referral_profile_id=case.referral_profile_id,
+            referral_partner_name=case.referral_partner_name,
             notes=case.notes,
             version=case.version,
             is_stuck=stage_sla["is_stuck"],
@@ -372,6 +392,8 @@ class CaseService:
         product_type: str | None = None,
         source_id: uuid.UUID | None = None,
         owner_id: uuid.UUID | None = None,
+        telecaller_id: uuid.UUID | None = None,
+        call_outcome: str | None = None,
         party_id: uuid.UUID | None = None,
         search: str | None = None,
         page: int = 1,
@@ -381,7 +403,7 @@ class CaseService:
     ) -> tuple[list[CaseListItemResponse], int]:
         """
         List cases with filters and pagination.
-        Enforces Field Executive scoping: field_executive sees ONLY cases where owner_id == actor_id.
+        Enforces Field Executive & Telecaller scoping.
         """
         stmt = (
             select(
@@ -406,7 +428,15 @@ class CaseService:
         if actor_role == "field_executive" and actor_id:
             stmt = stmt.where(Case.owner_id == actor_id)
 
+        # RBAC Telecaller restriction: see only assigned leads
+        if actor_role == "telecaller" and actor_id:
+            stmt = stmt.where(Case.assigned_telecaller_id == actor_id)
+
         # Filters
+        if telecaller_id:
+            stmt = stmt.where(Case.assigned_telecaller_id == telecaller_id)
+        if call_outcome:
+            stmt = stmt.where(Case.call_outcome == call_outcome)
         if party_id:
             stmt = stmt.where(Party.id == party_id)
         if status:
@@ -472,6 +502,13 @@ class CaseService:
                     vehicle_summary=veh_summary,
                     source_name=s_name,
                     owner_name=o_name,
+                    assigned_telecaller_id=c.assigned_telecaller_id,
+                    call_outcome=c.call_outcome or "new",
+                    telecaller_remarks=c.telecaller_remarks,
+                    follow_up_at=c.follow_up_at,
+                    call_attempts_count=c.call_attempts_count or 0,
+                    referral_profile_id=c.referral_profile_id,
+                    referral_partner_name=c.referral_partner_name,
                     has_consent=True,
                     age_in_days=age,
                     is_stuck=stage_sla["is_stuck"],
@@ -705,3 +742,122 @@ class CaseService:
         if not case:
             raise NotFoundError(f"Case with ID '{case_id}' not found.")
         return case
+
+    async def assign_cases(
+        self,
+        org_id: uuid.UUID,
+        case_ids: list[uuid.UUID],
+        telecaller_id: uuid.UUID,
+        actor_id: uuid.UUID,
+    ) -> BulkAssignResponse:
+        """Assign or reassign multiple leads to an authorized telecaller."""
+        u_stmt = select(User).where(User.id == telecaller_id, User.org_id == org_id, User.deleted_at.is_(None))
+        u_res = await self.session.execute(u_stmt)
+        telecaller = u_res.scalar_one_or_none()
+        if not telecaller:
+            raise NotFoundError("Assigned telecaller not found in organization.")
+
+        stmt = select(Case).where(
+            Case.id.in_(case_ids),
+            Case.org_id == org_id,
+            Case.deleted_at.is_(None),
+        )
+        res = await self.session.execute(stmt)
+        cases = res.scalars().all()
+        now = datetime.now(UTC)
+
+        for c in cases:
+            c.assigned_telecaller_id = telecaller_id
+            c.assigned_at = now
+            c.assigned_by_id = actor_id
+            sh = CaseStatusHistory(
+                id=uuid.uuid4(),
+                org_id=org_id,
+                case_id=c.id,
+                from_status=c.status,
+                to_status=c.status,
+                changed_by=actor_id,
+                notes=f"Lead assigned to telecaller {telecaller.name}",
+                version=1,
+            )
+            self.session.add(sh)
+
+        await self.session.commit()
+
+        return BulkAssignResponse(
+            assigned_count=len(cases),
+            telecaller_id=telecaller.id,
+            telecaller_name=telecaller.name,
+        )
+
+    async def record_call_activity(
+        self,
+        org_id: uuid.UUID,
+        case_id: uuid.UUID,
+        payload: CallActivityCreateRequest,
+        actor_id: uuid.UUID,
+        actor_name: str,
+    ) -> CallActivityResponse:
+        """Record telecaller call outcome, notes, and schedule callback."""
+        case = await self._get_case(org_id, case_id)
+
+        valid_outcomes = ("new", "interested", "not_interested", "follow_up", "not_reachable", "duplicate")
+        if payload.outcome not in valid_outcomes:
+            raise ValidationError(f"Invalid call outcome '{payload.outcome}'. Allowed: {valid_outcomes}")
+
+        case.call_outcome = payload.outcome
+        case.telecaller_remarks = payload.remarks
+        case.follow_up_at = payload.follow_up_at
+        case.call_attempts_count = (case.call_attempts_count or 0) + 1
+
+        sh = CaseStatusHistory(
+            id=uuid.uuid4(),
+            org_id=org_id,
+            case_id=case.id,
+            from_status=case.status,
+            to_status=case.status,
+            changed_by=actor_id,
+            notes=f"Call Attempt #{case.call_attempts_count}: [{payload.outcome.upper()}] {payload.remarks}",
+            version=1,
+        )
+        self.session.add(sh)
+        await self.session.commit()
+        await self.session.refresh(case)
+
+        return CallActivityResponse(
+            case_id=case.id,
+            case_no=case.case_no,
+            call_outcome=case.call_outcome,
+            telecaller_remarks=case.telecaller_remarks or "",
+            follow_up_at=case.follow_up_at,
+            call_attempts_count=case.call_attempts_count,
+            updated_at=case.updated_at,
+        )
+
+    async def get_telecaller_workspace(
+        self,
+        org_id: uuid.UUID,
+        telecaller_id: uuid.UUID,
+    ) -> TelecallerWorkspaceSummary:
+        """Fetch leads and metrics for an individual telecaller workspace."""
+        items, total = await self.list_cases(
+            org_id=org_id,
+            page_size=200,
+            actor_role="telecaller",
+            actor_id=telecaller_id,
+        )
+        now = datetime.now(UTC)
+
+        pending = sum(1 for i in items if not i.call_outcome or i.call_outcome in ("new", "not_reachable"))
+        follow_ups = sum(1 for i in items if i.follow_up_at and i.follow_up_at.date() <= now.date())
+        interested = sum(1 for i in items if i.call_outcome == "interested")
+        completed = sum(1 for i in items if i.call_outcome in ("not_interested", "duplicate"))
+
+        return TelecallerWorkspaceSummary(
+            total_assigned=total,
+            pending_leads=pending,
+            follow_ups_due=follow_ups,
+            interested_count=interested,
+            completed_count=completed,
+            leads=items,
+        )

@@ -9,6 +9,8 @@ export type Role =
   | 'field_executive'
   | 'accountant'
   | 'auditor'
+  | 'telecaller'
+  | 'platform_admin'
 
 export interface User {
   id: string
@@ -60,6 +62,8 @@ export const PERMISSIONS = {
   RECON_UPDATE: 'recon:update',
   DATA_EXPORT: 'data:export',
   ORG_SETTINGS: 'org:settings',
+  REFERRALS_READ: 'referrals:read',
+  REFERRALS_MANAGE: 'referrals:manage',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

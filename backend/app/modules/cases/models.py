@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from app.modules.lenders.models import LenderApplication
     from app.modules.parties.models import Party
     from app.modules.pdd.models import PDDItem
+    from app.modules.referrals.models import ReferralProfile
     from app.modules.sources.models import Source
     from app.modules.workflow.models import Task
 
@@ -81,6 +82,25 @@ class Case(TenantModel):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
 
+    # Referral Attribution
+    referral_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("referral_profiles.id", ondelete="SET NULL"), nullable=True
+    )
+    referral_partner_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Telecaller Assignment & Call Activity
+    assigned_telecaller_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    call_outcome: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    telecaller_remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    call_attempts_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
     # Optimistic locking
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
@@ -91,6 +111,12 @@ class Case(TenantModel):
     owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id])
     assigned_processor: Mapped["User | None"] = relationship(
         "User", foreign_keys=[assigned_processor_id]
+    )
+    assigned_telecaller: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[assigned_telecaller_id]
+    )
+    referral_profile: Mapped["ReferralProfile | None"] = relationship(
+        "ReferralProfile", back_populates="cases"
     )
     case_parties: Mapped[list["CaseParty"]] = relationship(
         "CaseParty", back_populates="case", cascade="all, delete-orphan"
@@ -119,6 +145,8 @@ class Case(TenantModel):
         Index("ix_cases_org_status", "org_id", "status"),
         Index("ix_cases_org_owner", "org_id", "owner_id"),
         Index("ix_cases_org_source", "org_id", "source_id"),
+        Index("ix_cases_org_telecaller", "org_id", "assigned_telecaller_id"),
+        Index("ix_cases_org_referral", "org_id", "referral_profile_id"),
         Index("ix_cases_org_created_at", "org_id", "created_at"),
     )
 

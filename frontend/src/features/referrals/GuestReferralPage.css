@@ -1,0 +1,350 @@
+.guest-referral-page {
+  min-height: 100vh;
+  background-color: var(--color-bg, #0b0f19);
+  color: var(--color-text, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+}
+
+.guest-header {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.guest-brand-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-logo-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.brand-letter {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.guest-brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.guest-brand-tagline {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+  margin: 0;
+}
+
+.guest-trust-badge {
+  font-size: 0.75rem;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+}
+
+.guest-main {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+}
+
+.guest-card {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.guest-card-header {
+  margin-bottom: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.step-pill {
+  align-self: flex-start;
+  padding: 0.25rem 0.6rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.partner-status-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.partner-identified {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.partner-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.change-mobile-btn {
+  background: transparent;
+  border: none;
+  color: #38bdf8;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.guest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text, #f8fafc);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+.guest-input,
+.guest-select {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  color: #fff;
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.guest-input:focus,
+.guest-select:focus {
+  border-color: #10b981;
+}
+
+.phone-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.phone-prefix {
+  padding: 0.65rem 0.85rem;
+  background: rgba(30, 41, 59, 0.6);
+  color: var(--color-text-secondary, #94a3b8);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-right: 1px solid var(--color-border, #334155);
+}
+
+.phone-field {
+  border: none;
+  background: transparent;
+  padding-left: 0.75rem;
+}
+
+.phone-field:focus {
+  border: none;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.document-upload-section {
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.doc-dropzones-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.doc-box {
+  border: 1px dashed var(--color-border, #334155);
+  border-radius: 6px;
+  padding: 0.85rem;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doc-box:hover {
+  border-color: #10b981;
+}
+
+.doc-box.is-attached {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.doc-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.doc-status {
+  font-size: 0.75rem;
+  color: #38bdf8;
+  font-weight: normal;
+}
+
+.guest-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.success-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.success-icon-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.5);
+}
+
+.success-meta-box {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  text-align: left;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meta-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+  text-transform: uppercase;
+}
+
+.meta-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.text-success {
+  color: #34d399;
+}
+
+.guest-footer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+@media (max-width: 640px) {
+  .guest-referral-page {
+    padding: 1rem;
+  }
+  .guest-card {
+    padding: 1.25rem;
+  }
+  .form-grid-2,
+  .form-grid-3,
+  .success-meta-box {
+    grid-template-columns: 1fr;
+  }
+}

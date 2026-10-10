@@ -44,6 +44,8 @@ import {
   JAI_MOCK_USERS,
   JAI_MOCK_AUDIT,
   JAI_MOCK_ORGANIZATIONS,
+  JAI_MOCK_REFERRAL_PROFILES,
+  JAI_MOCK_REFERRAL_COMMISSIONS,
 } from './mockDatabase'
 import { createCaseInFirestore } from './firebaseService'
 
@@ -68,6 +70,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       ? 'field_executive'
       : (parsedBody?.identifier || '').includes('auditor')
       ? 'auditor'
+      : (parsedBody?.identifier || '').includes('telecaller')
+      ? 'telecaller'
       : (parsedBody?.identifier || '').includes('manager')
       ? 'manager'
       : 'owner'
@@ -78,6 +82,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       accountant: 'Sanjay Gupta (Chief Accountant)',
       field_executive: 'Kavita Singh (Field Officer)',
       auditor: 'Meera Iyer (Internal Auditor)',
+      telecaller: 'Priya Nair (Telecaller)',
     }
     return {
       access_token: 'demo-prototype-access-token',
@@ -229,6 +234,252 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         })
       }
       return foundCase
+    }
+  }
+
+  // Phase 1: Telecaller Workspace
+  if (clean.includes('/cases/telecaller/workspace')) {
+    const assigned = JAI_MOCK_CASES.filter((c: any) => c.assigned_telecaller_id || c.assigned_telecaller_name)
+    const list = assigned.length > 0 ? assigned : JAI_MOCK_CASES
+    return {
+      total_assigned: list.length,
+      pending_leads: list.filter((c: any) => !c.call_outcome || c.call_outcome === 'new').length,
+      follow_ups_due: list.filter((c: any) => c.call_outcome === 'follow_up').length,
+      interested_count: list.filter((c: any) => c.call_outcome === 'interested').length,
+      completed_count: list.filter((c: any) => ['interested', 'not_interested', 'duplicate'].includes(c.call_outcome || '')).length,
+      leads: list,
+    }
+  }
+
+  // Phase 1: Lead Assignment (Bulk / Single)
+  if (clean.includes('/cases/assign') && method === 'POST') {
+    const { case_ids, telecaller_id } = parsedBody || {}
+    const tcUser = JAI_MOCK_USERS.find((u: any) => u.id === telecaller_id)
+    const tcName = tcUser?.name || 'Priya Nair'
+    let count = 0
+    if (Array.isArray(case_ids)) {
+      case_ids.forEach((cid: string) => {
+        const found = JAI_MOCK_CASES.find((c: any) => c.id === cid)
+        if (found) {
+          found.assigned_telecaller_id = telecaller_id
+          found.assigned_telecaller_name = tcName
+          found.updated_at = new Date().toISOString()
+          count++
+        }
+      })
+    }
+    return {
+      assigned_count: count || (case_ids?.length || 1),
+      telecaller_id,
+      telecaller_name: tcName,
+    }
+  }
+
+  // Phase 1: Call Activity Logging
+  const callActivityMatch = clean.match(/\/cases\/([^\/\?]+)\/call-activity/)
+  if (callActivityMatch && method === 'POST') {
+    const caseId = callActivityMatch[1]
+    const foundCase = JAI_MOCK_CASES.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || JAI_MOCK_CASES[0]
+    if (foundCase) {
+      foundCase.call_outcome = parsedBody?.outcome || foundCase.call_outcome
+      foundCase.telecaller_remarks = parsedBody?.remarks || foundCase.telecaller_remarks
+      foundCase.follow_up_at = parsedBody?.follow_up_at || foundCase.follow_up_at
+      foundCase.call_attempts_count = (foundCase.call_attempts_count || 0) + 1
+      foundCase.updated_at = new Date().toISOString()
+      if (!Array.isArray(foundCase.call_activity_history)) {
+        foundCase.call_activity_history = []
+      }
+      foundCase.call_activity_history.unshift({
+        id: `act-${Date.now()}`,
+        outcome: parsedBody?.outcome,
+        remarks: parsedBody?.remarks,
+        follow_up_at: parsedBody?.follow_up_at,
+        telecaller_name: 'Priya Nair',
+        created_at: new Date().toISOString(),
+      })
+      return {
+        case_id: foundCase.id,
+        case_no: foundCase.case_no,
+        call_outcome: foundCase.call_outcome,
+        telecaller_remarks: foundCase.telecaller_remarks,
+        follow_up_at: foundCase.follow_up_at,
+        call_attempts_count: foundCase.call_attempts_count,
+        updated_at: foundCase.updated_at,
+      }
+    }
+  }
+
+  // Phase 1: Referral Partner Mobile Lookup
+  if (clean.includes('/referrals/lookup') && method === 'POST') {
+    const rawMobile = (parsedBody?.mobile || '').replace(/\D/g, '').slice(-10)
+    const match = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.mobile_primary.includes(rawMobile))
+    if (match) {
+      return {
+        exists: true,
+        profile_id: match.id,
+        name: match.name,
+        verification_status: match.verification_status,
+      }
+    }
+    return {
+      exists: false,
+      profile_id: null,
+      name: null,
+      verification_status: null,
+    }
+  }
+
+  // Phase 1: Guest Referral Lead Submission
+  if (clean.includes('/referrals/guest-submit') && method === 'POST') {
+    const rawMobile = (parsedBody?.partner_mobile || '').replace(/\D/g, '').slice(-10)
+    let partner = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.mobile_primary.includes(rawMobile))
+    if (!partner) {
+      partner = {
+        id: `ref-p-${Date.now()}`,
+        org_id: '11111111-1111-1111-1111-111111111111',
+        name: parsedBody?.partner_name || 'New Referral Partner',
+        mobile_primary: rawMobile || '9820000000',
+        masked_mobile: rawMobile.length >= 6 ? `${rawMobile.slice(0, 2)}****${rawMobile.slice(-4)}` : '98****0000',
+        verification_status: 'pending_verification',
+        total_leads: 1,
+        interested_leads: 0,
+        converted_leads: 0,
+        approved_commissions: 0,
+        paid_commissions: 0,
+        notes: 'Self-registered via public portal referral intake.',
+        created_at: new Date().toISOString(),
+      }
+      JAI_MOCK_REFERRAL_PROFILES.unshift(partner)
+    } else {
+      partner.total_leads++
+    }
+
+    const newCase: any = {
+      id: `case-jai-${Date.now()}`,
+      case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
+      applicant_name: parsedBody?.applicant_name || 'Referral Borrower',
+      primary_applicant_name: parsedBody?.applicant_name || 'Referral Borrower',
+      mobile: parsedBody?.applicant_mobile || '9820011223',
+      primary_applicant_mobile: parsedBody?.applicant_mobile || '9820011223',
+      product: parsedBody?.product_type || 'used_car',
+      product_type: parsedBody?.product_type || 'used_car',
+      status: 'lead',
+      applied_loan_amount: Number(parsedBody?.loan_amount_requested) || 500000,
+      loan_amount_requested: Number(parsedBody?.loan_amount_requested) || 500000,
+      vehicle_summary: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : 'Vehicle Loan Application',
+      vehicle_details: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : 'Vehicle Loan Application',
+      source_name: `Referral: ${partner.name}`,
+      owner_name: 'Aarav Sharma',
+      referral_profile_id: partner.id,
+      referral_partner_name: partner.name,
+      call_outcome: 'new',
+      call_attempts_count: 0,
+      has_consent: true,
+      age_in_days: 0,
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      primary_party: {
+        id: `p-${Date.now()}`,
+        name: parsedBody?.applicant_name || 'Referral Borrower',
+        mobile_primary: parsedBody?.applicant_mobile || '9820011223',
+        city: parsedBody?.city || 'Mumbai',
+      },
+    }
+    JAI_MOCK_CASES.unshift(newCase)
+    return {
+      success: true,
+      case_id: newCase.id,
+      case_no: newCase.case_no,
+      referral_profile_id: partner.id,
+      partner_name: partner.name,
+      message: `Lead successfully submitted and routed to Jai Automobiles lead desk. Reference: ${newCase.case_no}`,
+    }
+  }
+
+  // Phase 1: Referral Partner Detail & Dossier
+  const profileDetailMatch = clean.match(/\/referrals\/profiles\/([^\/\?]+)$/)
+  if (profileDetailMatch && method === 'GET') {
+    const profileId = profileDetailMatch[1]
+    const profile = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.id === profileId) || JAI_MOCK_REFERRAL_PROFILES[0]
+    const associatedLeads = JAI_MOCK_CASES.filter((c: any) => c.referral_profile_id === profile.id || c.referral_partner_name === profile.name)
+    const associatedComms = JAI_MOCK_REFERRAL_COMMISSIONS.filter((c: any) => c.referral_profile_id === profile.id)
+    return {
+      profile,
+      leads: associatedLeads,
+      commissions: associatedComms,
+    }
+  }
+
+  // Phase 1: Toggle Referral Partner Verification Status
+  const profileVerifyMatch = clean.match(/\/referrals\/profiles\/([^\/\?]+)\/verify/)
+  if (profileVerifyMatch && method === 'POST') {
+    const profileId = profileVerifyMatch[1]
+    const profile = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.id === profileId) || JAI_MOCK_REFERRAL_PROFILES[0]
+    profile.verification_status = parsedBody?.status || (profile.verification_status === 'verified' ? 'pending_verification' : 'verified')
+    profile.verified_at = new Date().toISOString()
+    return profile
+  }
+
+  // Phase 1: List Referral Profiles
+  if (clean.includes('/referrals/profiles') && method === 'GET') {
+    return JAI_MOCK_REFERRAL_PROFILES
+  }
+
+  // Phase 1: Update Referral Commission Status (Approve / Reject / Pay with UTR)
+  const commStatusMatch = clean.match(/\/referrals\/commissions\/([^\/\?]+)\/status/)
+  if (commStatusMatch && method === 'POST') {
+    const commId = commStatusMatch[1]
+    const comm = JAI_MOCK_REFERRAL_COMMISSIONS.find((c) => c.id === commId) || JAI_MOCK_REFERRAL_COMMISSIONS[0]
+    comm.status = parsedBody?.status || comm.status
+    if (parsedBody?.payment_reference) comm.payment_reference = parsedBody.payment_reference
+    if (parsedBody?.notes) comm.notes = parsedBody.notes
+    if (comm.status === 'paid' && !comm.payment_date) {
+      comm.payment_date = new Date().toISOString().split('T')[0]
+    }
+    return comm
+  }
+
+  // Phase 1: Create Referral Commission
+  if (clean.includes('/referrals/commissions') && method === 'POST') {
+    const newComm: any = {
+      id: `ref-comm-${Date.now()}`,
+      org_id: '11111111-1111-1111-1111-111111111111',
+      referral_profile_id: parsedBody?.referral_profile_id,
+      referral_partner_name: parsedBody?.referral_partner_name || 'Referral Partner',
+      case_id: parsedBody?.case_id,
+      case_no: parsedBody?.case_no,
+      applicant_name: parsedBody?.applicant_name,
+      amount: Number(parsedBody?.amount) || 5000,
+      basis: parsedBody?.basis || 'Partner Incentive',
+      status: 'pending_review',
+      notes: parsedBody?.notes,
+      created_at: new Date().toISOString(),
+    }
+    JAI_MOCK_REFERRAL_COMMISSIONS.unshift(newComm)
+    return newComm
+  }
+
+  // Phase 1: List Referral Commissions
+  if (clean.includes('/referrals/commissions') && method === 'GET') {
+    return JAI_MOCK_REFERRAL_COMMISSIONS
+  }
+
+  // Phase 1: Lead Bulk Import Template & Preview
+  if (clean.includes('/import/cases/template') || clean.includes('/import/template')) {
+    return {
+      columns: ['applicant_name', 'mobile', 'product_type', 'loan_amount_requested', 'city', 'state', 'pincode', 'vehicle_reg_no', 'source_name'],
+      sample_row: {
+        applicant_name: 'Sunil Verma',
+        mobile: '9820011223',
+        product_type: 'used_car',
+        loan_amount_requested: 650000,
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        pincode: '400053',
+        vehicle_reg_no: 'MH02EJ4455',
+        source_name: 'Cold Calling Database Q1',
+      },
     }
   }
 

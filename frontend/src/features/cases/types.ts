@@ -41,6 +41,14 @@ export interface CaseListItem {
   source_name: string
   owner_name: string
   assigned_processor_name?: string | null
+  assigned_telecaller_id?: string | null
+  assigned_telecaller_name?: string | null
+  call_outcome?: string | null
+  telecaller_remarks?: string | null
+  follow_up_at?: string | null
+  call_attempts_count?: number
+  referral_profile_id?: string | null
+  referral_partner_name?: string | null
   has_consent: boolean
   age_in_days: number
   is_stuck?: boolean
@@ -99,6 +107,14 @@ export interface CaseDetail {
   owner_name: string
   assigned_processor_id?: string | null
   assigned_processor_name?: string | null
+  assigned_telecaller_id?: string | null
+  assigned_telecaller_name?: string | null
+  call_outcome?: string | null
+  telecaller_remarks?: string | null
+  follow_up_at?: string | null
+  call_attempts_count?: number
+  referral_profile_id?: string | null
+  referral_partner_name?: string | null
   notes?: string | null
   version: number
   is_stuck?: boolean

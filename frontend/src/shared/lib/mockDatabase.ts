@@ -31,6 +31,22 @@ export interface MockCase {
   updated_at: string
   primary_party?: any
   vehicle?: any
+  assigned_telecaller_id?: string
+  assigned_telecaller_name?: string
+  call_outcome?: string
+  telecaller_remarks?: string
+  follow_up_at?: string
+  call_attempts_count?: number
+  referral_profile_id?: string
+  referral_partner_name?: string
+  call_activity_history?: Array<{
+    id: string
+    outcome: string
+    remarks: string
+    follow_up_at?: string
+    telecaller_name: string
+    created_at: string
+  }>
   status_history?: any[]
 }
 
@@ -830,6 +846,8 @@ export const JAI_MOCK_USERS = [
   { id: 'u-4', org_id: '11111111-1111-1111-1111-111111111111', name: 'Kavita Singh', email: 'fe@apexloans.com', mobile: '9820011004', role: 'field_executive', is_active: true, created_at: '2024-01-01T00:00:00Z' },
   { id: 'u-5', org_id: '11111111-1111-1111-1111-111111111111', name: 'Sanjay Gupta', email: 'accountant@apexloans.com', mobile: '9820011005', role: 'accountant', is_active: true, created_at: '2024-01-01T00:00:00Z' },
   { id: 'u-6', org_id: '11111111-1111-1111-1111-111111111111', name: 'Meera Iyer', email: 'auditor@apexloans.com', mobile: '9820011006', role: 'auditor', is_active: true, created_at: '2024-01-01T00:00:00Z' },
+  { id: 'u-tc-1', org_id: '11111111-1111-1111-1111-111111111111', name: 'Priya Nair', email: 'priya.telecaller@jaiautomobiles.com', mobile: '9820011010', role: 'telecaller', is_active: true, created_at: '2024-01-01T00:00:00Z' },
+  { id: 'u-tc-2', org_id: '11111111-1111-1111-1111-111111111111', name: 'Karan Mehta', email: 'karan.telecaller@jaiautomobiles.com', mobile: '9820011011', role: 'telecaller', is_active: true, created_at: '2024-01-01T00:00:00Z' },
 ]
 
 export const JAI_MOCK_AUDIT = [
@@ -925,3 +943,216 @@ export const JAI_MOCK_ORGANIZATIONS = [
     },
   },
 ]
+
+// =============================================================================
+// Phase 1: Referral Profiles & Referral Commissions Mock Datasets
+// =============================================================================
+
+export interface MockReferralProfile {
+  id: string
+  org_id: string
+  name: string
+  mobile_primary: string
+  masked_mobile: string
+  email?: string
+  verification_status: 'pending_verification' | 'verified' | 'rejected'
+  verified_at?: string
+  total_leads: number
+  interested_leads: number
+  converted_leads: number
+  approved_commissions: number
+  paid_commissions: number
+  notes?: string
+  created_at: string
+}
+
+export interface MockReferralCommission {
+  id: string
+  org_id: string
+  referral_profile_id: string
+  referral_partner_name: string
+  case_id?: string
+  case_no?: string
+  applicant_name?: string
+  amount: number
+  basis: string
+  status: 'pending_review' | 'approved' | 'rejected' | 'payable' | 'paid'
+  payment_date?: string
+  payment_reference?: string
+  approved_by_id?: string
+  approved_at?: string
+  notes?: string
+  created_at: string
+}
+
+export const JAI_MOCK_REFERRAL_PROFILES: MockReferralProfile[] = [
+  {
+    id: 'ref-p-101',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Vikram Sharma',
+    mobile_primary: '9820044551',
+    masked_mobile: '98****4551',
+    email: 'vikram.sharma@partner.net',
+    verification_status: 'verified',
+    verified_at: '2025-01-10T11:00:00Z',
+    total_leads: 8,
+    interested_leads: 5,
+    converted_leads: 3,
+    approved_commissions: 23500,
+    paid_commissions: 15000,
+    notes: 'Primary auto consultant in Western Suburbs (Andheri & Borivali).',
+    created_at: '2025-01-05T09:30:00Z',
+  },
+  {
+    id: 'ref-p-102',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Amit Verma',
+    mobile_primary: '9819988772',
+    masked_mobile: '98****8772',
+    email: 'amit.verma.auto@gmail.com',
+    verification_status: 'verified',
+    verified_at: '2025-01-15T15:20:00Z',
+    total_leads: 6,
+    interested_leads: 4,
+    converted_leads: 2,
+    approved_commissions: 15000,
+    paid_commissions: 8500,
+    notes: 'Certified used car broker operating in Thane & Navi Mumbai.',
+    created_at: '2025-01-12T14:00:00Z',
+  },
+  {
+    id: 'ref-p-103',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Pooja Gupta',
+    mobile_primary: '9820512345',
+    masked_mobile: '98****2345',
+    email: 'pooja.connect@financehub.in',
+    verification_status: 'verified',
+    verified_at: '2025-02-01T10:15:00Z',
+    total_leads: 4,
+    interested_leads: 3,
+    converted_leads: 1,
+    approved_commissions: 6000,
+    paid_commissions: 0,
+    notes: 'Retail financial planner referring self-employed vehicle borrowers.',
+    created_at: '2025-01-28T16:45:00Z',
+  },
+  {
+    id: 'ref-p-104',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Rajesh Soni',
+    mobile_primary: '9833165432',
+    masked_mobile: '98****5432',
+    verification_status: 'pending_verification',
+    total_leads: 2,
+    interested_leads: 1,
+    converted_leads: 0,
+    approved_commissions: 0,
+    paid_commissions: 0,
+    notes: 'Sub-DSA connector from Kalyan. Bank details verification pending.',
+    created_at: '2025-02-18T11:20:00Z',
+  },
+  {
+    id: 'ref-p-105',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Manish Tiwari',
+    mobile_primary: '9870099881',
+    masked_mobile: '98****9881',
+    verification_status: 'pending_verification',
+    total_leads: 1,
+    interested_leads: 0,
+    converted_leads: 0,
+    approved_commissions: 0,
+    paid_commissions: 0,
+    notes: 'Submitted first referral via public portal.',
+    created_at: '2025-02-23T18:00:00Z',
+  },
+]
+
+export const JAI_MOCK_REFERRAL_COMMISSIONS: MockReferralCommission[] = [
+  {
+    id: 'ref-comm-201',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    referral_profile_id: 'ref-p-101',
+    referral_partner_name: 'Vikram Sharma',
+    case_id: 'case-jai-101',
+    case_no: 'JA-2025-0101',
+    applicant_name: 'Rajesh Kumar Sharma',
+    amount: 8500,
+    basis: '1.0% Disbursed Value (HDFC Bank)',
+    status: 'paid',
+    payment_date: '2025-02-21',
+    payment_reference: 'UTR-HDFC-991823',
+    approved_by_id: 'u-1',
+    approved_at: '2025-02-20T18:00:00Z',
+    notes: 'Paid via direct NEFT transfer.',
+    created_at: '2025-02-20T17:00:00Z',
+  },
+  {
+    id: 'ref-comm-202',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    referral_profile_id: 'ref-p-101',
+    referral_partner_name: 'Vikram Sharma',
+    case_id: 'case-jai-102',
+    case_no: 'JA-2025-0102',
+    applicant_name: 'Amitabh Singh Chauhan',
+    amount: 6500,
+    basis: 'Flat High-Ticket Partner Incentive',
+    status: 'paid',
+    payment_date: '2025-02-23',
+    payment_reference: 'UTR-ICICI-881290',
+    approved_by_id: 'u-1',
+    approved_at: '2025-02-22T14:30:00Z',
+    notes: 'Sanction incentive cleared.',
+    created_at: '2025-02-22T11:00:00Z',
+  },
+  {
+    id: 'ref-comm-203',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    referral_profile_id: 'ref-p-102',
+    referral_partner_name: 'Amit Verma',
+    case_id: 'case-jai-103',
+    case_no: 'JA-2025-0103',
+    applicant_name: 'Sunil Manohar Gavaskar',
+    amount: 8500,
+    basis: 'Flat Incentive (Used Car Brezza)',
+    status: 'paid',
+    payment_date: '2025-02-24',
+    payment_reference: 'UTR-KOTAK-771144',
+    approved_by_id: 'u-2',
+    approved_at: '2025-02-24T12:00:00Z',
+    notes: 'Disbursed via Kotak Bank.',
+    created_at: '2025-02-24T10:00:00Z',
+  },
+  {
+    id: 'ref-comm-204',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    referral_profile_id: 'ref-p-103',
+    referral_partner_name: 'Pooja Gupta',
+    case_id: 'case-jai-104',
+    case_no: 'JA-2025-0104',
+    applicant_name: 'Deepak Mohanlal Mehta',
+    amount: 6000,
+    basis: '0.75% Sanction Value',
+    status: 'approved',
+    approved_by_id: 'u-1',
+    approved_at: '2025-02-24T16:00:00Z',
+    notes: 'Approved by MD. Payout scheduled for upcoming Friday batch.',
+    created_at: '2025-02-24T15:00:00Z',
+  },
+  {
+    id: 'ref-comm-205',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    referral_profile_id: 'ref-p-101',
+    referral_partner_name: 'Vikram Sharma',
+    case_id: 'case-jai-105',
+    case_no: 'JA-2025-0105',
+    applicant_name: 'Sanjay Raghunath Joshi',
+    amount: 8500,
+    basis: '1.0% Expected Loan Value',
+    status: 'pending_review',
+    notes: 'Under review. Lead qualified and docs collected.',
+    created_at: '2025-02-25T10:00:00Z',
+  },
+]
+

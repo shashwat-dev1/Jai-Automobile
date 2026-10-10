@@ -40,6 +40,7 @@ import app.modules.parties.models  # noqa: E402, F401
 import app.modules.payout.models  # noqa: E402, F401
 import app.modules.payout.reconciliation.models  # noqa: E402, F401
 import app.modules.pdd.models  # noqa: E402, F401
+import app.modules.referrals.models  # noqa: E402, F401
 import app.modules.sources.models  # noqa: E402, F401
 import app.modules.tenancy.models  # noqa: E402, F401
 import app.modules.workflow.models  # noqa: E402, F401

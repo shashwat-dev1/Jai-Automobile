@@ -23,12 +23,17 @@ import { OutstandingReportPage } from '../features/payout/OutstandingReportPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { TodayPage } from '../features/dashboard/TodayPage'
 import { SourcesReportPage } from '../features/reports/SourcesReportPage'
+import { TelecallerWorkspacePage } from '../features/cases/TelecallerWorkspacePage'
+import { ReferralPartnersPage } from '../features/referrals/ReferralPartnersPage'
+import { GuestReferralPage } from '../features/referrals/GuestReferralPage'
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/referral" element={<GuestReferralPage />} />
+      <Route path="/refer/:orgSlug" element={<GuestReferralPage />} />
 
       {/* Authenticated Workspace */}
       <Route
@@ -53,6 +58,9 @@ function AppRoutes() {
           }
         />
         <Route path="cases/:id" element={<CaseDetailPage />} />
+        <Route path="telecaller" element={<TelecallerWorkspacePage />} />
+        <Route path="referrals" element={<ReferralPartnersPage />} />
+        <Route path="referral-partners" element={<ReferralPartnersPage />} />
         <Route path="pdd" element={<PDDBoardPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="parties" element={<PartiesPage />} />

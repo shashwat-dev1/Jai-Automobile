@@ -16,6 +16,10 @@ from app.modules.auth.permissions import (
     PERM_CASES_UPDATE,
 )
 from app.modules.cases.schemas import (
+    BulkAssignRequest,
+    BulkAssignResponse,
+    CallActivityCreateRequest,
+    CallActivityResponse,
     CaseCreate,
     CaseCreateResponse,
     CaseDetailResponse,
@@ -25,6 +29,7 @@ from app.modules.cases.schemas import (
     ConsentCreate,
     ConsentResponse,
     StatusHistoryResponse,
+    TelecallerWorkspaceSummary,
     VehicleCreateUpdate,
     VehicleResponse,
 )
@@ -41,6 +46,8 @@ async def list_cases(
     product_type: str | None = Query(None),
     source_id: uuid.UUID | None = Query(None),
     owner_id: uuid.UUID | None = Query(None),
+    telecaller_id: uuid.UUID | None = Query(None),
+    call_outcome: str | None = Query(None),
     party_id: uuid.UUID | None = Query(None),
     search: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -56,6 +63,8 @@ async def list_cases(
         product_type=product_type,
         source_id=source_id,
         owner_id=owner_id,
+        telecaller_id=telecaller_id,
+        call_outcome=call_outcome,
         party_id=party_id,
         search=search,
         page=page,
@@ -187,3 +196,56 @@ async def record_case_consent(
         ip_address=ip_address,
     )
     return ApiResponse(data=consent)
+
+
+# -----------------------------------------------------------------------------
+# Phase 1: Lead Assignment & Telecaller Workflow Endpoints
+# -----------------------------------------------------------------------------
+@router.post("/assign", response_model=ApiResponse[BulkAssignResponse])
+async def assign_cases_to_telecaller(
+    payload: BulkAssignRequest,
+    current_user: User = Depends(require_permission(PERM_CASES_UPDATE)),
+    session: AsyncSession = Depends(get_db),
+) -> ApiResponse[BulkAssignResponse]:
+    """Assign or reassign leads to an authorized telecaller in bulk."""
+    service = CaseService(session=session)
+    result = await service.assign_cases(
+        org_id=current_user.org_id,
+        case_ids=payload.case_ids,
+        telecaller_id=payload.telecaller_id,
+        actor_id=current_user.id,
+    )
+    return ApiResponse(data=result)
+
+
+@router.post("/{case_id}/call-activity", response_model=ApiResponse[CallActivityResponse])
+async def record_call_activity(
+    case_id: uuid.UUID,
+    payload: CallActivityCreateRequest,
+    current_user: User = Depends(require_permission(PERM_CASES_UPDATE)),
+    session: AsyncSession = Depends(get_db),
+) -> ApiResponse[CallActivityResponse]:
+    """Record call outcome, caller remarks, and schedule follow-up."""
+    service = CaseService(session=session)
+    result = await service.record_call_activity(
+        org_id=current_user.org_id,
+        case_id=case_id,
+        payload=payload,
+        actor_id=current_user.id,
+        actor_name=current_user.name,
+    )
+    return ApiResponse(data=result)
+
+
+@router.get("/telecaller/workspace", response_model=ApiResponse[TelecallerWorkspaceSummary])
+async def get_telecaller_workspace(
+    current_user: User = Depends(require_permission(PERM_CASES_READ)),
+    session: AsyncSession = Depends(get_db),
+) -> ApiResponse[TelecallerWorkspaceSummary]:
+    """Retrieve telecaller workspace dashboard with their assigned leads and activity counts."""
+    service = CaseService(session=session)
+    result = await service.get_telecaller_workspace(
+        org_id=current_user.org_id,
+        telecaller_id=current_user.id,
+    )
+    return ApiResponse(data=result)

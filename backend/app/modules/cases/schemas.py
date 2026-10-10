@@ -210,6 +210,14 @@ class CaseListItemResponse(BaseModel):
     source_name: str
     owner_name: str
     assigned_processor_name: str | None = None
+    assigned_telecaller_id: uuid.UUID | None = None
+    assigned_telecaller_name: str | None = None
+    call_outcome: str | None = None
+    telecaller_remarks: str | None = None
+    follow_up_at: datetime | None = None
+    call_attempts_count: int = 0
+    referral_profile_id: uuid.UUID | None = None
+    referral_partner_name: str | None = None
     has_consent: bool
     age_in_days: int
     is_stuck: bool = False
@@ -237,6 +245,14 @@ class CaseDetailResponse(BaseModel):
     owner_name: str
     assigned_processor_id: uuid.UUID | None = None
     assigned_processor_name: str | None = None
+    assigned_telecaller_id: uuid.UUID | None = None
+    assigned_telecaller_name: str | None = None
+    call_outcome: str | None = None
+    telecaller_remarks: str | None = None
+    follow_up_at: datetime | None = None
+    call_attempts_count: int = 0
+    referral_profile_id: uuid.UUID | None = None
+    referral_partner_name: str | None = None
     notes: str | None = None
     version: int
     is_stuck: bool = False
@@ -247,6 +263,59 @@ class CaseDetailResponse(BaseModel):
     status_history: list[StatusHistoryResponse] = []
     created_at: datetime
     updated_at: datetime
+
+
+# -----------------------------------------------------------------------------
+# Phase 1: Telecalling & Lead Assignment Schemas
+# -----------------------------------------------------------------------------
+VALID_CALL_OUTCOMES = {"new", "interested", "not_interested", "follow_up", "not_reachable", "duplicate"}
+
+
+class BulkAssignRequest(BaseModel):
+    case_ids: list[uuid.UUID] = Field(..., min_length=1)
+    telecaller_id: uuid.UUID
+
+
+class BulkAssignResponse(BaseModel):
+    assigned_count: int
+    telecaller_id: uuid.UUID
+    telecaller_name: str
+
+
+class CallActivityCreateRequest(BaseModel):
+    outcome: str = Field(
+        ...,
+        description="new, interested, not_interested, follow_up, not_reachable, duplicate",
+    )
+    remarks: str = Field(..., min_length=1)
+    follow_up_at: datetime | None = None
+
+    @field_validator("outcome")
+    @classmethod
+    def validate_outcome(cls, v: str) -> str:
+        cleaned = v.strip().lower()
+        if cleaned not in VALID_CALL_OUTCOMES:
+            raise ValueError(f"Invalid outcome '{v}'. Must be one of: {', '.join(sorted(VALID_CALL_OUTCOMES))}")
+        return cleaned
+
+
+class CallActivityResponse(BaseModel):
+    case_id: uuid.UUID
+    case_no: str
+    call_outcome: str
+    telecaller_remarks: str
+    follow_up_at: datetime | None = None
+    call_attempts_count: int
+    updated_at: datetime
+
+
+class TelecallerWorkspaceSummary(BaseModel):
+    total_assigned: int
+    pending_leads: int
+    follow_ups_due: int
+    interested_count: int
+    completed_count: int
+    leads: list[CaseListItemResponse]
 
 
 class CaseCreateResponse(BaseModel):

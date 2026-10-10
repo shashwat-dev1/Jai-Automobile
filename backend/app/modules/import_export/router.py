@@ -4,7 +4,7 @@ DSA OS — Data Import & Reversal Router
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -41,10 +41,29 @@ async def dry_run_import(
     return ApiResponse(data=report)
 
 
+@router.get("/import/template")
+async def get_import_template(
+    entity_type: str = Query("cases", description="parties, sources, lenders, cases"),
+) -> Response:
+    """Download standardized spreadsheet / CSV import template."""
+    templates = {
+        "cases": "Customer Name,Mobile Number,Loan Amount,Product Type,City,State,Vehicle Details,Remarks\nRajesh Sharma,9820198201,750000,used_car,Mumbai,Maharashtra,Hyundai Creta 2021 SX,Direct inquiry interested in 4-year tenure\nPriya Patel,9820011002,1200000,new_car,Pune,Maharashtra,Tata Safari,Sanction awaited from private bank\n",
+        "parties": "Name,Mobile,Employment Type,Email\nRajesh Sharma,9820198201,salaried,rajesh@example.com\n",
+        "sources": "Name,Source Type,Contact Person,Phone\nAuto Dealership Mumbai,dealer,Vikas Malhotra,9820098200\n",
+        "lenders": "Name,Type\nHDFC Bank,bank\nICICI Bank,bank\n",
+    }
+    csv_text = templates.get(entity_type, templates["cases"])
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={entity_type}_import_template.csv"},
+    )
+
+
 @router.post("/import/commit", response_model=ApiResponse[ImportBatchResponse])
 async def commit_import(
     payload: ImportCommitRequest,
-    current_user: User = Depends(require_role("owner", "admin", "case_officer")),
+    current_user: User = Depends(require_role("owner", "admin", "manager", "case_officer")),
     session: AsyncSession = Depends(get_db),
 ) -> ApiResponse[ImportBatchResponse]:
     """Commit validated records and initiate 24-hour rollback reversal window."""

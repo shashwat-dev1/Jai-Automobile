@@ -1,0 +1,229 @@
+.lead-import-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.lead-import-modal {
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  color: var(--color-text, #f8fafc);
+  overflow: hidden;
+}
+
+.lead-import-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border, #334155);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.lead-import-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.lead-import-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.lead-import-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  flex: 1;
+}
+
+.lead-import-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lead-import-dropzone {
+  border: 2px dashed var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lead-import-dropzone:hover,
+.lead-import-dropzone.is-dragover {
+  border-color: var(--color-primary, #10b981);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.lead-import-dropzone.has-file {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropzone-icon {
+  font-size: 2.25rem;
+}
+
+.lead-import-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.metric-pill {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-border, #334155);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-lbl {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-valid .metric-num {
+  color: #10b981;
+}
+
+.metric-duplicates .metric-num {
+  color: #f59e0b;
+}
+
+.metric-invalid .metric-num {
+  color: #ef4444;
+}
+
+.lead-import-preview-container {
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.preview-table-header {
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid var(--color-border, #334155);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-table-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+.preview-table th {
+  padding: 0.5rem 0.75rem;
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--color-text-secondary, #94a3b8);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.preview-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.badge-dup {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.badge-err {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.preview-ok-text {
+  color: #10b981;
+}
+
+.preview-err-text {
+  color: #ef4444;
+}
+
+.product-tag {
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  font-size: 0.75rem;
+}
+
+.lead-import-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border, #334155);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: rgba(15, 23, 42, 0.4);
+}

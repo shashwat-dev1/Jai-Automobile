@@ -115,7 +115,7 @@ class MockNotificationDbSession:
         query_str = str(statement).lower()
 
         # 1. Count queries
-        if "count" in query_str:
+        if "count(" in query_str or "count *" in query_str:
             if "notifications" in query_str:
                 matched = list(self.notifications.values())
                 if "is_read is false" in query_str or "is_read = false" in query_str:
