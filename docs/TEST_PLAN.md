@@ -1,17 +1,18 @@
 # DSA OS — Automated and Manual E2E Test Plan
 
-> **Version:** 1.0.0  
-> **Target Release:** Production Demonstration Ready  
+> **Version:** 2.0.0  
+> **Target Release:** Critical Bug Fixes, Document Rules & RBAC Release  
 > **Conformance:** PRD v1.0, SRS v1.0, Appendix B (RBAC Matrix)
 
 ---
 
 ## 1. Test Strategy & Scope
 
-The testing strategy validates that DSA OS operates reliably across three execution layers:
-1. **Core Unit & Domain Logic:** Fast, deterministic testing of financial math, state machines, validation regexes, and security tokens.
+The testing strategy validates that DSA OS operates reliably across four execution layers:
+1. **Core Unit & Domain Logic:** Fast, deterministic testing of financial math, state machines, validation regexes, and security tokens (Pytest + Vitest).
 2. **Integration & API Contract Tests:** Verifies FastAPI routers, database RLS, and error envelopes.
-3. **End-to-End Responsive UI Flows:** Verifies cross-viewport UI rendering (320px–1440px), multi-tenant dynamic branding, human-in-the-loop OCR review, and complete case lifecycles.
+3. **End-to-End Headless Browser Automation:** Real browser testing in Chromium via Playwright verifying DOM state, validation errors, and network assertions.
+4. **Responsive UI & Mobile Usability:** Verifies cross-viewport UI rendering (320px–1440px), form reflow, touch targets, and absence of horizontal overflow.
 
 ---
 
@@ -20,39 +21,69 @@ The testing strategy validates that DSA OS operates reliably across three execut
 ### Suite 1: Authentication & Authorization (AUTH-01 to AUTH-06)
 - **AUTH-01:** Valid login with organization slug, email/mobile, and password. Access token issued and profile fetched.
 - **AUTH-02:** Invalid login credentials rejected with standard HTTP 401 error envelope.
-- **AUTH-03:** RS256 token rotation: active refresh token rotated, old token revoked.
+- **AUTH-03:** Token rotation: active refresh token rotated, old token revoked.
 - **AUTH-04:** Immediate session revocation: incrementing `auth_version` invalidates existing JWT access tokens immediately.
 - **AUTH-05:** Account lockout: 5 consecutive failed attempts lock user account for 30 minutes.
-- **AUTH-06:** Role-Based Access Control: verified permissions per SRS Appendix B for Owner, Manager, Processor, Field Executive, Accountant, and Auditor.
+- **AUTH-06:** Role-Based Access Control: verified permissions per SRS Appendix B for Owner, Telecaller, Processor, and Guest.
 
 ### Suite 2: Multi-Tenancy & White-Label Isolation (TENANT-01 to TENANT-04)
-- **TENANT-01:** Dynamic branding: switching between demo organizations (Jai Automobiles vs Apex Capital Advisors) updates logo, name, tagline, and theme accent colors.
+- **TENANT-01:** Dynamic branding: switching organizations updates logo, name, tagline, and theme accent colors.
 - **TENANT-02:** Database isolation: PostgreSQL RLS enforces that Org A cannot query or mutate cases, documents, or payouts of Org B.
-- **TENANT-03:** Module configuration: disabling a module (e.g. Reconciliation or PDD) for a tenant disables route navigation and backend endpoints.
+- **TENANT-03:** Module configuration: disabling a module for a tenant disables route navigation and backend endpoints.
 - **TENANT-04:** Audit context: all security and domain events capture the correct `org_id` and actor metadata.
 
-### Suite 3: End-to-End Case Intake & Lifecycle (CASE-01 to CASE-06)
-- **CASE-01:** Sourcing channel selection and referral attribution logging.
-- **CASE-02:** Borrower KYC validation: Indian mobile format (+91 or 10-digit starting 6-9), PAN format (5 letters, 4 numbers, 1 letter), Aadhaar last 4.
-- **CASE-03:** Collateral asset validation: Make, Model, Variant, and Registration Number (Indian RC regex).
-- **CASE-04:** Document upload & quarantine: file size <= 10MB, acceptable MIME types (PDF, JPEG, PNG).
-- **CASE-05:** Human-in-the-Loop OCR extraction: review modal displays confidence scores and allows field correction before case linkage.
-- **CASE-06:** Sequential Case Number generation (e.g. `JA-2025-0101` or `APEX-2025-0101`) and case dossier loading.
+### Suite 3: Referral Intake & Document Rules (REF-01 to REF-03)
+- **Test A (New Referral Partner):**
+  1. Open public referral intake (`/referral`).
+  2. Enter unregistered mobile number.
+  3. Verify partner name input appears.
+  4. Select Brand New Vehicle.
+  5. Attempt submission without Aadhaar: blocked with "Aadhaar card is mandatory for every lead submission".
+  6. Attach Aadhaar, attempt submission without PAN: blocked with "PAN card is mandatory for every lead submission".
+  7. Attach PAN, leave RC copy empty (optional for new vehicles).
+  8. Submit: verify successful creation of lead, referral attribution, and success card.
+- **Test B (Used Vehicle & RC Rule):**
+  1. Open referral intake, select Used / Pre-Owned Vehicle.
+  2. Verify RC badge dynamically indicates `* Mandatory (Used)`.
+  3. Attach Aadhaar and PAN, omit RC.
+  4. Submit: blocked with "RC document is mandatory for used/old vehicle loan applications".
+  5. Attach RC, submit: verify successful lead creation.
+- **Test C (Returning Referral Partner):**
+  1. Enter mobile of existing partner (`9820044551`).
+  2. Verify system identifies registered partner ("Vikram Sharma") and hides name input.
+  3. Submit second lead: verify lead is attributed to existing partner without duplicate profile creation.
 
-### Suite 4: Finance, Commission & Reconciliation (FIN-01 to FIN-06)
-- **FIN-01:** Commission rule evaluation: calculates gross payout expectation based on loan product (e.g., 2% on used car).
-- **FIN-02:** PDD gating: holds payout expectation when lender policy requires RC endorsement or Form 34 completion.
-- **FIN-03:** TDS withholding: deducts standard 5% TDS to determine net receivable amount.
-- **FIN-04:** Sub-DSA splits: validates that total split percentages do not exceed 100% of gross expectation (BR-09).
-- **FIN-05:** Statement CSV reconciliation: simulates dry-run and commits import with exact UTR and fuzzy tolerance matching.
-- **FIN-06:** Receivables ledger & aging report: groups unpaid expectations into 0-30, 31-60, 61-90, and 90+ day buckets.
+### Suite 4: Telecaller Role-Based Isolation & Dashboards (TC-01 to TC-03)
+- **Test D (Telecaller A vs Telecaller B Isolation):**
+  1. Seed 6 isolated leads: Telecaller A (4 leads: `case-jai-101` to `104`), Telecaller B (2 leads: `case-jai-105` to `106`).
+  2. Log in as Telecaller A (`priya.sharma@jaiautomobiles.com`).
+  3. Verify Telecaller Dashboard displays KPI `Assigned Leads: 4` and table has exactly 4 leads.
+  4. Log call outcome and remark on assigned lead: verify persistence.
+  5. Attempt direct navigation to Telecaller B's lead `/cases/case-jai-105`: verify page displays `Access Denied (403 Forbidden)`.
+  6. Attempt direct API request: verify HTTP 403 Forbidden.
+  7. Log in as Telecaller B (`rahul.verma@jaiautomobiles.com`).
+  8. Verify Telecaller Dashboard displays KPI `Assigned Leads: 2` and table has exactly 2 leads.
+  9. Attempt direct navigation to Telecaller A's lead `/cases/case-jai-101`: verify `Access Denied (403 Forbidden)`.
 
-### Suite 5: Responsive UI & Viewport Validation (UI-01 to UI-08)
-- **UI-01 (320px):** Ultra-narrow mobile: zero horizontal overflow, drawer navigation accessible, forms reflow into single column.
-- **UI-02 (360px):** Standard Android view: cards adapt cleanly, status chips wrap without clipping.
-- **UI-03 (375px):** iPhone SE view: primary buttons reach tap targets >= 44px, drawer closes upon route click.
-- **UI-04 (390px):** iPhone 14/15 view: dossier tabs and financial KPI grids display without overlapping.
-- **UI-05 (430px):** iPhone Pro Max / Plus view: tables utilize horizontal touch scrolling with sticky headers.
-- **UI-06 (768px):** Tablet view: 2-column dossier layout renders cleanly.
-- **UI-07 (1024px):** Small desktop / iPad landscape: sidebar expands with full labels and user account footer.
-- **UI-08 (1440px):** Wide desktop: full financial tables, KPI strips, and analytics velocity charts display in high density.
+### Suite 5: Administrator Full Visibility & Regression (ADM-01 to ADM-04)
+- **Test E (Admin Regression):**
+  1. Log in as DSA Administrator (`admin@jaiautomobiles.com`).
+  2. Navigate to `/cases`: verify all 6 leads are visible.
+  3. Select lead checkbox: verify bulk assignment action bar appears.
+  4. Reassign lead to another telecaller: verify assignment updates.
+  5. Navigate to `/referrals/partners`: verify referral partner analytics and ledger are accessible.
+
+### Suite 6: Responsive UI & Viewport Validation (UI-01 to UI-06)
+- **Test F (Cross-Device Viewports):**
+  - Viewports:
+    - `320px × 568px` (iPhone SE)
+    - `360px × 640px` (Android Small)
+    - `375px × 667px` (iPhone 8)
+    - `390px × 844px` (iPhone 13/14)
+    - `430px × 932px` (iPhone Pro Max)
+    - `1280px × 800px` (Desktop HD)
+  - Assertions:
+    - Zero horizontal overflow (`document.documentElement.scrollWidth <= window.innerWidth`)
+    - Touch targets >= 44px
+    - Form fields stack into single column on viewports <= 640px
+    - Evidence screenshots captured for visual regression review
