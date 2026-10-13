@@ -1106,6 +1106,23 @@ export interface MockReferralCommission {
 
 export const JAI_MOCK_REFERRAL_PROFILES: MockReferralProfile[] = [
   {
+    id: 'ref-p-100',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Rajesh Sharma',
+    mobile_primary: '9876543210',
+    masked_mobile: '98****3210',
+    email: 'rajesh.sharma@partner.net',
+    verification_status: 'verified',
+    verified_at: '2025-01-01T10:00:00Z',
+    total_leads: 12,
+    interested_leads: 9,
+    converted_leads: 6,
+    approved_commissions: 45000,
+    paid_commissions: 30000,
+    notes: 'Senior partner connector matching Reference Screen 1.',
+    created_at: '2025-01-01T09:00:00Z',
+  },
+  {
     id: 'ref-p-101',
     org_id: '11111111-1111-1111-1111-111111111111',
     name: 'Vikram Sharma',

@@ -44,6 +44,8 @@ def _normalize_mobile(raw_phone: str) -> str:
         digits = digits[1:]
     if len(digits) != 10:
         raise ValidationError(f"Invalid mobile number '{raw_phone}'. Must be a 10-digit Indian number.")
+    if digits[0] not in {"6", "7", "8", "9"}:
+        raise ValidationError(f"Invalid mobile number '{raw_phone}'. Indian mobile numbers must start with 6, 7, 8, or 9.")
     return digits
 
 
@@ -235,14 +237,27 @@ class ReferralService:
         """
         resolved_org_id = await self._resolve_org_id(org_id, payload.org_slug)
 
-        # 1. Mandatory Document Rules Enforcement
-        is_new_vehicle = (payload.vehicle_condition.lower() == "new") or (payload.product_type == "new_car")
+        # 1. Vehicle Condition & Mandatory Document Rules Enforcement
+        condition_clean = (payload.vehicle_condition or "").strip().lower()
+        if condition_clean not in {"used", "new"}:
+            raise ValidationError("Vehicle condition is mandatory. Please select Used Car or New Car.")
+
+        is_new_vehicle = condition_clean == "new"
+
         if not payload.aadhaar_doc_id:
             raise ValidationError("Aadhaar card is mandatory for every lead submission.")
         if not payload.pan_doc_id:
             raise ValidationError("PAN card is mandatory for every lead submission.")
-        if not is_new_vehicle and not payload.rc_doc_id:
-            raise ValidationError("RC document is mandatory for used/old vehicle loan applications.")
+
+        if not is_new_vehicle:
+            if not payload.rc_doc_id:
+                raise ValidationError("RC document is mandatory for used/old vehicle loan applications.")
+            if not payload.vehicle_reg_no or not payload.vehicle_reg_no.strip():
+                raise ValidationError("Vehicle registration number is required for used car leads.")
+        else:
+            # Exclude/clear any stale registration or RC values for new vehicle leads
+            payload.vehicle_reg_no = None
+            payload.rc_doc_id = None
 
         # 2. Partner Profile
         partner = await self.get_or_create_profile(

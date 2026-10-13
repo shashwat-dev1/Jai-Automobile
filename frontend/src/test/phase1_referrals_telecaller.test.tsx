@@ -50,29 +50,34 @@ describe('DSA OS Phase 1 Rebuild Test Suite', () => {
         </MemoryRouter>
       )
 
-      expect(screen.getByText('Referral Partner Identification')).toBeInTheDocument()
-      expect(screen.getByText('Your Mobile Number (Referral Partner) *')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Continue to Referral Form/i })).toBeDisabled()
+      expect(screen.getByText('Enter Mobile Number')).toBeInTheDocument()
+      expect(screen.getByText('Registered Partner Mobile')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Continue/i })).toBeDisabled()
     })
 
-    it('enables continue button when 10 digit mobile is entered', async () => {
+    it('enables continue button when 10 digit mobile is entered and verified', async () => {
       render(
         <MemoryRouter>
           <GuestReferralPage />
         </MemoryRouter>
       )
 
-      const mobileInput = screen.getByPlaceholderText('98200 12345')
-      fireEvent.change(mobileInput, { target: { value: '9820044551' } })
+      const mobileInput = screen.getByPlaceholderText('98765 43210')
+      fireEvent.change(mobileInput, { target: { value: '9876543210' } })
 
-      const continueBtn = screen.getByRole('button', { name: /Continue to Referral Form/i })
+      // Auto-lookup should resolve Rajesh Sharma
+      await waitFor(() => {
+        expect(screen.getByText('Rajesh Sharma')).toBeInTheDocument()
+      })
+
+      const continueBtn = screen.getByRole('button', { name: /Continue/i })
       expect(continueBtn).not.toBeDisabled()
 
       fireEvent.click(continueBtn)
 
       // Should advance to Step 2
       await waitFor(() => {
-        expect(screen.getByText('Submit Vehicle Loan Lead')).toBeInTheDocument()
+        expect(screen.getByText('New Lead Submission')).toBeInTheDocument()
       })
     })
 
@@ -84,21 +89,25 @@ describe('DSA OS Phase 1 Rebuild Test Suite', () => {
       )
 
       // Advance to Step 2
-      const mobileInput = screen.getByPlaceholderText('98200 12345')
-      fireEvent.change(mobileInput, { target: { value: '9820044551' } })
-      fireEvent.click(screen.getByRole('button', { name: /Continue to Referral Form/i }))
+      const mobileInput = screen.getByPlaceholderText('98765 43210')
+      fireEvent.change(mobileInput, { target: { value: '9876543210' } })
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('400053')).toBeInTheDocument()
+        expect(screen.getByText('Rajesh Sharma')).toBeInTheDocument()
       })
 
-      const pinInput = screen.getByPlaceholderText('400053')
+      fireEvent.click(screen.getByRole('button', { name: /Continue/i }))
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('400001')).toBeInTheDocument()
+      })
+
+      const pinInput = screen.getByPlaceholderText('400001')
       fireEvent.change(pinInput, { target: { value: '302001' } })
 
-      // Jaipur, Rajasthan should be automatically populated
+      // Jaipur, RJ should be automatically populated in city card
       await waitFor(() => {
-        expect(screen.getByDisplayValue('Jaipur')).toBeInTheDocument()
-        expect(screen.getByDisplayValue('Rajasthan')).toBeInTheDocument()
+        expect(screen.getByText(/Jaipur, RJ/i)).toBeInTheDocument()
       })
     })
   })

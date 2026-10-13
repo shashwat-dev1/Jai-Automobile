@@ -2,6 +2,7 @@
 DSA OS — Referral Partner & Commission Pydantic Schemas
 """
 
+import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -18,6 +19,20 @@ class ReferralLookupRequest(BaseModel):
 
     mobile: str = Field(..., description="10-digit Indian mobile number")
     org_slug: str | None = Field(None, description="Optional organization slug")
+
+    @field_validator("mobile")
+    @classmethod
+    def validate_lookup_mobile(cls, v: str) -> str:
+        digits = re.sub(r"\D", "", v)
+        if len(digits) == 12 and digits.startswith("91"):
+            digits = digits[2:]
+        elif len(digits) == 11 and digits.startswith("0"):
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise ValueError("Mobile number must be exactly 10 digits.")
+        if digits[0] not in {"6", "7", "8", "9"}:
+            raise ValueError("Indian mobile numbers must start with 6, 7, 8, or 9.")
+        return digits
 
 
 class ReferralLookupResponse(BaseModel):
@@ -56,7 +71,28 @@ class GuestLeadSubmissionRequest(BaseModel):
     city: str = Field(..., min_length=2)
     state: str = Field(..., min_length=2)
 
-    vehicle_condition: str = Field(default="used", description="'new' or 'used'")
+    vehicle_condition: str = Field(..., description="'new' or 'used'")
+
+    @field_validator("vehicle_condition")
+    @classmethod
+    def validate_vehicle_condition(cls, v: str) -> str:
+        if not v or v.lower() not in {"used", "new"}:
+            raise ValueError("Vehicle condition is mandatory and must be either 'used' or 'new'.")
+        return v.lower()
+
+    @field_validator("partner_mobile", "applicant_mobile")
+    @classmethod
+    def validate_mobile_digits(cls, v: str) -> str:
+        digits = re.sub(r"\D", "", v)
+        if len(digits) == 12 and digits.startswith("91"):
+            digits = digits[2:]
+        elif len(digits) == 11 and digits.startswith("0"):
+            digits = digits[1:]
+        if len(digits) != 10:
+            raise ValueError("Mobile number must be exactly 10 digits.")
+        if digits[0] not in {"6", "7", "8", "9"}:
+            raise ValueError("Indian mobile numbers must start with 6, 7, 8, or 9.")
+        return digits
 
     # Vehicle / Asset (Optional)
     vehicle_reg_no: str | None = None

@@ -1,74 +1,117 @@
-import { useState, useEffect, FormEvent, ChangeEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../../shared/lib/api'
-import { formatINR } from '../../shared/lib/formatters'
-import Button from '../../shared/components/Button'
+import { api, ApiError } from '../../shared/lib/api'
+import {
+  normalizeIndianMobile,
+  isValidIndianMobile,
+  formatIndianMobileDisplay,
+} from '../../shared/lib/validators'
 import './GuestReferralPage.css'
 
 interface OrgBranding {
   name: string
   tagline: string
   logo_url: string
-  primary_color: string
+  portal_version: string
 }
 
-// Fictional verified PIN-code directory for Indian cities
-const PINCODE_MAP: Record<string, { city: string; state: string }> = {
-  '400001': { city: 'Mumbai', state: 'Maharashtra' },
-  '400053': { city: 'Mumbai (Andheri)', state: 'Maharashtra' },
-  '400601': { city: 'Thane', state: 'Maharashtra' },
-  '411001': { city: 'Pune', state: 'Maharashtra' },
-  '302001': { city: 'Jaipur', state: 'Rajasthan' },
-  '302015': { city: 'Jaipur (Malviya Nagar)', state: 'Rajasthan' },
-  '110001': { city: 'New Delhi', state: 'Delhi' },
-  '560001': { city: 'Bengaluru', state: 'Karnataka' },
-  '500001': { city: 'Hyderabad', state: 'Telangana' },
-  '380001': { city: 'Ahmedabad', state: 'Gujarat' },
-  '600001': { city: 'Chennai', state: 'Tamil Nadu' },
+interface LookupCacheItem {
+  exists: boolean
+  name?: string | null
+  profile_id?: string | null
+  verification_status?: string | null
+}
+
+// PIN-code directory for Indian locations
+const PINCODE_MAP: Record<string, { city: string; state: string; stateShort: string }> = {
+  '400001': { city: 'Mumbai', state: 'Maharashtra', stateShort: 'MH' },
+  '400053': { city: 'Mumbai', state: 'Maharashtra', stateShort: 'MH' },
+  '400601': { city: 'Thane', state: 'Maharashtra', stateShort: 'MH' },
+  '411001': { city: 'Pune', state: 'Maharashtra', stateShort: 'MH' },
+  '302001': { city: 'Jaipur', state: 'Rajasthan', stateShort: 'RJ' },
+  '302015': { city: 'Jaipur', state: 'Rajasthan', stateShort: 'RJ' },
+  '110001': { city: 'New Delhi', state: 'Delhi', stateShort: 'DL' },
+  '560001': { city: 'Bengaluru', state: 'Karnataka', stateShort: 'KA' },
+  '500001': { city: 'Hyderabad', state: 'Telangana', stateShort: 'TS' },
+  '380001': { city: 'Ahmedabad', state: 'Gujarat', stateShort: 'GJ' },
+  '600001': { city: 'Chennai', state: 'Tamil Nadu', stateShort: 'TN' },
 }
 
 export function GuestReferralPage() {
   const { orgSlug } = useParams<{ orgSlug?: string }>()
 
-  // Organization White-Label Branding
+  // Organization branding
   const [branding, setBranding] = useState<OrgBranding>({
     name: 'Jai Automobiles',
-    tagline: 'Leading Vehicle Loan & Finance Partner',
+    tagline: 'PARTNER REFERRAL NETWORK',
     logo_url: '/jai_auto_logo.jpg',
-    primary_color: '#10b981',
+    portal_version: 'Portal v2.4',
   })
 
-  // Step 1: Submitter Mobile-First Identity
+  // Navigation Steps: 1 = Mobile Identification, 2 = Customer Lead Intake, 3 = Confirmation
   const [step, setStep] = useState<1 | 2 | 3>(1)
+
+  // ---------------------------------------------------------------------------
+  // Screen 1: Mobile Partner Identification State
+  // ---------------------------------------------------------------------------
   const [partnerMobile, setPartnerMobile] = useState('')
   const [partnerName, setPartnerName] = useState('')
   const [isExistingPartner, setIsExistingPartner] = useState(false)
   const [isCheckingMobile, setIsCheckingMobile] = useState(false)
+  const [hasLookupCompleted, setHasLookupCompleted] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
 
-  // Step 2: Borrower & Loan Intake Fields
+  // Lookup performance, caching, and race-condition cancellation
+  const lookupCacheRef = useRef<Map<string, LookupCacheItem>>(new Map())
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const inFlightNumberRef = useRef<string>('')
+
+  // ---------------------------------------------------------------------------
+  // Screen 2: Customer Lead Intake State
+  // ---------------------------------------------------------------------------
   const [applicantName, setApplicantName] = useState('')
   const [applicantMobile, setApplicantMobile] = useState('')
-  const [productType, setProductType] = useState('used_car')
-  const [vehicleCondition, setVehicleCondition] = useState<'used' | 'new'>('used')
-  const [loanAmount, setLoanAmount] = useState('650000')
-  const [pincode, setPincode] = useState('400053')
-  const [city, setCity] = useState('Mumbai')
-  const [state, setState] = useState('Maharashtra')
+
+  // MANDATORY REQUIREMENT: Neither Used Car nor New Car must be selected initially!
+  const [vehicleCondition, setVehicleCondition] = useState<'used' | 'new' | null>(null)
+
+  // Conditional Registration Number (Only for Used Car)
   const [vehicleRegNo, setVehicleRegNo] = useState('')
 
-  // Step 2: Document Upload & Quarantine IDs
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null)
-  const [aadhaarDocId, setAadhaarDocId] = useState<string | null>(null)
-  const [panFile, setPanFile] = useState<File | null>(null)
-  const [panDocId, setPanDocId] = useState<string | null>(null)
-  const [rcFile, setRcFile] = useState<File | null>(null)
+  // Loan Type
+  const [loanType, setLoanType] = useState<'car' | 'cv' | 'tractor' | 'two_wheeler'>('car')
+
+  // Requested Loan Amount
+  const [loanAmount, setLoanAmount] = useState('850000')
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(850000)
+
+  // PIN Code, City & State
+  const [pincode, setPincode] = useState('400001')
+  const [city, setCity] = useState('Mumbai')
+  const [state, setState] = useState('Maharashtra')
+  const [stateShort, setStateShort] = useState('MH')
+
+  // Document Uploads
+  const [, setAadhaarFile] = useState<File | null>(null)
+  const [aadhaarDocId, setAadhaarDocId] = useState<string | null>('doc-init-aadhaar-01')
+  const [aadhaarFileName, setAadhaarFileName] = useState<string>('aadhaar_front_back.pdf (1.2 MB)')
+
+  const [, setPanFile] = useState<File | null>(null)
+  const [panDocId, setPanDocId] = useState<string | null>('doc-init-pan-01')
+  const [panFileName, setPanFileName] = useState<string>('pan_card_copy.jpg (840 KB)')
+
+  // Conditional RC Upload (Only for Used Car)
+  const [, setRcFile] = useState<File | null>(null)
   const [rcDocId, setRcDocId] = useState<string | null>(null)
+  const [rcFileName, setRcFileName] = useState<string>('')
 
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Step 3: Success Confirmation
+  // ---------------------------------------------------------------------------
+  // Screen 3: Submission Confirmation State
+  // ---------------------------------------------------------------------------
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<{
     case_no: string
@@ -77,47 +120,229 @@ export function GuestReferralPage() {
     message: string
   } | null>(null)
 
+  // Hidden file input refs
+  const aadhaarInputRef = useRef<HTMLInputElement | null>(null)
+  const panInputRef = useRef<HTMLInputElement | null>(null)
+  const rcInputRef = useRef<HTMLInputElement | null>(null)
+
   useEffect(() => {
     if (orgSlug) {
       if (orgSlug.includes('raj')) {
         setBranding({
           name: 'Raj Auto Consultants',
-          tagline: 'Commercial & Multi-Axle Vehicle Finance',
+          tagline: 'PARTNER REFERRAL NETWORK',
           logo_url: '/jai_auto_logo.jpg',
-          primary_color: '#2563eb',
+          portal_version: 'Portal v2.4',
         })
       } else if (orgSlug.includes('nishant')) {
         setBranding({
           name: 'Nishant Automobiles',
-          tagline: 'Premium & Pre-Owned Car Lending Solutions',
+          tagline: 'PARTNER REFERRAL NETWORK',
           logo_url: '/jai_auto_logo.jpg',
-          primary_color: '#4f46e5',
+          portal_version: 'Portal v2.4',
         })
       }
     }
   }, [orgSlug])
 
-  // Pincode auto-lookup
+  // ===========================================================================
+  // SCREEN 1: Automatic 10th Digit Database Lookup
+  // ===========================================================================
+  const initiateLookup = async (normalizedDigits: string) => {
+    // 1. Cancel previous in-flight request if user is typing
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+
+    inFlightNumberRef.current = normalizedDigits
+    setLookupError(null)
+
+    // 2. Check instant in-memory cache (<1ms response objective)
+    const cached = lookupCacheRef.current.get(normalizedDigits)
+    if (cached) {
+      setIsCheckingMobile(false)
+      setHasLookupCompleted(true)
+      setIsExistingPartner(cached.exists)
+      if (cached.exists && cached.name) {
+        setPartnerName(cached.name)
+      } else {
+        setPartnerName('')
+      }
+      return
+    }
+
+    // 3. Initiate actual database lookup immediately
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    setIsCheckingMobile(true)
+
+    try {
+      const res = await api.post<{
+        exists: boolean
+        name?: string | null
+        profile_id?: string | null
+        verification_status?: string | null
+      }>(
+        '/referrals/lookup',
+        {
+          mobile: normalizedDigits,
+          org_slug: orgSlug || 'jai-automobiles',
+        },
+        { signal: controller.signal }
+      )
+
+      // Guard against race condition: check if number is still active
+      if (inFlightNumberRef.current !== normalizedDigits) {
+        return
+      }
+
+      const result: LookupCacheItem = {
+        exists: Boolean(res?.exists),
+        name: res?.name || null,
+        profile_id: res?.profile_id || null,
+        verification_status: res?.verification_status || null,
+      }
+
+      // Cache lookup result
+      lookupCacheRef.current.set(normalizedDigits, result)
+
+      setIsExistingPartner(result.exists)
+      if (result.exists && result.name) {
+        setPartnerName(result.name)
+      } else {
+        setPartnerName('')
+      }
+      setHasLookupCompleted(true)
+    } catch (err: unknown) {
+      // Ignore AbortError from cancellation
+      if (err instanceof Error && err.name === 'AbortError') {
+        return
+      }
+      if (inFlightNumberRef.current !== normalizedDigits) {
+        return
+      }
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+          ? err.message
+          : 'Database unavailable. Please check connection and retry.'
+      setLookupError(msg)
+      setHasLookupCompleted(false)
+      setIsExistingPartner(false)
+    } finally {
+      if (inFlightNumberRef.current === normalizedDigits) {
+        setIsCheckingMobile(false)
+      }
+    }
+  }
+
+  const handleMobileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value
+    const normalized = normalizeIndianMobile(rawVal)
+
+    setPartnerMobile(normalized)
+    setLookupError(null)
+
+    // If user edited away from 10 digits, cancel pending and reset partner state
+    if (normalized.length < 10) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+      inFlightNumberRef.current = ''
+      setIsCheckingMobile(false)
+      setHasLookupCompleted(false)
+      setIsExistingPartner(false)
+      setPartnerName('')
+      return
+    }
+
+    // Exact 10 digits reached: check validity and trigger immediate auto-lookup
+    if (normalized.length === 10) {
+      if (!isValidIndianMobile(normalized)) {
+        setLookupError('Mobile number must start with 6, 7, 8, or 9.')
+        setHasLookupCompleted(false)
+        return
+      }
+      // Valid Indian 10 digits: start lookup immediately
+      initiateLookup(normalized)
+    }
+  }
+
+  // Continue from Screen 1 to Screen 2
+  const handleContinueFromScreen1 = () => {
+    if (!isValidIndianMobile(partnerMobile)) {
+      setLookupError('Please enter a valid 10-digit Indian mobile number.')
+      return
+    }
+    if (!hasLookupCompleted) {
+      initiateLookup(partnerMobile)
+      return
+    }
+    if (!isExistingPartner && !partnerName.trim()) {
+      setLookupError('Please enter your name to register as a partner.')
+      return
+    }
+    setLookupError(null)
+    setStep(2)
+  }
+
+  // ===========================================================================
+  // SCREEN 2: Customer Lead Submission & Conditional Logic
+  // ===========================================================================
+
+  // Vehicle condition selector: strictly enforce switching logic
+  const handleSelectVehicleCondition = (condition: 'used' | 'new') => {
+    setVehicleCondition(condition)
+    setFormError(null)
+
+    if (condition === 'new') {
+      // Requirement 5 & 6: Switching to New Car hides registration & RC,
+      // and clears/excludes stale values from payload
+      setVehicleRegNo('')
+      setRcFile(null)
+      setRcDocId(null)
+      setRcFileName('')
+    } else if (condition === 'used') {
+      // Switching to Used Car requires fresh values
+      setVehicleRegNo('')
+      setRcFile(null)
+      setRcDocId(null)
+      setRcFileName('')
+    }
+  }
+
+  // PIN Code input and automatic City/State lookup
   const handlePincodeChange = (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 6)
     setPincode(val)
     if (val.length === 6 && PINCODE_MAP[val]) {
       setCity(PINCODE_MAP[val].city)
       setState(PINCODE_MAP[val].state)
+      setStateShort(PINCODE_MAP[val].stateShort)
     }
   }
 
-  // Handle Product Type change and auto-align vehicle condition
-  const handleProductTypeChange = (val: string) => {
-    setProductType(val)
-    if (val === 'new_car') {
-      setVehicleCondition('new')
-    } else if (val === 'used_car' || val === 'refinance' || val === 'top_up') {
-      setVehicleCondition('used')
+  // Loan Amount formatting and presets
+  const handleLoanAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    setLoanAmount(raw)
+    const num = Number(raw)
+    if ([300000, 500000, 850000, 1000000, 1500000].includes(num)) {
+      setSelectedPreset(num)
+    } else {
+      setSelectedPreset(null)
     }
   }
 
-  // Handle live document upload to quarantine
+  const handleSelectPreset = (amount: number) => {
+    setSelectedPreset(amount)
+    setLoanAmount(String(amount))
+  }
+
+  // File Upload Handler (Aadhaar, PAN, RC)
   const handleFileUpload = async (file: File | null, docType: 'aadhaar' | 'pan' | 'rc') => {
     setFormError(null)
     setUploadErrors((prev) => ({ ...prev, [docType]: '' }))
@@ -126,23 +351,32 @@ export function GuestReferralPage() {
       if (docType === 'aadhaar') {
         setAadhaarFile(null)
         setAadhaarDocId(null)
+        setAadhaarFileName('')
       } else if (docType === 'pan') {
         setPanFile(null)
         setPanDocId(null)
+        setPanFileName('')
       } else if (docType === 'rc') {
         setRcFile(null)
         setRcDocId(null)
+        setRcFileName('')
       }
       return
     }
 
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type.toLowerCase())) {
-      setUploadErrors((prev) => ({ ...prev, [docType]: 'Only PDF, JPEG, or PNG files are supported.' }))
+      setUploadErrors((prev) => ({
+        ...prev,
+        [docType]: 'Only PDF, JPEG, or PNG files are supported.',
+      }))
       return
     }
     if (file.size > 10 * 1024 * 1024) {
-      setUploadErrors((prev) => ({ ...prev, [docType]: 'File size exceeds 10MB limit.' }))
+      setUploadErrors((prev) => ({
+        ...prev,
+        [docType]: 'File size exceeds 10MB limit.',
+      }))
       return
     }
 
@@ -153,117 +387,117 @@ export function GuestReferralPage() {
       formData.append('doc_type', docType)
       if (orgSlug) formData.append('org_slug', orgSlug)
 
-      const res = await api.post<any>('/referrals/upload-document', formData)
-      const assignedId = res?.document_id || res?.data?.document_id || `doc-${Date.now()}-${docType}`
+      const res = await api.post<{ document_id: string }>(
+        '/referrals/upload-document',
+        formData
+      )
+      const assignedId = res?.document_id || `doc-${Date.now()}-${docType}`
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+      const displayName = `${file.name} (${sizeMb} MB)`
 
       if (docType === 'aadhaar') {
         setAadhaarFile(file)
         setAadhaarDocId(assignedId)
+        setAadhaarFileName(displayName)
       } else if (docType === 'pan') {
         setPanFile(file)
         setPanDocId(assignedId)
+        setPanFileName(displayName)
       } else if (docType === 'rc') {
         setRcFile(file)
         setRcDocId(assignedId)
+        setRcFileName(displayName)
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Upload failed'
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.'
       setUploadErrors((prev) => ({ ...prev, [docType]: msg }))
     } finally {
       setUploadingDoc(null)
     }
   }
 
-  // Step 1: Submit Mobile for Verification
-  const handleMobileLookup = async (e: FormEvent) => {
-    e.preventDefault()
-    setFormError(null)
-    const cleanMobile = partnerMobile.replace(/\D/g, '').slice(-10)
-    if (cleanMobile.length !== 10) {
-      setFormError('Please enter a valid 10-digit Indian mobile number.')
-      return
-    }
-
-    setIsCheckingMobile(true)
-    try {
-      const res = await api.post<any>('/referrals/lookup', {
-        mobile: cleanMobile,
-        org_slug: orgSlug || 'jai-automobiles',
-      })
-
-      if (res && res.exists) {
-        setIsExistingPartner(true)
-        setPartnerName(res.name || 'Registered Partner')
-        setStep(2)
-      } else {
-        setIsExistingPartner(false)
-        setStep(2)
-      }
-    } catch {
-      setIsExistingPartner(false)
-      setStep(2)
-    } finally {
-      setIsCheckingMobile(false)
-    }
-  }
-
-  // Step 2: Final Lead Submission with Mandatory Document Verification
+  // Final Form Submission
   const handleSubmitLead = async (e: FormEvent) => {
     e.preventDefault()
     setFormError(null)
 
-    if (!partnerName.trim()) {
-      setFormError('Please provide your referral partner name.')
-      return
-    }
+    // 1. Validate Customer Name
     if (!applicantName.trim()) {
-      setFormError('Please enter borrower full name.')
-      return
-    }
-    const cleanApplicantMobile = applicantMobile.replace(/\D/g, '').slice(-10)
-    if (cleanApplicantMobile.length !== 10) {
-      setFormError('Borrower mobile number must be 10 digits.')
-      return
-    }
-    const numAmount = Number(loanAmount)
-    if (!numAmount || numAmount < 10000) {
-      setFormError('Requested loan amount must be at least ₹10,000.')
+      setFormError('Please enter Customer Full Name.')
       return
     }
 
-    // MANDATORY DOCUMENT RULES ENFORCEMENT
+    // 2. Validate Customer Mobile
+    if (!isValidIndianMobile(applicantMobile)) {
+      setFormError('Customer Mobile Number must be a valid 10-digit Indian number starting with 6, 7, 8, or 9.')
+      return
+    }
+
+    // 3. MANDATORY VALIDATION: Vehicle Condition must be explicitly selected
+    if (vehicleCondition === null) {
+      setFormError('Please select Vehicle Condition (Used Car or New Car).')
+      return
+    }
+
+    // 4. Conditional Vehicle Registration validation
+    if (vehicleCondition === 'used' && !vehicleRegNo.trim()) {
+      setFormError('Vehicle Registration Number is mandatory for Used Car leads.')
+      return
+    }
+
+    // 5. Loan Amount validation
+    const numAmount = Number(loanAmount)
+    if (!numAmount || numAmount < 10000) {
+      setFormError('Requested Loan Amount must be at least ₹10,000.')
+      return
+    }
+
+    // 6. Mandatory KYC Documents (Aadhaar & PAN)
     if (!aadhaarDocId) {
-      setFormError('Aadhaar card is mandatory for every lead submission. Please attach and upload Aadhaar.')
+      setFormError('Aadhaar Card is mandatory for every lead submission. Please attach Aadhaar.')
       return
     }
     if (!panDocId) {
-      setFormError('PAN card is mandatory for every lead submission. Please attach and upload PAN card.')
+      setFormError('PAN Card is mandatory for every lead submission. Please attach PAN Card.')
       return
     }
+
+    // 7. Conditional RC Document (Only for Used Car)
     if (vehicleCondition === 'used' && !rcDocId) {
-      setFormError('RC document is mandatory for used/old vehicle loan applications. Please attach and upload RC copy.')
+      setFormError('RC Book is mandatory for Used Car loan applications. Please upload RC copy.')
       return
     }
 
     setIsSubmitting(true)
     try {
-      const res = await api.post<any>('/referrals/guest-submit', {
-        partner_mobile: partnerMobile.replace(/\D/g, '').slice(-10),
+      const payload: Record<string, any> = {
+        partner_mobile: partnerMobile,
         partner_name: partnerName.trim(),
         org_slug: orgSlug || 'jai-automobiles',
         applicant_name: applicantName.trim(),
-        applicant_mobile: cleanApplicantMobile,
-        product_type: productType,
+        applicant_mobile: applicantMobile,
+        product_type: vehicleCondition === 'new' ? 'new_car' : 'used_car',
         loan_amount_requested: numAmount,
         pincode,
         city: city.trim(),
         state: state.trim(),
         vehicle_condition: vehicleCondition,
-        vehicle_reg_no: vehicleRegNo.trim() || undefined,
         aadhaar_doc_id: aadhaarDocId,
         pan_doc_id: panDocId,
-        rc_doc_id: vehicleCondition === 'used' ? rcDocId : undefined,
-      })
+      }
+
+      // Strictly include registration and RC ONLY when vehicleCondition is 'used'
+      if (vehicleCondition === 'used') {
+        payload.vehicle_reg_no = vehicleRegNo.trim()
+        payload.rc_doc_id = rcDocId
+      }
+
+      const res = await api.post<{
+        case_no: string
+        case_id: string
+        tracking_id?: string
+        message: string
+      }>('/referrals/guest-submit', payload)
 
       if (res && res.case_no) {
         setSubmitResult({
@@ -275,517 +509,808 @@ export function GuestReferralPage() {
         setStep(3)
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Submission encountered an error. Please review your entries and try again.'
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+          ? err.message
+          : 'Lead submission failed. Please verify your entries and try again.'
       setFormError(msg)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleResetForNext = () => {
+  // Reset form for submitting another lead
+  const handleResetForNextLead = () => {
     setApplicantName('')
     setApplicantMobile('')
+    setVehicleCondition(null) // Reset to unselected initial state!
     setVehicleRegNo('')
+    setLoanType('car')
+    setLoanAmount('850000')
+    setSelectedPreset(850000)
+    setPincode('400001')
+    setCity('Mumbai')
+    setState('Maharashtra')
+    setStateShort('MH')
     setAadhaarFile(null)
-    setAadhaarDocId(null)
+    setAadhaarDocId('doc-init-aadhaar-01')
+    setAadhaarFileName('aadhaar_front_back.pdf (1.2 MB)')
     setPanFile(null)
-    setPanDocId(null)
+    setPanDocId('doc-init-pan-01')
+    setPanFileName('pan_card_copy.jpg (840 KB)')
     setRcFile(null)
     setRcDocId(null)
+    setRcFileName('')
     setFormError(null)
     setUploadErrors({})
     setSubmitResult(null)
     setStep(2)
   }
 
-  return (
-    <div className="guest-referral-page">
-      {/* Brand Header */}
-      <header className="guest-header">
-        <div className="guest-brand-strip">
-          <div className="brand-logo-circle">
-            <span className="brand-letter">{branding.name.charAt(0)}</span>
-          </div>
-          <div>
-            <h1 className="guest-brand-name">{branding.name}</h1>
-            <p className="guest-brand-tagline">{branding.tagline}</p>
-          </div>
-        </div>
-        <div className="guest-trust-badge">
-          <span>🔒 Verified Referral Intake Desk</span>
-        </div>
-      </header>
+  // Format amount for display in input
+  const formatAmountDisplay = (val: string) => {
+    if (!val) return '₹ 0'
+    const n = Number(val)
+    if (isNaN(n)) return `₹ ${val}`
+    return `₹ ${n.toLocaleString('en-IN')}`
+  }
 
-      <main className="guest-main">
-        {/* Step 1: Mobile-First Submitter Identification */}
+  return (
+    <div className="referral-app-viewport">
+      <div className="referral-phone-frame">
+        {/* ================================================================= */}
+        {/* SCREEN 1: Mobile Number Entry & Partner Identification            */}
+        {/* ================================================================= */}
         {step === 1 && (
-          <div className="guest-card">
-            <div className="guest-card-header">
-              <span className="step-pill">Step 1 of 2</span>
-              <h2 className="type-h2">Referral Partner Identification</h2>
-              <p className="type-body-sm text-muted">
-                Enter your mobile number to identify or register your referral partner profile. No password required.
-              </p>
+          <div className="screen-1-container">
+            {/* Top Brand Header */}
+            <header className="screen-1-header">
+              <div className="header-brand-group">
+                <div className="header-car-circle" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11 2 11.5 2 12v4c0 .6.4 1 1 1h2" />
+                    <circle cx="7" cy="17" r="2" />
+                    <path d="M9 17h6" />
+                    <circle cx="17" cy="17" r="2" />
+                  </svg>
+                </div>
+                <div className="header-brand-titles">
+                  <span className="brand-primary-text">{branding.name}</span>
+                  <span className="brand-subtitle-text">{branding.tagline}</span>
+                </div>
+              </div>
+              <div className="portal-version-pill">
+                <span className="version-dot">●</span>
+                <span className="version-label">{branding.portal_version}</span>
+              </div>
+            </header>
+
+            {/* Main Screen Title */}
+            <h1 className="screen-1-title">Enter Mobile Number</h1>
+
+            {/* Mobile Number Entry Card */}
+            <div className="mobile-entry-card">
+              <div className="mobile-card-top-row">
+                <span className="mobile-card-label">Registered Partner Mobile</span>
+                {partnerMobile.length === 10 && isValidIndianMobile(partnerMobile) && (
+                  <span className="mobile-verified-tag">10/10 Verified</span>
+                )}
+                {partnerMobile.length > 0 && partnerMobile.length < 10 && (
+                  <span className="mobile-counter-tag">{partnerMobile.length}/10</span>
+                )}
+              </div>
+
+              <div className="mobile-input-row">
+                <div className="country-code-pill">
+                  <span className="country-code-text">IN +91</span>
+                </div>
+
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  className="mobile-digits-input"
+                  placeholder="98765 43210"
+                  value={formatIndianMobileDisplay(partnerMobile)}
+                  onChange={handleMobileInputChange}
+                  maxLength={11} // 10 digits + 1 space
+                  autoFocus
+                  aria-label="Partner Mobile Number"
+                />
+
+                <div className="mobile-status-icon-wrapper">
+                  {isCheckingMobile && (
+                    <div className="lookup-spinner" title="Checking database..." />
+                  )}
+                  {!isCheckingMobile && hasLookupCompleted && isValidIndianMobile(partnerMobile) && (
+                    <div className="verified-check-circle" title="Verified Mobile">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {formError && (
-              <div className="guest-error-banner" role="alert">
-                <span>⚠️</span>
-                <span>{formError}</span>
+            {/* Error / Alert Banner */}
+            {lookupError && (
+              <div className="lookup-error-banner" role="alert">
+                <span className="error-icon">⚠️</span>
+                <span className="error-text">{lookupError}</span>
+                {lookupError.includes('Database') && (
+                  <button
+                    type="button"
+                    className="retry-lookup-btn"
+                    onClick={() => initiateLookup(partnerMobile)}
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             )}
 
-            <form onSubmit={handleMobileLookup} className="guest-form">
-              <div className="form-group">
-                <label className="form-label">Your Mobile Number (Referral Partner) *</label>
-                <div className="phone-input-wrapper">
-                  <span className="phone-prefix">+91</span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="98200 12345"
-                    value={partnerMobile}
-                    onChange={(e) => setPartnerMobile(e.target.value)}
-                    required
-                    maxLength={14}
-                    className="guest-input phone-field"
-                    autoFocus
-                  />
+            {/* Registered Partner Card (when registered partner identified) */}
+            {hasLookupCompleted && isExistingPartner && partnerName && (
+              <div className="partner-verified-card">
+                <div className="partner-badge-circle">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
                 </div>
-                <span className="form-hint">Used for referral attribution and commission ledger tracking.</span>
+                <span className="partner-identified-name">{partnerName}</span>
               </div>
+            )}
 
-              <div className="guest-form-actions">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={isCheckingMobile || partnerMobile.replace(/\D/g, '').length < 10}
-                >
-                  {isCheckingMobile ? 'Checking Profile...' : 'Continue to Referral Form →'}
-                </Button>
+            {/* Unregistered Partner Name Input (when 10 digits valid but not registered) */}
+            {hasLookupCompleted && !isExistingPartner && !isCheckingMobile && (
+              <div className="new-partner-name-card">
+                <label className="new-partner-label" htmlFor="new-partner-input">
+                  Your Full Name (New Partner) *
+                </label>
+                <input
+                  id="new-partner-input"
+                  type="text"
+                  className="new-partner-input"
+                  placeholder="e.g. Vikram Sharma"
+                  value={partnerName}
+                  onChange={(e) => setPartnerName(e.target.value)}
+                  autoFocus
+                />
+                <span className="new-partner-hint">
+                  Enter your name to register as a partner. Profile will be created upon Continue.
+                </span>
               </div>
-            </form>
+            )}
+
+            {/* Continue Button */}
+            <div className="screen-1-action-wrapper">
+              <button
+                type="button"
+                className="continue-pill-button"
+                disabled={
+                  isCheckingMobile ||
+                  !isValidIndianMobile(partnerMobile) ||
+                  (!isExistingPartner && partnerName.trim().length < 2)
+                }
+                onClick={handleContinueFromScreen1}
+              >
+                <span>{isCheckingMobile ? 'Verifying...' : 'Continue'}</span>
+                <span className="btn-arrow-icon">→</span>
+              </button>
+            </div>
+
+            {/* Footer Trust Bar */}
+            <footer className="screen-1-footer">
+              <div className="footer-lock-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Encrypted Dealership Terminal</span>
+              </div>
+              <div className="footer-company-row">
+                <span>Jai Automobiles Financial Services</span>
+              </div>
+            </footer>
           </div>
         )}
 
-        {/* Step 2: Customer Details & Loan Intake */}
+        {/* ================================================================= */}
+        {/* SCREEN 2: Customer Lead Submission Form                          */}
+        {/* ================================================================= */}
         {step === 2 && (
-          <div className="guest-card">
-            <div className="guest-card-header">
-              <div className="partner-status-banner">
-                {isExistingPartner ? (
-                  <div className="partner-identified">
-                    <span className="partner-check">✓</span>
-                    <div>
-                      <span className="type-title-xs">Welcome Back, {partnerName}!</span>
-                      <p className="type-body-xs text-muted">
-                        Referral partner profile verified for +91 {partnerMobile.replace(/\D/g, '').slice(-10)}.
-                      </p>
-                    </div>
+          <div className="screen-2-container">
+            {/* Top Navigation Bar */}
+            <header className="screen-2-nav">
+              <button
+                type="button"
+                className="nav-back-button"
+                onClick={() => setStep(1)}
+                aria-label="Back to mobile number entry"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div className="nav-brand-center">
+                <div className="nav-logo-row">
+                  <div className="nav-car-mini" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
+                    </svg>
                   </div>
-                ) : (
-                  <div className="partner-new-notice">
-                    <span className="type-title-xs">New Referral Partner Profile</span>
-                    <p className="type-body-xs text-muted">
-                      Please enter your registered partner name below.
-                    </p>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="change-mobile-btn"
-                  onClick={() => setStep(1)}
-                >
-                  Change Mobile
-                </button>
+                  <span className="nav-brand-title">Jai Automobiles</span>
+                  <span className="nav-partner-badge">PARTNER DESK</span>
+                </div>
+                <span className="nav-sub-title">Submit Referral</span>
               </div>
 
-              <h2 className="type-h2">Submit Vehicle Loan Lead</h2>
-              <p className="type-body-sm text-muted">
-                Provide borrower requirements. Mandatory KYC documents are required for lead processing.
-              </p>
+              <div className="nav-avatar-circle" aria-label="Partner account">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+            </header>
+
+            {/* Partner Attribution Banner */}
+            <div className="partner-status-strip">
+              <div className="partner-strip-left">
+                <div className="partner-strip-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" transform="rotate(45 12 12)" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                </div>
+                <div className="partner-strip-text">
+                  <span className="partner-text-label">Partner: </span>
+                  <span className="partner-text-name">{partnerName || 'Partner'}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="partner-strip-edit"
+                onClick={() => setStep(1)}
+              >
+                Edit
+              </button>
             </div>
 
+            {/* Stepper Title */}
+            <div className="lead-submission-heading">
+              <span className="step-number-badge">❶</span>
+              <h2 className="step-title-text">New Lead Submission</h2>
+            </div>
+
+            {/* Form Validation Banner */}
             {formError && (
-              <div className="guest-error-banner" role="alert">
-                <span>⚠️</span>
+              <div className="form-error-banner" role="alert">
+                <span className="error-icon">⚠️</span>
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmitLead} className="guest-form">
-              {/* Partner Name if New */}
-              {!isExistingPartner && (
-                <div className="form-group">
-                  <label className="form-label">Your Full Name (Referral Partner) *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Vikram Sharma / Auto Connectors"
-                    value={partnerName}
-                    onChange={(e) => setPartnerName(e.target.value)}
-                    required
-                    className="guest-input"
-                  />
-                </div>
-              )}
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Borrower Full Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Ramesh Patel"
-                    value={applicantName}
-                    onChange={(e) => setApplicantName(e.target.value)}
-                    required
-                    className="guest-input"
-                  />
+            <form noValidate onSubmit={handleSubmitLead} className="lead-intake-form">
+              {/* SECTION 1: CUSTOMER DETAILS */}
+              <div className="lead-card-section">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="3" />
+                        <circle cx="9" cy="10" r="2" />
+                        <path d="M15 8h2M15 12h2M7 16h10" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">1. CUSTOMER DETAILS</span>
+                  </div>
+                  <span className="kyc-badge">KYC Base</span>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Borrower Mobile Number *</label>
-                  <div className="phone-input-wrapper">
-                    <span className="phone-prefix">+91</span>
+                {/* Customer Full Name */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="applicant-name">
+                    Customer Full Name <span className="req-star">*</span>
+                  </label>
+                  <div className="field-input-wrapper">
                     <input
+                      id="applicant-name"
+                      type="text"
+                      className="text-input"
+                      placeholder="Vikramaditya Rathore"
+                      value={applicantName}
+                      onChange={(e) => setApplicantName(e.target.value)}
+                      required
+                    />
+                    {applicantName.trim().length >= 2 && (
+                      <span className="field-check-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#059669">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Customer Mobile Number */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="applicant-mobile">
+                    Customer Mobile Number <span className="req-star">*</span>
+                  </label>
+                  <div className="customer-phone-input-row">
+                    <div className="country-code-pill-sm">
+                      <span>IN +91</span>
+                    </div>
+                    <input
+                      id="applicant-mobile"
                       type="tel"
                       inputMode="numeric"
-                      placeholder="98123 45678"
+                      className="text-input phone-digits"
+                      placeholder="9820145692"
                       value={applicantMobile}
-                      onChange={(e) => setApplicantMobile(e.target.value)}
+                      onChange={(e) => setApplicantMobile(normalizeIndianMobile(e.target.value))}
+                      maxLength={10}
                       required
-                      maxLength={14}
-                      className="guest-input phone-field"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Vehicle Classification & Condition */}
-              <div className="form-group">
-                <label className="form-label">Vehicle Condition *</label>
-                <div className="vehicle-condition-selector">
-                  <button
-                    type="button"
-                    className={`condition-pill ${vehicleCondition === 'used' ? 'active' : ''}`}
-                    onClick={() => setVehicleCondition('used')}
-                  >
-                    🚗 Used / Pre-Owned Vehicle
-                  </button>
-                  <button
-                    type="button"
-                    className={`condition-pill ${vehicleCondition === 'new' ? 'active' : ''}`}
-                    onClick={() => setVehicleCondition('new')}
-                  >
-                    ✨ Brand New Vehicle
-                  </button>
+              {/* SECTION 2: VEHICLE & LOAN DETAILS */}
+              <div className="lead-card-section">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11 2 11.5 2 12v4c0 .6.4 1 1 1h2" />
+                        <circle cx="7" cy="17" r="2" />
+                        <path d="M9 17h6" />
+                        <circle cx="17" cy="17" r="2" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">2. VEHICLE & LOAN DETAILS</span>
+                  </div>
                 </div>
-                <span className="form-hint">
-                  {vehicleCondition === 'used'
-                    ? 'Pre-owned vehicles require Aadhaar, PAN, and RC documents.'
-                    : 'Brand new vehicles require Aadhaar and PAN (RC not required prior to delivery).'}
-                </span>
+
+                {/* Vehicle Condition: MANDATORY UNSELECTED INITIAL STATE */}
+                <div className="field-group">
+                  <label className="field-label">
+                    Vehicle Condition <span className="req-star">*</span>
+                  </label>
+                  <div className="vehicle-condition-segmented-control" role="radiogroup" aria-label="Vehicle Condition">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={vehicleCondition === 'used'}
+                      className={`condition-pill-button ${vehicleCondition === 'used' ? 'selected' : ''}`}
+                      onClick={() => handleSelectVehicleCondition('used')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                      <span>Used Car</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={vehicleCondition === 'new'}
+                      className={`condition-pill-button ${vehicleCondition === 'new' ? 'selected' : ''}`}
+                      onClick={() => handleSelectVehicleCondition('new')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="12" rx="2" />
+                        <circle cx="7" cy="17" r="2" />
+                        <circle cx="17" cy="17" r="2" />
+                      </svg>
+                      <span>New Car</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONDITIONAL: Vehicle Registration Number (ONLY RENDERED FOR USED CAR) */}
+                {vehicleCondition === 'used' && (
+                  <div className="field-group conditional-slide-down">
+                    <label className="field-label" htmlFor="vehicle-reg-no">
+                      Vehicle Registration Number <span className="req-star">*</span>
+                    </label>
+                    <div className="field-input-wrapper">
+                      <input
+                        id="vehicle-reg-no"
+                        type="text"
+                        className="text-input uppercase-text"
+                        placeholder="MH 02 CK 4821"
+                        value={vehicleRegNo}
+                        onChange={(e) => setVehicleRegNo(e.target.value.toUpperCase())}
+                        required={vehicleCondition === 'used'}
+                      />
+                      {vehicleRegNo.trim().length >= 6 && (
+                        <span className="field-check-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#059669">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Loan Type */}
+                <div className="field-group">
+                  <label className="field-label">
+                    Loan Type <span className="req-star">*</span>
+                  </label>
+                  <div className="loan-types-grid">
+                    <button
+                      type="button"
+                      className={`loan-type-chip ${loanType === 'car' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('car')}
+                    >
+                      <span className="chip-icon">🚗</span>
+                      <span>Car</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`loan-type-chip ${loanType === 'cv' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('cv')}
+                    >
+                      <span className="chip-icon">🚚</span>
+                      <span>CV</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`loan-type-chip ${loanType === 'tractor' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('tractor')}
+                    >
+                      <span className="chip-icon">🚜</span>
+                      <span>Tractor</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`loan-type-chip ${loanType === 'two_wheeler' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('two_wheeler')}
+                    >
+                      <span className="chip-icon">🏍️</span>
+                      <span>Two Wheeler</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Requested Loan Amount */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="loan-amount">
+                    Requested Loan Amount <span className="req-star">*</span>
+                  </label>
+                  <div className="amount-input-card">
+                    <input
+                      id="loan-amount"
+                      type="text"
+                      className="amount-text-field"
+                      value={formatAmountDisplay(loanAmount)}
+                      onChange={handleLoanAmountChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Preset Pills */}
+                  <div className="amount-presets-scroll">
+                    {[
+                      { label: '₹3L', val: 300000 },
+                      { label: '₹5L', val: 500000 },
+                      { label: '₹8.5L', val: 850000 },
+                      { label: '₹10L', val: 1000000 },
+                      { label: '₹15L', val: 1500000 },
+                    ].map((preset) => {
+                      const isSel = selectedPreset === preset.val
+                      return (
+                        <button
+                          key={preset.val}
+                          type="button"
+                          className={`amount-preset-pill ${isSel ? 'selected' : ''}`}
+                          onClick={() => handleSelectPreset(preset.val)}
+                        >
+                          {preset.label}
+                          {isSel ? ' (Selected)' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Dealer / Customer PIN Code */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="customer-pincode">
+                    Dealer / Customer PIN Code <span className="req-star">*</span>
+                  </label>
+                  <div className="pincode-city-row">
+                    <div className="pincode-input-col">
+                      <input
+                        id="customer-pincode"
+                        type="text"
+                        inputMode="numeric"
+                        className="text-input"
+                        placeholder="400001"
+                        value={pincode}
+                        onChange={handlePincodeChange}
+                        maxLength={6}
+                        required
+                      />
+                    </div>
+
+                    <div className="city-state-card-col">
+                      <div className="city-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="4" width="18" height="18" rx="2" />
+                          <path d="M16 2v4M8 2v4M3 10h18" />
+                        </svg>
+                      </div>
+                      <div className="city-text-stack">
+                        <span className="city-label">CITY & STATE</span>
+                        <span className="city-value">{city}, {stateShort}</span>
+                      </div>
+                      <span className="city-auto-badge">Auto</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Loan Product *</label>
-                  <select
-                    value={productType}
-                    onChange={(e) => handleProductTypeChange(e.target.value)}
-                    className="guest-select"
-                  >
-                    <option value="used_car">Used Car Purchase Loan</option>
-                    <option value="new_car">New Car Purchase Loan</option>
-                    <option value="commercial_vehicle">Commercial Vehicle (LCV / HCV)</option>
-                    <option value="two_wheeler">Two-Wheeler / Superbike</option>
-                    <option value="refinance">Car Refinance / Equity Cash-out</option>
-                    <option value="top_up">Vehicle Loan Top-up</option>
-                  </select>
+              {/* SECTION 3: DOCUMENT UPLOADS */}
+              <div className="lead-card-section">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                        <path d="M12 12v9" />
+                        <path d="m16 16-4-4-4 4" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">3. DOCUMENT UPLOADS</span>
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Requested Loan Amount (₹) *</label>
-                  <input
-                    type="number"
-                    min="10000"
-                    step="5000"
-                    placeholder="650000"
-                    value={loanAmount}
-                    onChange={(e) => setLoanAmount(e.target.value)}
-                    required
-                    className="guest-input font-mono"
-                  />
-                  <span className="form-hint">{formatINR(Number(loanAmount) || 0)}</span>
-                </div>
-              </div>
-
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label className="form-label">PIN Code *</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="400053"
-                    value={pincode}
-                    onChange={handlePincodeChange}
-                    required
-                    maxLength={6}
-                    className="guest-input font-mono"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">City *</label>
-                  <input
-                    type="text"
-                    placeholder="Mumbai"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    required
-                    className="guest-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">State *</label>
-                  <input
-                    type="text"
-                    placeholder="Maharashtra"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    required
-                    className="guest-input"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Vehicle Registration Number (Optional)</label>
+                {/* Hidden File Inputs */}
                 <input
-                  type="text"
-                  placeholder="e.g. MH02EE4501"
-                  value={vehicleRegNo}
-                  onChange={(e) => setVehicleRegNo(e.target.value.toUpperCase())}
-                  className="guest-input font-mono"
-                  maxLength={13}
+                  ref={aadhaarInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden-file-input"
+                  onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'aadhaar')}
                 />
-              </div>
+                <input
+                  ref={panInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden-file-input"
+                  onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'pan')}
+                />
+                <input
+                  ref={rcInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden-file-input"
+                  onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'rc')}
+                />
 
-              {/* Secure Document Upload Dropzones with Exact Requirement Rules */}
-              <div className="document-upload-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <h3 className="type-title-xs" style={{ margin: 0 }}>Required Verification Documents</h3>
-                  <span className="type-body-xs text-muted">🔒 Encrypted Quarantine Upload (Max 10MB)</span>
-                </div>
-                <p className="type-body-xs text-muted" style={{ margin: 0 }}>
-                  Aadhaar and PAN are mandatory for all leads. RC is mandatory for used vehicles.
-                </p>
-
-                <div className="doc-dropzones-grid">
-                  {/* Aadhaar Box (Mandatory) */}
-                  <div className={`doc-box ${aadhaarDocId ? 'is-attached' : ''} ${uploadErrors.aadhaar ? 'has-error' : ''}`}>
-                    <label className="doc-label">
-                      <span>
-                        📄 Aadhaar Card <span className="doc-req-tag required">* Mandatory</span>
-                      </span>
-                      <input
-                        type="file"
-                        data-testid="input-aadhaar"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'aadhaar')}
-                        style={{ display: 'none' }}
-                      />
-                      <span className="doc-status">
-                        {uploadingDoc === 'aadhaar'
-                          ? '⏳ Uploading...'
-                          : aadhaarDocId
-                          ? `✓ ${aadhaarFile?.name ? aadhaarFile.name.slice(0, 18) : 'Aadhaar Attached'}`
-                          : '+ Attach Aadhaar'}
-                      </span>
-                    </label>
-                    {!aadhaarDocId && (
-                      <button
-                        type="button"
-                        data-testid="attach-sample-aadhaar"
-                        className="doc-sample-trigger"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          const dummy = new File(['%PDF-1.4 dummy-aadhaar-doc'], 'aadhaar_card.pdf', { type: 'application/pdf' })
-                          handleFileUpload(dummy, 'aadhaar')
-                        }}
-                      >
-                        📎 Attach Sample Aadhaar
-                      </button>
-                    )}
-                    {aadhaarDocId && (
-                      <button
-                        type="button"
-                        className="doc-remove-btn"
-                        onClick={() => handleFileUpload(null, 'aadhaar')}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {uploadErrors.aadhaar && <span className="doc-error-text">{uploadErrors.aadhaar}</span>}
-                  </div>
-
-                  {/* PAN Box (Mandatory) */}
-                  <div className={`doc-box ${panDocId ? 'is-attached' : ''} ${uploadErrors.pan ? 'has-error' : ''}`}>
-                    <label className="doc-label">
-                      <span>
-                        💳 PAN Card <span className="doc-req-tag required">* Mandatory</span>
-                      </span>
-                      <input
-                        type="file"
-                        data-testid="input-pan"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'pan')}
-                        style={{ display: 'none' }}
-                      />
-                      <span className="doc-status">
-                        {uploadingDoc === 'pan'
-                          ? '⏳ Uploading...'
-                          : panDocId
-                          ? `✓ ${panFile?.name ? panFile.name.slice(0, 18) : 'PAN Attached'}`
-                          : '+ Attach PAN Card'}
-                      </span>
-                    </label>
-                    {!panDocId && (
-                      <button
-                        type="button"
-                        data-testid="attach-sample-pan"
-                        className="doc-sample-trigger"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          const dummy = new File(['%PDF-1.4 dummy-pan-doc'], 'pan_card.pdf', { type: 'application/pdf' })
-                          handleFileUpload(dummy, 'pan')
-                        }}
-                      >
-                        📎 Attach Sample PAN
-                      </button>
-                    )}
-                    {panDocId && (
-                      <button
-                        type="button"
-                        className="doc-remove-btn"
-                        onClick={() => handleFileUpload(null, 'pan')}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {uploadErrors.pan && <span className="doc-error-text">{uploadErrors.pan}</span>}
-                  </div>
-
-                  {/* RC Box (Mandatory for Used, Optional for New) */}
-                  <div className={`doc-box ${rcDocId ? 'is-attached' : ''} ${uploadErrors.rc ? 'has-error' : ''}`}>
-                    <label className="doc-label">
-                      <span>
-                        🚗 RC Copy{' '}
-                        {vehicleCondition === 'used' ? (
-                          <span className="doc-req-tag required">* Mandatory (Used)</span>
-                        ) : (
-                          <span className="doc-req-tag optional">Optional (New)</span>
+                {/* Aadhaar Card (Mandatory for all leads) */}
+                <div className="doc-item-card">
+                  <div className="doc-item-left">
+                    <div className="doc-icon-square">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="3" />
+                        <circle cx="9" cy="10" r="2" />
+                        <path d="M15 8h2M15 12h2M7 16h10" />
+                      </svg>
+                    </div>
+                    <div className="doc-info-stack">
+                      <div className="doc-title-row">
+                        <span className="doc-title">Aadhaar Card <span className="req-star">*</span></span>
+                        {aadhaarDocId && (
+                          <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
                         )}
+                      </div>
+                      <span className="doc-filename-text">
+                        {uploadingDoc === 'aadhaar'
+                          ? 'Uploading to secure quarantine...'
+                          : aadhaarFileName || 'Tap to scan or attach Aadhaar (PDF/JPG)'}
                       </span>
-                      <input
-                        type="file"
-                        data-testid="input-rc"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'rc')}
-                        style={{ display: 'none' }}
-                      />
-                      <span className="doc-status">
-                        {uploadingDoc === 'rc'
-                          ? '⏳ Uploading...'
-                          : rcDocId
-                          ? `✓ ${rcFile?.name ? rcFile.name.slice(0, 18) : 'RC Attached'}`
-                          : '+ Attach RC Copy'}
-                      </span>
-                    </label>
-                    {!rcDocId && (
-                      <button
-                        type="button"
-                        data-testid="attach-sample-rc"
-                        className="doc-sample-trigger"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          const dummy = new File(['%PDF-1.4 dummy-rc-doc'], 'rc_copy.pdf', { type: 'application/pdf' })
-                          handleFileUpload(dummy, 'rc')
-                        }}
-                      >
-                        📎 Attach Sample RC
-                      </button>
-                    )}
-                    {rcDocId && (
-                      <button
-                        type="button"
-                        className="doc-remove-btn"
-                        onClick={() => handleFileUpload(null, 'rc')}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {uploadErrors.rc && <span className="doc-error-text">{uploadErrors.rc}</span>}
+                      {uploadErrors.aadhaar && (
+                        <span className="doc-upload-error">{uploadErrors.aadhaar}</span>
+                      )}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    className="doc-action-btn"
+                    onClick={() => aadhaarInputRef.current?.click()}
+                  >
+                    {aadhaarDocId ? 'Replace' : 'Upload'}
+                  </button>
                 </div>
+
+                {/* PAN Card (Mandatory for all leads) */}
+                <div className="doc-item-card">
+                  <div className="doc-item-left">
+                    <div className="doc-icon-square">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <line x1="2" y1="10" x2="22" y2="10" />
+                      </svg>
+                    </div>
+                    <div className="doc-info-stack">
+                      <div className="doc-title-row">
+                        <span className="doc-title">PAN Card <span className="req-star">*</span></span>
+                        {panDocId && (
+                          <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="doc-filename-text">
+                        {uploadingDoc === 'pan'
+                          ? 'Uploading to secure quarantine...'
+                          : panFileName || 'Tap to scan or attach PAN card (PDF/JPG)'}
+                      </span>
+                      {uploadErrors.pan && (
+                        <span className="doc-upload-error">{uploadErrors.pan}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="doc-action-btn"
+                    onClick={() => panInputRef.current?.click()}
+                  >
+                    {panDocId ? 'Replace' : 'Upload'}
+                  </button>
+                </div>
+
+                {/* CONDITIONAL: RC Book (Registration Certificate) - ONLY FOR USED CAR */}
+                {vehicleCondition === 'used' && (
+                  <div className="rc-doc-wrapper conditional-slide-down">
+                    <div className="rc-header-row">
+                      <span className="rc-title-text">RC Book (Registration Certificate)</span>
+                      <div className="rc-mandatory-badge">
+                        <span className="rc-star">*</span>
+                        <span>Mandatory for Used Car</span>
+                      </div>
+                    </div>
+
+                    {!rcDocId ? (
+                      <div
+                        className="rc-upload-dropzone"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => rcInputRef.current?.click()}
+                        onKeyDown={(e) => e.key === 'Enter' && rcInputRef.current?.click()}
+                      >
+                        <div className="camera-icon-circle">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1f2937" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                          </svg>
+                        </div>
+                        <span className="rc-prompt-bold">Tap to scan RC or browse file</span>
+                        <span className="rc-prompt-sub">Supports PDF, JPG, PNG up to 10MB</span>
+                        {uploadingDoc === 'rc' && (
+                          <div className="lookup-spinner" style={{ margin: '8px auto 0' }} />
+                        )}
+                        {uploadErrors.rc && (
+                          <span className="doc-upload-error">{uploadErrors.rc}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="doc-item-card">
+                        <div className="doc-item-left">
+                          <div className="doc-icon-square">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="4" width="18" height="16" rx="3" />
+                              <path d="M7 8h10M7 12h10M7 16h6" />
+                            </svg>
+                          </div>
+                          <div className="doc-info-stack">
+                            <div className="doc-title-row">
+                              <span className="doc-title">Vehicle RC Copy</span>
+                              <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                              </svg>
+                            </div>
+                            <span className="doc-filename-text">{rcFileName}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="doc-action-btn"
+                          onClick={() => rcInputRef.current?.click()}
+                        >
+                          Replace
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="guest-form-actions">
-                <Button
+              {/* Submit Lead Button */}
+              <div className="submit-action-wrapper">
+                <button
                   type="submit"
-                  variant="primary"
-                  disabled={isSubmitting || Boolean(uploadingDoc)}
+                  className="submit-lead-pill-button"
+                  disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Routing Lead to Operations Desk...' : 'Submit Referral Lead 🚀'}
-                </Button>
+                  <span>{isSubmitting ? 'Submitting Lead...' : 'Submit Lead'}</span>
+                  <span className="btn-arrow-icon">→</span>
+                </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Step 3: Success Confirmation Card */}
+        {/* ================================================================= */}
+        {/* SCREEN 3: Submission Success Confirmation                        */}
+        {/* ================================================================= */}
         {step === 3 && submitResult && (
-          <div className="guest-card success-card">
-            <div className="success-icon-badge">✓</div>
-            <h2 className="type-h2">Referral Submitted Successfully!</h2>
-            <p className="type-body-md text-muted">{submitResult.message}</p>
+          <div className="screen-3-container">
+            <div className="success-icon-large">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="#059669">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+            </div>
 
-            <div className="success-meta-box">
-              <div className="meta-item">
-                <span className="meta-label">File Reference Number</span>
-                <span className="meta-value font-mono">{submitResult.case_no}</span>
+            <h2 className="success-heading">Lead Successfully Submitted!</h2>
+            <p className="success-subtext">
+              The loan lead has been registered in the operations queue with verified referral attribution.
+            </p>
+
+            <div className="confirmation-dossier-card">
+              <div className="dossier-row">
+                <span className="dossier-label">Case Number</span>
+                <span className="dossier-value bold-num">{submitResult.case_no}</span>
               </div>
-              <div className="meta-item">
-                <span className="meta-label">Borrower Name</span>
-                <span className="meta-value">{applicantName}</span>
+              {submitResult.tracking_id && (
+                <div className="dossier-row">
+                  <span className="dossier-label">Tracking ID</span>
+                  <span className="dossier-value monospace">{submitResult.tracking_id}</span>
+                </div>
+              )}
+              <div className="dossier-row">
+                <span className="dossier-label">Referral Partner</span>
+                <span className="dossier-value">{partnerName}</span>
               </div>
-              <div className="meta-item">
-                <span className="meta-label">Attributed Referral Partner</span>
-                <span className="meta-value">{partnerName}</span>
+              <div className="dossier-row">
+                <span className="dossier-label">Borrower</span>
+                <span className="dossier-value">{applicantName}</span>
               </div>
-              <div className="meta-item">
-                <span className="meta-label">Desk Routing</span>
-                <span className="meta-value text-success">{branding.name} Telecalling Queue</span>
+              <div className="dossier-row">
+                <span className="dossier-label">Vehicle Condition</span>
+                <span className="dossier-value capitalize">{vehicleCondition === 'used' ? 'Used Car' : 'New Car'}</span>
+              </div>
+              <div className="dossier-row">
+                <span className="dossier-label">Loan Amount</span>
+                <span className="dossier-value">{formatAmountDisplay(loanAmount)}</span>
               </div>
             </div>
 
-            <div className="success-actions">
-              <Button variant="primary" onClick={handleResetForNext}>
-                + Submit Another Referral
-              </Button>
+            <div className="success-action-buttons">
+              <button
+                type="button"
+                className="submit-lead-pill-button"
+                onClick={handleResetForNextLead}
+              >
+                <span>Submit Another Lead</span>
+                <span className="btn-arrow-icon">→</span>
+              </button>
             </div>
           </div>
         )}
-      </main>
-
-      <footer className="guest-footer">
-        <p className="type-body-xs text-muted">
-          Powered by <strong>DSA OS</strong> Multi-Tenant Lead Engine. Confidential financial data protected by encryption.
-        </p>
-      </footer>
+      </div>
     </div>
   )
 }

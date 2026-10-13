@@ -46,6 +46,26 @@ def test_mobile_number_normalization_invalid() -> None:
         _normalize_mobile("12345")
     with pytest.raises(AppValidationError):
         _normalize_mobile("")
+    # 10 digits starting with 5 (invalid starting digit)
+    with pytest.raises(AppValidationError, match="start with 6, 7, 8, or 9"):
+        _normalize_mobile("5876543210")
+    # 10 digits starting with 0
+    with pytest.raises(AppValidationError, match="Must be a 10-digit Indian number|start with 6, 7, 8, or 9"):
+        _normalize_mobile("0876543210")
+
+
+def test_referral_lookup_request_validation() -> None:
+    """Ensure ReferralLookupRequest enforces 10-digit numbers starting with 6, 7, 8, 9."""
+    req = ReferralLookupRequest(mobile="+91 98765 43210")
+    assert req.mobile == "9876543210"
+
+    # Invalid starting digit (e.g. 5)
+    with pytest.raises(PydanticValidationError):
+        ReferralLookupRequest(mobile="5876543210")
+
+    # Invalid length (9 digits)
+    with pytest.raises(PydanticValidationError):
+        ReferralLookupRequest(mobile="987654321")
 
 
 def test_referral_profile_masked_mobile() -> None:
@@ -79,9 +99,41 @@ def test_guest_lead_submission_schema() -> None:
         pincode="302001",
         city="Jaipur",
         state="Rajasthan",
+        vehicle_condition="used",
+        vehicle_reg_no="RJ 14 AB 1234",
     )
     assert payload.applicant_name == "Ramesh Patel"
     assert payload.loan_amount_requested == Decimal("450000.00")
+    assert payload.vehicle_condition == "used"
+
+    # Missing vehicle_condition fails validation
+    with pytest.raises(PydanticValidationError):
+        GuestLeadSubmissionRequest(
+            partner_mobile="9876543210",
+            partner_name="Vikram Sharma",
+            applicant_name="Ramesh Patel",
+            applicant_mobile="9812345678",
+            product_type="used_car",
+            loan_amount_requested=Decimal("450000.00"),
+            pincode="302001",
+            city="Jaipur",
+            state="Rajasthan",
+        )
+
+    # Invalid vehicle_condition fails validation
+    with pytest.raises(PydanticValidationError):
+        GuestLeadSubmissionRequest(
+            partner_mobile="9876543210",
+            partner_name="Vikram Sharma",
+            applicant_name="Ramesh Patel",
+            applicant_mobile="9812345678",
+            product_type="used_car",
+            loan_amount_requested=Decimal("450000.00"),
+            pincode="302001",
+            city="Jaipur",
+            state="Rajasthan",
+            vehicle_condition="invalid_condition",
+        )
 
     # Invalid amount below minimum
     with pytest.raises(PydanticValidationError):
@@ -95,6 +147,7 @@ def test_guest_lead_submission_schema() -> None:
             pincode="302001",
             city="Jaipur",
             state="Rajasthan",
+            vehicle_condition="used",
         )
 
 

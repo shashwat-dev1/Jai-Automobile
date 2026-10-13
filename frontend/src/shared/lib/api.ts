@@ -631,8 +631,19 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Phase 1: Referral Partner Mobile Lookup
   if (clean.includes('/referrals/lookup') && method === 'POST') {
-    const rawMobile = (parsedBody?.mobile || '').replace(/\D/g, '').slice(-10)
-    const match = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.mobile_primary.includes(rawMobile))
+    let cleanMobile = (parsedBody?.mobile || '').replace(/\D/g, '')
+    if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) {
+      cleanMobile = cleanMobile.slice(2)
+    } else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) {
+      cleanMobile = cleanMobile.slice(1)
+    }
+    const rawMobile = cleanMobile.slice(0, 10)
+    if (rawMobile.length !== 10 || !['6', '7', '8', '9'].includes(rawMobile.charAt(0))) {
+      throw new ApiError('Invalid mobile number. Must be a 10-digit Indian number starting with 6, 7, 8, or 9.', 422, 'VALIDATION_ERROR')
+    }
+
+    const allProfiles = [...getStoredReferralProfiles(), ...JAI_MOCK_REFERRAL_PROFILES]
+    const match = allProfiles.find((p) => p.mobile_primary.includes(rawMobile))
     if (match) {
       return {
         exists: true,
@@ -652,7 +663,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   // Phase 1: Guest Referral Lead Submission with Mandatory Document Rules
   if ((clean.includes('/referrals/submit') || clean.includes('/referrals/guest-submit')) && method === 'POST') {
     const rawMobile = (parsedBody?.partner_mobile || '').replace(/\D/g, '').slice(-10)
-    const isNew = parsedBody?.vehicle_condition === 'new' || parsedBody?.product_type === 'new_car'
+    
+    // Enforce vehicle condition
+    const condition = parsedBody?.vehicle_condition
+    if (!condition || (condition !== 'used' && condition !== 'new')) {
+      throw new ApiError('Vehicle condition is mandatory. Please select Used Car or New Car.', 422, 'VALIDATION_ERROR')
+    }
+    const isNew = condition === 'new'
     
     // Enforce mandatory document rules
     if (!parsedBody?.aadhaar_doc_id) {
@@ -661,8 +678,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     if (!parsedBody?.pan_doc_id) {
       throw new ApiError('PAN card is mandatory for every lead submission.', 422, 'VALIDATION_ERROR')
     }
-    if (!isNew && !parsedBody?.rc_doc_id) {
-      throw new ApiError('RC document is mandatory for used/old vehicle loan applications.', 422, 'VALIDATION_ERROR')
+    if (!isNew) {
+      if (!parsedBody?.rc_doc_id) {
+        throw new ApiError('RC document is mandatory for used/old vehicle loan applications.', 422, 'VALIDATION_ERROR')
+      }
+      if (!parsedBody?.vehicle_reg_no || !parsedBody.vehicle_reg_no.trim()) {
+        throw new ApiError('Vehicle registration number is required for used car leads.', 422, 'VALIDATION_ERROR')
+      }
     }
 
     // Check duplicate submission within 5 mins
