@@ -209,6 +209,24 @@ export async function syncCasesWithCloud(): Promise<MockCase[]> {
       remoteCases.push({ ...data, id: docSnap.id })
     })
 
+    // Bi-directional sync: if local device storage has leads created offline or prior to Firestore activation, push them up
+    const localCases = getStoredCases()
+    const remoteIdSet = new Set<string>()
+    remoteCases.forEach((r) => {
+      if (r.id) remoteIdSet.add(r.id)
+      if (r.case_no) remoteIdSet.add(r.case_no)
+    })
+
+    const localOnlyCases = localCases.filter(
+      (c) => !remoteIdSet.has(c.id) && (!c.case_no || !remoteIdSet.has(c.case_no))
+    )
+
+    if (localOnlyCases.length > 0) {
+      localOnlyCases.forEach((loc) => {
+        syncCaseToCloud(loc).catch((err) => console.warn('Syncing local-only case notice:', err))
+      })
+    }
+
     mergeRemoteCases(remoteCases)
     return getStoredCases()
   } catch (err) {
