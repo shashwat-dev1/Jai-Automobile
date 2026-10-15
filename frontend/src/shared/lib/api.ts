@@ -508,7 +508,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   if (caseStatusMatch && method === 'POST') {
     const caseId = caseStatusMatch[1]
     const cases = getStoredCases()
-    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId) || cases[0]
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId.toLowerCase()) || cases[0]
     if (foundCase) {
       const prevStatus = foundCase.status
       foundCase.status = parsedBody?.status || foundCase.status
@@ -985,7 +985,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     if (caseId && caseId !== 'new' && caseId !== 'list' && caseId !== 'assign') {
       const active = getActiveMockUser()
       const cases = getStoredCases()
-      const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+      const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId.toLowerCase())
       if (!foundCase) {
         throw new ApiError('Case not found', 404, 'NOT_FOUND')
       }

@@ -219,6 +219,7 @@
 | PH-08 Dashboard | COMPLETE | — | PRD 9.1 KPI engine, Today cockpit (IF-3), source analytics, CSV export |
 | PH-09 Notifications | COMPLETE | — | Multi-channel engine (In-app, Email), deduplication, quiet hours, delivery audit |
 | PH-10 Hardening | COMPLETE | FINAL-01 (Passed) | RFC 6238 TOTP 2FA, DSAR & retention workflow, breach register, 24h CSV rollback, PDF watermarking |
+| PH-11 Stitch Lead Experience | COMPLETE | DASH-01 (Passed) | 6 Clickable Dashboard KPIs, 3 Due Today rows, Stitch Design 1 All Leads filtered desk, Stitch Design 2 Lead Profile dossier, 134 frontend tests |
 
 ## Unresolved Questions
 
@@ -230,6 +231,7 @@ See `docs/OPEN_QUESTIONS.md` for full details. Key blockers:
   - `SECURITY-02`: Document Quarantine (malware/MIME check, signed URLs, zero public access)
   - `MONEY-01`: Financial Accuracy (pure Decimal arithmetic, matching engine, clawbacks)
   - `FINAL-01`: Release 1 Production Readiness (all 150 backend tests & 59 frontend tests passing)
+  - `DASH-01`: Stitch Dashboard & Lead Management Parity (all 134 frontend tests passing, 0 TypeScript/lint errors, cross-platform verified)
 
 ## Next Action
 

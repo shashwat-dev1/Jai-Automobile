@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 interface DueTodaySectionProps {
   unassignedCount: number
@@ -12,6 +12,19 @@ export const DueTodaySection: React.FC<DueTodaySectionProps> = ({
   followUpsCount,
   interestedCount,
 }) => {
+  const navigate = useNavigate()
+
+  const handleRowClick = (view: string) => {
+    navigate(`/cases?view=${view}`)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent, view: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleRowClick(view)
+    }
+  }
+
   return (
     <div className="stitch-panel-card stitch-due-today-panel">
       <div className="stitch-panel-header">
@@ -29,7 +42,15 @@ export const DueTodaySection: React.FC<DueTodaySectionProps> = ({
 
       <div className="stitch-due-today-list">
         {/* Row 1: Unassigned leads */}
-        <div className="stitch-due-row">
+        <div
+          className="stitch-due-row"
+          data-testid="due-row-unassigned"
+          role="button"
+          tabIndex={0}
+          onClick={() => handleRowClick('unassigned')}
+          onKeyDown={(e) => handleKeyDown(e, 'unassigned')}
+          aria-label={`View Unassigned Leads (${unassignedCount} due)`}
+        >
           <div className="stitch-due-label-group">
             <span className="stitch-due-bullet stitch-bullet-dark" aria-hidden="true" />
             <span className="stitch-due-label">Unassigned leads</span>
@@ -40,7 +61,15 @@ export const DueTodaySection: React.FC<DueTodaySectionProps> = ({
         </div>
 
         {/* Row 2: Follow-ups due today */}
-        <div className="stitch-due-row">
+        <div
+          className="stitch-due-row"
+          data-testid="due-row-follow-ups"
+          role="button"
+          tabIndex={0}
+          onClick={() => handleRowClick('follow-ups-due-today')}
+          onKeyDown={(e) => handleKeyDown(e, 'follow-ups-due-today')}
+          aria-label={`View Follow-ups Due Today (${followUpsCount} due)`}
+        >
           <div className="stitch-due-label-group">
             <span className="stitch-due-bullet stitch-bullet-teal" aria-hidden="true" />
             <span className="stitch-due-label">Follow-ups due today</span>
@@ -51,7 +80,15 @@ export const DueTodaySection: React.FC<DueTodaySectionProps> = ({
         </div>
 
         {/* Row 3: Interested leads awaiting next step */}
-        <div className="stitch-due-row">
+        <div
+          className="stitch-due-row"
+          data-testid="due-row-interested"
+          role="button"
+          tabIndex={0}
+          onClick={() => handleRowClick('interested-awaiting-next-step')}
+          onKeyDown={(e) => handleKeyDown(e, 'interested-awaiting-next-step')}
+          aria-label={`View Interested Leads Awaiting Next Step (${interestedCount} due)`}
+        >
           <div className="stitch-due-label-group">
             <span className="stitch-due-bullet stitch-bullet-green" aria-hidden="true" />
             <span className="stitch-due-label">Interested leads awaiting next step</span>

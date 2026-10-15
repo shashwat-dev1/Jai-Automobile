@@ -12,6 +12,15 @@
 
 import type { MockCase } from '../../shared/lib/mockDatabase'
 import type { DashboardOverviewResponse } from './types'
+import {
+  isActiveCallingCase,
+  isInterestedCase,
+  isFollowUpCase,
+  isConvertedCase,
+  isUnassignedCase,
+  isFollowUpDueTodayCase,
+  isInterestedAwaitingNextStepCase,
+} from '../cases/caseFilters'
 
 export interface TelecallerPerformanceItem {
   id: string
@@ -80,7 +89,6 @@ export function computeStitchDashboard(
       return !isNaN(caseTime) && caseTime <= toTime
     })
   }
-
   // 2. Derive Metrics
   const leads_total = filteredCases.length
 
@@ -91,35 +99,17 @@ export function computeStitchDashboard(
   }).length
 
   // Active Calling: assigned to telecaller and active workflow
-  const active_calling_cases = filteredCases.filter(
-    (c) =>
-      Boolean(c.assigned_telecaller_id) &&
-      !['closed', 'rejected', 'withdrawn'].includes(c.status)
-  )
+  const active_calling_cases = filteredCases.filter(isActiveCallingCase)
   const active_calling_count = active_calling_cases.length
 
   // Interested: marked interested
-  const interested_count = filteredCases.filter(
-    (c) =>
-      c.call_outcome === 'interested' ||
-      c.status === 'interested'
-  ).length
+  const interested_count = filteredCases.filter(isInterestedCase).length
 
   // Follow-ups: scheduled callbacks
-  const follow_ups_count = filteredCases.filter(
-    (c) =>
-      c.call_outcome === 'follow_up' ||
-      c.status === 'callback_scheduled' ||
-      Boolean(c.follow_up_at)
-  ).length
+  const follow_ups_count = filteredCases.filter(isFollowUpCase).length
 
   // Converted to Clients
-  const converted_clients_count = filteredCases.filter(
-    (c) =>
-      c.status === 'disbursed' ||
-      c.status === 'sanctioned' ||
-      c.status === 'converted'
-  ).length
+  const converted_clients_count = filteredCases.filter(isConvertedCase).length
 
   const conversion_rate_pct =
     leads_total > 0
@@ -127,17 +117,13 @@ export function computeStitchDashboard(
       : 0
 
   // Unassigned Leads: eligible leads waiting for assignment
-  const unassigned_leads_count = filteredCases.filter(
-    (c) =>
-      !c.assigned_telecaller_id &&
-      (c.call_outcome === 'new' || c.status === 'new')
-  ).length
+  const unassigned_leads_count = filteredCases.filter(isUnassignedCase).length
 
   // 3. Due Today
   const due_today_data = {
     unassigned_count: unassigned_leads_count,
-    follow_ups_count,
-    interested_count,
+    follow_ups_count: filteredCases.filter(isFollowUpDueTodayCase).length,
+    interested_count: filteredCases.filter(isInterestedAwaitingNextStepCase).length,
   }
 
   // 4. Telecaller Performance

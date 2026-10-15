@@ -256,6 +256,7 @@ export const DashboardPage: React.FC = () => {
             convertedClientsCount={data.converted_clients_count}
             conversionRatePct={data.conversion_rate_pct}
             unassignedLeadsCount={data.unassigned_leads_count}
+            dateRange={dateRange}
           />
 
           {/* 2. Middle Section: Due Today (Left) + Telecaller Performance (Right) */}

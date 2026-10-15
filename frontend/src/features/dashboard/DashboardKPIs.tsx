@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface DashboardKPIsProps {
   leadsTotal: number
@@ -9,6 +10,7 @@ interface DashboardKPIsProps {
   convertedClientsCount: number
   conversionRatePct: number
   unassignedLeadsCount: number
+  dateRange?: string
 }
 
 export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
@@ -20,11 +22,38 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
   convertedClientsCount,
   conversionRatePct,
   unassignedLeadsCount,
+  dateRange = 'all',
 }) => {
+  const navigate = useNavigate()
+
+  const handleCardClick = (view: string) => {
+    const params = new URLSearchParams()
+    params.set('view', view)
+    if (dateRange && dateRange !== 'all') {
+      params.set('range', dateRange)
+    }
+    navigate(`/cases?${params.toString()}`)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent, view: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleCardClick(view)
+    }
+  }
+
   return (
     <section className="stitch-kpi-grid" aria-label="Key Performance Indicators">
       {/* 1. LEADS */}
-      <div className="stitch-kpi-card" data-testid="kpi-leads">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-leads"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('all')}
+        onKeyDown={(e) => handleKeyDown(e, 'all')}
+        aria-label={`View All Leads (${leadsTotal} total)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">LEADS</span>
           <span className="stitch-kpi-badge stitch-badge-emerald">
@@ -49,7 +78,15 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
       </div>
 
       {/* 2. ACTIVE CALLING */}
-      <div className="stitch-kpi-card" data-testid="kpi-active-calling">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-active-calling"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('active-calling')}
+        onKeyDown={(e) => handleKeyDown(e, 'active-calling')}
+        aria-label={`View Active Calling Leads (${activeCallingCount} assigned)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">ACTIVE CALLING</span>
           <span className="stitch-kpi-corner-icon" aria-hidden="true">
@@ -73,7 +110,15 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
       </div>
 
       {/* 3. INTERESTED */}
-      <div className="stitch-kpi-card" data-testid="kpi-interested">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-interested"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('interested')}
+        onKeyDown={(e) => handleKeyDown(e, 'interested')}
+        aria-label={`View Interested Leads (${interestedCount} hot)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">INTERESTED</span>
           <span className="stitch-kpi-badge stitch-badge-hot">
@@ -95,7 +140,15 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
       </div>
 
       {/* 4. FOLLOW-UPS */}
-      <div className="stitch-kpi-card" data-testid="kpi-follow-ups">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-follow-ups"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('follow-ups')}
+        onKeyDown={(e) => handleKeyDown(e, 'follow-ups')}
+        aria-label={`View Follow-ups (${followUpsCount} scheduled callbacks)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">FOLLOW-UPS</span>
           <span className="stitch-kpi-corner-icon" aria-hidden="true">
@@ -122,7 +175,15 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
       </div>
 
       {/* 5. CONVERTED TO CLIENTS */}
-      <div className="stitch-kpi-card" data-testid="kpi-converted">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-converted"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('converted')}
+        onKeyDown={(e) => handleKeyDown(e, 'converted')}
+        aria-label={`View Converted Clients (${convertedClientsCount} converted)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">CONVERTED TO CLIENTS</span>
           <span className="stitch-kpi-badge stitch-badge-emerald">
@@ -144,7 +205,15 @@ export const DashboardKPIs: React.FC<DashboardKPIsProps> = ({
       </div>
 
       {/* 6. UNASSIGNED LEADS */}
-      <div className="stitch-kpi-card" data-testid="kpi-unassigned">
+      <div
+        className="stitch-kpi-card"
+        data-testid="kpi-unassigned"
+        role="button"
+        tabIndex={0}
+        onClick={() => handleCardClick('unassigned')}
+        onKeyDown={(e) => handleKeyDown(e, 'unassigned')}
+        aria-label={`View Unassigned Leads (${unassignedLeadsCount} need assignment)`}
+      >
         <div className="stitch-kpi-header">
           <span className="stitch-kpi-label">UNASSIGNED LEADS</span>
           <span className="stitch-kpi-badge stitch-badge-amber">
