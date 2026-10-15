@@ -8,7 +8,24 @@
 
 **PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
 
-### Critical Production Bug Fix: Mobile-to-Desktop Data Consistency & Real-Time Cloud Sync (Completed)
+### Sidebar Simplification & Quick Lead Intake Updates (Completed)
+- **1. Sidebar Navigation Clean-Up**:
+  - Maintained the 10 retained menu items: `Dashboard`, `Today's Console`, `Leads`, `Quick Lead Intake`, `Telecaller Workspace`, `Referral Partners`, `Public Referral Portal`, `Borrowers & Customers`, `Team & Telecallers`, `Audit Trail`.
+  - Renamed "Cold Leads & Files" to **"Leads"** (pointing directly to `/cases` with All Leads selected by default).
+  - Cleanly removed "Lead Sources & Channels" (`/sources`) and "Organizations & Branding" (`/admin/organizations`) from the sidebar, adding safe redirects to `/cases` and `/admin/users` without breaking any underlying business models or database records.
+  - Replaced `NavLink` with standard `Link` and custom prefix logic so `/cases` and `/cases/:id` (Lead Profile) properly highlight the **Leads** menu item while `/cases/new` exclusively highlights **Quick Lead Intake**.
+- **2. Simplified Quick Lead Intake Source Dropdown**:
+  - In both `CaseIntakeWorkspace` and `CaseCreateModal`, restricted lead-source selection to exactly two options: `Direct` and `Referral`.
+  - **Direct**: Hides referral-partner dropdown, persists `source_type: 'direct'` and clears partner attribution, correctly rendering as Direct in the lead list and lead profile.
+  - **Referral**: Dynamically loads registered referral partner profiles (with name and mobile number) via `/referrals/profiles`, requires partner selection before advancing/submitting, persists partner ID and attribution, and presents an empty-state guidance banner if no partners are registered.
+  - Automatically resets/clears partner selection when switching back from Referral to Direct to prevent stale data submission.
+- **3. Referral Attribution & Workflow Integrity**:
+  - Public Referral Portal (`/p/referral-portal`) continues to register leads and attribute them to the correct partner.
+  - Telecaller reassignment preserves original referral partner attribution without alteration.
+- **4. Verification & Testing**:
+  - Created automated test suite `src/test/sidebar_and_quick_lead_intake.test.tsx` (10 tests) covering all sidebar and intake behaviors.
+  - Executed all 18 test suites (144/144 tests passing).
+  - Confirmed 0 TypeScript errors and successful production bundle (`npm run build`).
 - **Root Cause Identified**:
   - The live Vercel deployment hosts the client SPA where API routes utilize client-side storage fallback.
   - The fallback mechanism previously relied strictly on device-local `window.localStorage` (`dsa_os_cases_store_v3`). Because `localStorage` is scoped to the physical device hardware, leads submitted or assigned on a mobile phone remained trapped on that device and were never visible on a desktop browser.

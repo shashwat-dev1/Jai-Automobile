@@ -3,7 +3,7 @@
  * End-to-End Structured Intake: Sourcing -> Applicant -> Loan & Asset -> Document Processing & OCR
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../shared/lib/api'
 import Button from '../../shared/components/Button'
@@ -11,10 +11,12 @@ import { DocumentExtractionReviewModal } from '../documents/DocumentExtractionRe
 import type { OCRScanResult } from '../documents/types'
 import './CaseIntakeWorkspace.css'
 
-interface SourceOption {
+interface ReferralPartnerOption {
   id: string
   name: string
-  type: string
+  mobile_primary: string
+  masked_mobile?: string
+  verification_status?: string
 }
 
 interface DocumentTypeOption {
@@ -35,14 +37,6 @@ interface IntakeUploadedDoc {
   createdAt: string
 }
 
-const DEFAULT_SOURCES: SourceOption[] = [
-  { id: 's-direct', name: 'Direct Customer Walk-in / Telephonic', type: 'direct' },
-  { id: 's1', name: 'Maruti True Value - Andheri West', type: 'dealer' },
-  { id: 's2', name: 'Hyundai H-Promise - Thane', type: 'dealer' },
-  { id: 's3', name: 'Shree Sai Finance Connectors', type: 'connector' },
-  { id: 's4', name: 'Autocars Mumbai Dealership', type: 'dealer' },
-]
-
 const DEFAULT_DOC_TYPES: DocumentTypeOption[] = [
   { id: 'dt-pan', code: 'PAN', name: 'Borrower PAN Card', category: 'kyc' },
   { id: 'dt-aadhaar', code: 'AADHAAR', name: 'Borrower Aadhaar Card', category: 'kyc' },
@@ -59,8 +53,8 @@ export function CaseIntakeWorkspace() {
 
   // Current Step: 1 = Source, 2 = Customer, 3 = Loan & Asset, 4 = Documents
   const [currentStep, setCurrentStep] = useState<number>(1)
-  const [loadingSources, setLoadingSources] = useState(false)
-  const [sources, setSources] = useState<SourceOption[]>(DEFAULT_SOURCES)
+  const [loadingPartners, setLoadingPartners] = useState(false)
+  const [referralPartners, setReferralPartners] = useState<ReferralPartnerOption[]>([])
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeOption[]>(DEFAULT_DOC_TYPES)
 
   // Submission State
@@ -69,11 +63,10 @@ export function CaseIntakeWorkspace() {
   const [createdCaseNo, setCreatedCaseNo] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Step 1: Sourcing
-  const [sourceId, setSourceId] = useState('s-direct')
-  const [sourceType, setSourceType] = useState('direct')
-  const [referralPerson, setReferralPerson] = useState('')
-  const [subDsaPartner, setSubDsaPartner] = useState('')
+  // Step 1: Sourcing (Simplified to Direct vs Referral)
+  const [sourceType, setSourceType] = useState<'direct' | 'referral'>('direct')
+  const [selectedPartnerId, setSelectedPartnerId] = useState('')
+  const [partnerSearch, setPartnerSearch] = useState('')
   const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [sourcingNotes, setSourcingNotes] = useState('')
 
@@ -111,18 +104,17 @@ export function CaseIntakeWorkspace() {
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const [activeReviewDoc, setActiveReviewDoc] = useState<{ id: string; scanResult: OCRScanResult; typeName: string } | null>(null)
 
-  // Load Sources & Document Types on mount
+  // Load Registered Referral Partners & Document Types on mount
   useEffect(() => {
     async function loadMeta() {
-      setLoadingSources(true)
+      setLoadingPartners(true)
       try {
-        const [sourcesRes, docTypesRes] = await Promise.all([
-          api.get<SourceOption[]>('/sources').catch(() => DEFAULT_SOURCES),
+        const [partnersRes, docTypesRes] = await Promise.all([
+          api.get<ReferralPartnerOption[]>('/referrals/profiles').catch(() => []),
           api.get<DocumentTypeOption[]>('/document-types').catch(() => DEFAULT_DOC_TYPES),
         ])
-        if (sourcesRes && sourcesRes.length > 0) {
-          setSources(sourcesRes)
-          setSourceId((prev) => prev || sourcesRes[0].id)
+        if (Array.isArray(partnersRes)) {
+          setReferralPartners(partnersRes)
         }
         if (docTypesRes && docTypesRes.length > 0) {
           setDocumentTypes(docTypesRes)
@@ -130,22 +122,46 @@ export function CaseIntakeWorkspace() {
         }
       } catch (err) {
         console.warn('Using default intake metadata', err)
-        setSources(DEFAULT_SOURCES)
         setDocumentTypes(DEFAULT_DOC_TYPES)
       } finally {
-        setLoadingSources(false)
+        setLoadingPartners(false)
       }
     }
     loadMeta()
   }, [])
 
+  // Filter partners if list is searchable
+  const filteredPartners = useMemo(() => {
+    if (!partnerSearch.trim()) return referralPartners
+    const q = partnerSearch.toLowerCase().trim()
+    return referralPartners.filter(
+      (p) => p.name.toLowerCase().includes(q) || (p.mobile_primary || '').includes(q)
+    )
+  }, [referralPartners, partnerSearch])
+
+  // Handle switching source type
+  const handleSourceTypeChange = (newType: 'direct' | 'referral') => {
+    setSourceType(newType)
+    setErrorMessage(null)
+    if (newType === 'direct') {
+      setSelectedPartnerId('')
+      setPartnerSearch('')
+    }
+  }
+
   // Validate Step Transitions
   const handleNextStep = async () => {
     setErrorMessage(null)
     if (currentStep === 1) {
-      if (!sourceId) {
-        setErrorMessage('Please select or specify a Lead Sourcing Channel.')
-        return
+      if (sourceType === 'referral') {
+        if (referralPartners.length === 0) {
+          setErrorMessage('No registered referral partners found. Please register a partner in the Referral Partners section first.')
+          return
+        }
+        if (!selectedPartnerId) {
+          setErrorMessage('Please select a referral partner from the registered partners dropdown.')
+          return
+        }
       }
       setCurrentStep(2)
     } else if (currentStep === 2) {
@@ -186,6 +202,10 @@ export function CaseIntakeWorkspace() {
         setIsSubmitting(true)
         try {
           const cleanMobile = mobileNumber.replace(/[\s\-+]/g, '').slice(-10)
+          const selectedPartner = sourceType === 'referral'
+            ? referralPartners.find((p) => p.id === selectedPartnerId)
+            : null
+
           const payload = {
             party_name: fullName.trim(),
             party_mobile: cleanMobile,
@@ -193,8 +213,15 @@ export function CaseIntakeWorkspace() {
             party_aadhaar_last_four: aadhaarLastFour.trim() ? aadhaarLastFour.trim() : undefined,
             product_type: productType,
             loan_amount_requested: amount,
-            source_id: sourceId,
-            source_executive: referralPerson.trim() || subDsaPartner.trim() || undefined,
+            source_type: sourceType,
+            source_name: sourceType === 'direct'
+              ? 'Direct Customer Walk-in / Telephonic'
+              : (selectedPartner ? `Referral: ${selectedPartner.name}` : 'Referral Partner Desk'),
+            referral_profile_id: selectedPartner ? selectedPartner.id : null,
+            referral_partner_id: selectedPartner ? selectedPartner.id : null,
+            referral_partner_name: selectedPartner ? selectedPartner.name : null,
+            referral_partner_mobile: selectedPartner ? selectedPartner.mobile_primary : null,
+            referral_node: selectedPartner ? `${selectedPartner.name} Channel` : 'Direct Internal Desk',
             vehicle_make: vehicleMake.trim(),
             vehicle_model: vehicleModel.trim() || 'Standard Variant',
             vehicle_condition: vehicleCondition,
@@ -349,60 +376,72 @@ export function CaseIntakeWorkspace() {
 
           <div className="form-grid-2">
             <div className="form-field">
-              <label className="field-label">Lead Source Partner *</label>
+              <label className="field-label" htmlFor="intake-source-type">Lead Source *</label>
               <select
-                className="field-select"
-                value={sourceId}
-                onChange={(e) => setSourceId(e.target.value)}
-                disabled={loadingSources}
-              >
-                {sources.length === 0 ? (
-                  <option value="s-direct">Direct Customer Walk-in / Telephonic (direct)</option>
-                ) : (
-                  sources.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.type})
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label className="field-label">Sourcing Channel Type</label>
-              <select
+                id="intake-source-type"
                 className="field-select"
                 value={sourceType}
-                onChange={(e) => setSourceType(e.target.value)}
+                onChange={(e) => handleSourceTypeChange(e.target.value as 'direct' | 'referral')}
               >
-                <option value="direct">Direct Customer Walk-in / Telephonic</option>
-                <option value="sub_dsa">Sub-DSA Partner Channel</option>
-                <option value="dealer_authorized">Authorized Brand Dealership</option>
-                <option value="dealer_preowned">Pre-Owned Car Dealer</option>
-                <option value="referral">Internal / Referral Executive</option>
-                <option value="field_dsa">Field Executive Collection</option>
+                <option value="direct">Direct</option>
+                <option value="referral">Referral</option>
               </select>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
+                {sourceType === 'direct'
+                  ? 'For walk-ins, phone enquiries, direct enquiries entered by an administrator, or direct WhatsApp enquiries.'
+                  : 'For leads referred by registered partners, sub-DSAs, connectors, dealerships, or referral links.'}
+              </span>
             </div>
 
-            <div className="form-field">
-              <label className="field-label">Referral Person / Executive Name</label>
-              <input
-                className="field-input"
-                placeholder="e.g. Rajesh Khurana (Sales Exec)"
-                value={referralPerson}
-                onChange={(e) => setReferralPerson(e.target.value)}
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="field-label">Sub-DSA or Partner Code</label>
-              <input
-                className="field-input"
-                placeholder="e.g. SUB-MUM-019"
-                value={subDsaPartner}
-                onChange={(e) => setSubDsaPartner(e.target.value)}
-              />
-            </div>
+            {sourceType === 'referral' && (
+              <div className="form-field">
+                <label className="field-label" htmlFor="intake-referral-partner">Select Referral Partner *</label>
+                {loadingPartners ? (
+                  <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Loading registered partners...</p>
+                ) : referralPartners.length === 0 ? (
+                  <div style={{ padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px' }}>
+                    <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#b91c1c', fontWeight: 500 }}>
+                      ⚠️ No referral partners registered yet.
+                    </p>
+                    <button
+                      type="button"
+                      className="stitch-action-pill"
+                      style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer' }}
+                      onClick={() => navigate('/referrals')}
+                    >
+                      Register a Partner in Referral Partners section →
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {referralPartners.length > 5 && (
+                      <input
+                        type="text"
+                        className="field-input"
+                        placeholder="Search partner by name or phone..."
+                        value={partnerSearch}
+                        onChange={(e) => setPartnerSearch(e.target.value)}
+                        style={{ marginBottom: '6px', fontSize: '12px', padding: '6px 10px' }}
+                      />
+                    )}
+                    <select
+                      id="intake-referral-partner"
+                      className="field-select"
+                      value={selectedPartnerId}
+                      onChange={(e) => setSelectedPartnerId(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Select Referral Partner --</option>
+                      {filteredPartners.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.mobile_primary || 'No phone'}{p.verification_status === 'verified' ? ' • Verified' : ''})
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="form-field">
               <label className="field-label">Inward File Received Date</label>

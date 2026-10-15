@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../features/auth/useAuth'
 import { usePermission } from '../../features/auth/usePermission'
 import { useTenantStore } from '../../features/auth/useTenant'
@@ -40,14 +40,6 @@ const LeadsIcon = () => (
   </svg>
 )
 
-const LendersIcon = () => (
-  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <path d="M3 8h14M3 12h14" />
-    <rect x="3" y="5" width="14" height="10" rx="1" />
-    <path d="M10 5v10" />
-  </svg>
-)
-
 
 const UsersIcon = () => (
   <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -80,16 +72,15 @@ const LinkIcon = () => (
 )
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
-  { label: 'Today Console', path: '/today', icon: <DashboardIcon /> },
+  { label: 'Dashboard', path: '/', icon: <DashboardIcon />, section: 'Lead Execution' },
+  { label: "Today's Console", path: '/today', icon: <DashboardIcon /> },
   {
-    label: 'Cold Leads & Files',
+    label: 'Leads',
     path: '/cases',
     icon: <CasesIcon />,
-    section: 'Lead Operations',
   },
   {
-    label: '+ Quick Lead Intake',
+    label: 'Quick Lead Intake',
     path: '/cases/new',
     icon: <LeadsIcon />,
     permission: PERMISSIONS.CASES_CREATE,
@@ -103,7 +94,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Referral Partners',
     path: '/referrals',
     icon: <ReferralsIcon />,
-    section: 'Referral Network',
+    section: 'Network & Customers',
     permission: PERMISSIONS.REFERRALS_READ,
   },
   {
@@ -115,20 +106,13 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Borrowers & Customers',
     path: '/parties',
     icon: <LeadsIcon />,
-    section: 'Data & Channels',
     permission: PERMISSIONS.PARTIES_READ,
-  },
-  {
-    label: 'Lead Sources & Channels',
-    path: '/sources',
-    icon: <LendersIcon />,
-    permission: PERMISSIONS.SOURCES_MANAGE,
   },
   {
     label: 'Team & Telecallers',
     path: '/admin/users',
     icon: <UsersIcon />,
-    section: 'Administration',
+    section: 'Governance & Settings',
     permission: PERMISSIONS.USERS_MANAGE,
   },
   {
@@ -136,12 +120,6 @@ const NAV_ITEMS: NavItem[] = [
     path: '/admin/audit',
     icon: <AuditIcon />,
     permission: PERMISSIONS.AUDIT_READ,
-  },
-  {
-    label: 'Organizations & Branding',
-    path: '/admin/organizations',
-    icon: <UsersIcon />,
-    permission: PERMISSIONS.USERS_MANAGE,
   },
 ]
 
@@ -217,18 +195,30 @@ function Sidebar() {
                     {item.section}
                   </div>
                 )}
-                <NavLink
-                  to={item.path}
-                  end={item.path === '/'}
-                  onClick={close}
-                  className={({ isActive }) =>
-                    ['sidebar-item', isActive ? 'active' : ''].filter(Boolean).join(' ')
-                  }
-                  aria-label={item.label}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </NavLink>
+                {(() => {
+                  const isActive = (() => {
+                    if (item.path === '/') return location.pathname === '/'
+                    if (item.path === '/cases') {
+                      return location.pathname === '/cases' || (location.pathname.startsWith('/cases/') && location.pathname !== '/cases/new')
+                    }
+                    if (item.path === '/cases/new') {
+                      return location.pathname === '/cases/new'
+                    }
+                    return location.pathname.startsWith(item.path)
+                  })()
+
+                  return (
+                    <Link
+                      to={item.path}
+                      onClick={close}
+                      className={['sidebar-item', isActive ? 'active' : ''].filter(Boolean).join(' ')}
+                      aria-label={item.label}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })()}
               </div>
             )
           })}

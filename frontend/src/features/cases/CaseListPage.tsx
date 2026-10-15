@@ -512,6 +512,7 @@ export const CaseListPage: React.FC = () => {
             aria-label="Filter by referral partner"
           >
             <option value="all">Referral: All</option>
+            <option value="direct">Direct Intake</option>
             <option value="Maruti True Value">Maruti True Value</option>
             <option value="Hyundai">Hyundai H-Promise</option>
             <option value="Shree Sai">Shree Sai Finance</option>
@@ -713,18 +714,29 @@ export const CaseListPage: React.FC = () => {
                     : '—'
 
                   // Referral attribution
-                  const partnerName = c.referral_partner_name || c.source_name || 'Maruti True Value'
-                  const partnerNode =
-                    c.referral_node ||
-                    (partnerName.includes('Maruti')
-                      ? 'Andheri West Node'
-                      : partnerName.includes('Hyundai')
-                      ? 'Thane Direct Channel'
-                      : partnerName.includes('Sai')
-                      ? 'Broker Network #41'
-                      : partnerName.includes('Autocars')
-                      ? 'Commercial Fleet Partner'
-                      : 'Self Service Form Link')
+                  const isDirect =
+                    c.source_type === 'direct' ||
+                    (!c.referral_partner_name &&
+                      !c.referral_partner_id &&
+                      !c.referral_profile_id &&
+                      (c.source_name?.toLowerCase().includes('direct') || c.source_name === 'Quick Intake Desk'))
+
+                  const partnerName = isDirect
+                    ? 'Direct Lead'
+                    : (c.referral_partner_name || c.source_name || 'Maruti True Value')
+
+                  const partnerNode = isDirect
+                    ? 'Direct Walk-in / Telephonic'
+                    : (c.referral_node ||
+                      (partnerName.includes('Maruti')
+                        ? 'Andheri West Node'
+                        : partnerName.includes('Hyundai')
+                        ? 'Thane Direct Channel'
+                        : partnerName.includes('Sai')
+                        ? 'Broker Network #41'
+                        : partnerName.includes('Autocars')
+                        ? 'Commercial Fleet Partner'
+                        : 'Self Service Form Link'))
 
                   // Formatted Date
                   const createdDate = c.created_at ? new Date(c.created_at) : new Date()

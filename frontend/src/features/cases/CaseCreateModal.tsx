@@ -14,12 +14,6 @@ import type { DocumentItem, OCRScanResult } from '../documents/types'
 import type { CaseDetail, DuplicateWarning, ProductType } from './types'
 import './CaseCreateModal.css'
 
-interface SourceOption {
-  id: string
-  name: string
-  type: string
-}
-
 interface DocumentTypeOption {
   id: string
   code: string
@@ -63,7 +57,9 @@ const DEFAULT_DOC_TYPES: DocumentTypeOption[] = [
 
 export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
-  const [sources, setSources] = useState<SourceOption[]>([])
+  const [sourceType, setSourceType] = useState<'direct' | 'referral'>('direct')
+  const [referralPartners, setReferralPartners] = useState<any[]>([])
+  const [selectedPartnerId, setSelectedPartnerId] = useState('')
   const [docTypes, setDocTypes] = useState<DocumentTypeOption[]>(DEFAULT_DOC_TYPES)
 
   // Form Fields
@@ -72,7 +68,6 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
   const [partyPan, setPartyPan] = useState('')
   const [productType, setProductType] = useState<ProductType>('used_car')
   const [loanAmount, setLoanAmount] = useState('650000')
-  const [sourceId, setSourceId] = useState('')
   const [vehicleMake, setVehicleMake] = useState('Hyundai')
   const [vehicleModel, setVehicleModel] = useState('Creta SX')
   const [vehicleRegNo, setVehicleRegNo] = useState('')
@@ -91,13 +86,12 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
 
   useEffect(() => {
     if (!isOpen) return
-    // Load Lead Sources
+    // Load Registered Referral Partners
     api
-      .get<SourceOption[]>('/sources')
+      .get<any[]>('/referrals/profiles')
       .then((data) => {
-        setSources(data)
-        if (data.length > 0) {
-          setSourceId(data[0].id)
+        if (Array.isArray(data)) {
+          setReferralPartners(data)
         }
       })
       .catch(() => {})
@@ -110,6 +104,14 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
       })
       .catch(() => {})
   }, [isOpen])
+
+  const handleSourceTypeChange = (newType: 'direct' | 'referral') => {
+    setSourceType(newType)
+    setError(null)
+    if (newType === 'direct') {
+      setSelectedPartnerId('')
+    }
+  }
 
   if (!isOpen) return null
 
@@ -215,10 +217,23 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
     setError(null)
     setWarnings([])
 
-    if (!partyName.trim() || !partyMobile.trim() || !sourceId || !vehicleMake.trim() || !vehicleModel.trim()) {
+    if (!partyName.trim() || !partyMobile.trim() || !vehicleMake.trim() || !vehicleModel.trim()) {
       setError('Please fill all mandatory intake fields.')
       setStep(1)
       return
+    }
+
+    if (sourceType === 'referral') {
+      if (referralPartners.length === 0) {
+        setError('No registered referral partners found. Please register a partner in Referral Partners first.')
+        setStep(1)
+        return
+      }
+      if (!selectedPartnerId) {
+        setError('Please select a registered referral partner.')
+        setStep(1)
+        return
+      }
     }
 
     const numAmount = parseFloat(loanAmount.replace(/,/g, ''))
@@ -230,6 +245,10 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
 
     setIsSubmitting(true)
     try {
+      const selectedPartner = sourceType === 'referral'
+        ? referralPartners.find((p) => p.id === selectedPartnerId)
+        : null
+
       const res = await api.post<{
         case: CaseDetail
         duplicate_warnings: DuplicateWarning[]
@@ -239,7 +258,15 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
         party_pan: partyPan.trim() || undefined,
         product_type: productType,
         loan_amount_requested: numAmount,
-        source_id: sourceId,
+        source_type: sourceType,
+        source_name: sourceType === 'direct'
+          ? 'Direct Customer Walk-in / Telephonic'
+          : (selectedPartner ? `Referral: ${selectedPartner.name}` : 'Referral Partner Desk'),
+        referral_profile_id: selectedPartner ? selectedPartner.id : null,
+        referral_partner_id: selectedPartner ? selectedPartner.id : null,
+        referral_partner_name: selectedPartner ? selectedPartner.name : null,
+        referral_partner_mobile: selectedPartner ? selectedPartner.mobile_primary : null,
+        referral_node: selectedPartner ? `${selectedPartner.name} Channel` : 'Direct Internal Desk',
         vehicle_make: vehicleMake.trim(),
         vehicle_model: vehicleModel.trim(),
         vehicle_registration_no: vehicleRegNo.trim() || undefined,
@@ -398,24 +425,58 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
 
             <div className="form-grid-2">
               <div className="input-group">
-                <label htmlFor="intake-source" className="input-label">
-                  5. Lead Source (Dealer / Partner) *
+                <label htmlFor="modal-source-type" className="input-label">
+                  5. Lead Source *
                 </label>
                 <select
-                  id="intake-source"
+                  id="modal-source-type"
                   className="case-select"
-                  value={sourceId}
-                  onChange={(e) => setSourceId(e.target.value)}
+                  value={sourceType}
+                  onChange={(e) => handleSourceTypeChange(e.target.value as 'direct' | 'referral')}
                   required
                 >
-                  {sources.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.type})
-                    </option>
-                  ))}
+                  <option value="direct">Direct</option>
+                  <option value="referral">Referral</option>
                 </select>
+                <span className="type-body-xs" style={{ color: 'var(--color-text-secondary)', marginTop: 2, display: 'block' }}>
+                  {sourceType === 'direct' ? 'Walk-in, phone, or direct admin entry' : 'Referred by registered partner'}
+                </span>
               </div>
 
+              {sourceType === 'referral' ? (
+                <div className="input-group">
+                  <label htmlFor="modal-referral-partner" className="input-label">
+                    Select Referral Partner *
+                  </label>
+                  {referralPartners.length === 0 ? (
+                    <div style={{ padding: '8px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4, fontSize: 13, color: '#b91c1c' }}>
+                      ⚠️ No referral partners registered.
+                    </div>
+                  ) : (
+                    <select
+                      id="modal-referral-partner"
+                      className="case-select"
+                      value={selectedPartnerId}
+                      onChange={(e) => setSelectedPartnerId(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Select Referral Partner --</option>
+                      {referralPartners.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.mobile_primary || 'No phone'}{p.verification_status === 'verified' ? ' • Verified' : ''})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : (
+                <div className="input-group" style={{ visibility: 'hidden' }}>
+                  {/* Spacer when Direct is selected */}
+                </div>
+              )}
+            </div>
+
+            <div className="form-grid-2">
               <Input
                 id="intake-make"
                 label="6a. Vehicle Make *"
@@ -424,9 +485,6 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
                 onChange={(e) => setVehicleMake(e.target.value)}
                 required
               />
-            </div>
-
-            <div className="form-grid-2">
               <Input
                 id="intake-model"
                 label="6b. Vehicle Model *"
@@ -435,6 +493,9 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
                 onChange={(e) => setVehicleModel(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="form-grid-2">
               <Input
                 id="intake-regno"
                 label="Vehicle Registration (Optional)"
@@ -442,9 +503,6 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
                 value={vehicleRegNo}
                 onChange={(e) => setVehicleRegNo(e.target.value.toUpperCase())}
               />
-            </div>
-
-            <div className="form-grid-2">
               <Input
                 id="intake-pan"
                 label="PAN Number (Optional)"
@@ -452,6 +510,9 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
                 value={partyPan}
                 onChange={(e) => setPartyPan(e.target.value.toUpperCase())}
               />
+            </div>
+
+            <div className="form-grid-1">
               <div className="input-group">
                 <label htmlFor="intake-notes" className="input-label">
                   Operational Notes (Optional)
@@ -477,6 +538,16 @@ export function CaseCreateModal({ isOpen, onClose, onCreated }: CaseCreateModalP
                   if (!partyName.trim() || !partyMobile.trim()) {
                     setError('Applicant Name and Mobile are required.')
                     return
+                  }
+                  if (sourceType === 'referral') {
+                    if (referralPartners.length === 0) {
+                      setError('No registered referral partners found. Please register a partner in Referral Partners first.')
+                      return
+                    }
+                    if (!selectedPartnerId) {
+                      setError('Please select a registered referral partner.')
+                      return
+                    }
                   }
                   setError(null)
                   setStep(2)

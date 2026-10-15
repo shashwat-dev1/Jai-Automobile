@@ -266,8 +266,17 @@ export const CaseDetailPage: React.FC = () => {
   const city = caseData.primary_party?.city || 'Andheri West, Mumbai, MH'
   const pincode = (caseData as any).pincode || '400058'
 
-  const partnerName = caseData.referral_partner_name || caseData.source_name || 'Maruti True Value - Andheri West'
-  const partnerId = caseData.referral_profile_id || 'REF-MTV-049'
+  const isDirectLead =
+    caseData.source_type === 'direct' ||
+    (!caseData.referral_partner_name &&
+      !caseData.referral_partner_id &&
+      !caseData.referral_profile_id &&
+      (caseData.source_name?.toLowerCase().includes('direct') || caseData.source_name === 'Quick Intake Desk'))
+
+  const partnerName = isDirectLead
+    ? 'Direct Customer Walk-in / Telephonic'
+    : (caseData.referral_partner_name || caseData.source_name || 'Maruti True Value - Andheri West')
+  const partnerId = isDirectLead ? 'DIR-DIRECT-INTAKE' : (caseData.referral_profile_id || caseData.referral_partner_id || 'REF-MTV-049')
 
   // Status mapping
   const currentStatus = caseData.status || 'lead'
@@ -466,8 +475,12 @@ export const CaseDetailPage: React.FC = () => {
 
           <div className="metric-col">
             <span className="metric-eyebrow">PARTNER SOURCE</span>
-            <span className="metric-main-value">{partnerName.split('-')[0].trim()}</span>
-            <span className="metric-caption">{partnerId}</span>
+            <span className="metric-main-value">
+              {isDirectLead ? 'Direct' : partnerName.split('-')[0].trim()}
+            </span>
+            <span className="metric-caption">
+              {isDirectLead ? 'Direct Internal Desk' : partnerId}
+            </span>
           </div>
 
           <div className="metric-col highlight-col">
@@ -729,7 +742,7 @@ export const CaseDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 3: Referral Partner Attribution */}
+          {/* Card 3: Referral Partner Attribution / Direct Intake */}
           <div className="dossier-card">
             <div className="dossier-card-header">
               <div className="card-header-left">
@@ -742,47 +755,61 @@ export const CaseDetailPage: React.FC = () => {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="dossier-card-title">Referral Partner Attribution</h2>
-                  <p className="dossier-card-sub">Originating channel and payout commission alignment</p>
+                  <h2 className="dossier-card-title">
+                    {isDirectLead ? 'Direct Lead Sourcing & Attribution' : 'Referral Partner Attribution'}
+                  </h2>
+                  <p className="dossier-card-sub">
+                    {isDirectLead
+                      ? 'Internal lead intake: Walk-in, telephonic enquiry, or admin entry'
+                      : 'Originating channel and payout commission alignment'}
+                  </p>
                 </div>
               </div>
-              <span className="dossier-badge-gray">VIP Partner</span>
+              <span className="dossier-badge-gray">{isDirectLead ? 'Direct File' : 'VIP Partner'}</span>
             </div>
 
             <div className="partner-attr-grid">
               <div className="attr-item">
-                <span className="attr-label">PARTNER NAME</span>
+                <span className="attr-label">{isDirectLead ? 'SOURCING CHANNEL' : 'PARTNER NAME'}</span>
                 <span className="attr-val-bold">{partnerName}</span>
-                <span className="attr-sub">Authorized Dealership Hub</span>
+                <span className="attr-sub">{isDirectLead ? 'Direct Operations Desk' : 'Authorized Dealership Hub'}</span>
               </div>
 
               <div className="attr-item">
-                <span className="attr-label">PARTNER MOBILE & CONTACT</span>
-                <span className="attr-val-bold">+91 98200 12345</span>
-                <span className="attr-sub">Attr: Manish Kothari (GM)</span>
+                <span className="attr-label">{isDirectLead ? 'INTAKE CHANNEL' : 'PARTNER MOBILE & CONTACT'}</span>
+                <span className="attr-val-bold">
+                  {isDirectLead
+                    ? 'Internal Desk'
+                    : (caseData.referral_partner_mobile ? `+91 ${caseData.referral_partner_mobile}` : '+91 98200 12345')}
+                </span>
+                <span className="attr-sub">
+                  {isDirectLead ? 'Attr: Administrator Direct Entry' : 'Attr: Manish Kothari (GM)'}
+                </span>
               </div>
 
               <div className="attr-item">
                 <span className="attr-label">CHANNEL SOURCE</span>
-                <span className="attr-val-bold">Dealership Partner Desk</span>
-                <span className="attr-sub">Web Portal Submission</span>
+                <span className="attr-val-bold">{isDirectLead ? 'Direct Lead Intake' : 'Dealership Partner Desk'}</span>
+                <span className="attr-sub">{isDirectLead ? 'Internal DSA OS Desk' : 'Web Portal Submission'}</span>
               </div>
 
               <div className="attr-item">
                 <span className="attr-label">SUBMISSION TIMESTAMP</span>
                 <span className="attr-val-bold">{createdDateStr} • 11:42 AM</span>
-                <span className="attr-sub">Direct Ingestion API</span>
+                <span className="attr-sub">{isDirectLead ? 'Direct Intake Desk' : 'Direct Ingestion API'}</span>
               </div>
 
               <div className="attr-item">
-                <span className="attr-label">PARTNER ID</span>
+                <span className="attr-label">{isDirectLead ? 'SOURCE CODE' : 'PARTNER ID'}</span>
                 <span className="attr-val-green">{partnerId}</span>
-                <span className="attr-sub">Tier 1 Commission Bracket (0.75%)</span>
+                <span className="attr-sub">
+                  {isDirectLead ? 'Direct Channel (No Broker Payout)' : 'Tier 1 Commission Bracket (0.75%)'}
+                </span>
               </div>
 
               <div className="attr-item attr-link-box">
-                <Link to="/referrals" className="partner-ledger-link">
-                  <span>View Partner Ledger & History</span>
+                <Link to={isDirectLead ? '/cases' : '/referrals'} className="partner-ledger-link">
+                  <span>{isDirectLead ? 'Back to All Leads' : 'View Partner Ledger & History'}</span>
                   <span>→</span>
                 </Link>
               </div>

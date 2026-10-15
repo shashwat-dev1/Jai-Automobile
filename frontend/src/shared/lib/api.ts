@@ -850,7 +850,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Phase 1: List Referral Profiles
   if (clean.includes('/referrals/profiles') && method === 'GET') {
-    return JAI_MOCK_REFERRAL_PROFILES
+    return getStoredReferralProfiles()
   }
 
   // Phase 1: Update Referral Commission Status (Approve / Reject / Pay with UTR)
@@ -1011,6 +1011,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Case Creation (POST /cases)
   if (clean.includes('/cases') && method === 'POST') {
+    const isDirect = parsedBody?.source_type === 'direct' || (!parsedBody?.referral_partner_id && !parsedBody?.referral_profile_id && parsedBody?.source_type !== 'referral')
     const newCase = {
       id: `case-jai-${Date.now()}`,
       case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1025,7 +1026,15 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       loan_amount_requested: Number(parsedBody?.loan_amount_requested || parsedBody?.loan?.requested_amount) || 750000,
       vehicle_summary: parsedBody?.vehicle_make ? `${parsedBody.vehicle_make} ${parsedBody.vehicle_model || ''}` : 'Hyundai Creta 1.5 SX',
       vehicle_details: parsedBody?.vehicle_make ? `${parsedBody.vehicle_make} ${parsedBody.vehicle_model || ''}` : 'Hyundai Creta 1.5 SX',
-      source_name: parsedBody?.source_name || 'Quick Intake Desk',
+      source_type: isDirect ? 'direct' : 'referral',
+      source_name: isDirect
+        ? (parsedBody?.source_name || 'Direct Customer Walk-in / Telephonic')
+        : (parsedBody?.source_name || 'Referral Partner Desk'),
+      referral_profile_id: isDirect ? null : (parsedBody?.referral_profile_id || parsedBody?.referral_partner_id || null),
+      referral_partner_id: isDirect ? null : (parsedBody?.referral_partner_id || parsedBody?.referral_profile_id || null),
+      referral_partner_name: isDirect ? null : (parsedBody?.referral_partner_name || null),
+      referral_partner_mobile: isDirect ? null : (parsedBody?.referral_partner_mobile || null),
+      referral_node: isDirect ? 'Direct Walk-in / Telephonic' : (parsedBody?.referral_node || `${parsedBody?.referral_partner_name || 'Partner'} Channel`),
       owner_name: 'Aarav Sharma',
       has_consent: true,
       age_in_days: 0,
@@ -1050,7 +1059,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         model: parsedBody?.vehicle_model || 'Creta',
         variant: '1.5 SX',
         year_of_manufacture: 2023,
-        condition: 'used',
+        condition: parsedBody?.vehicle_condition || 'used',
         registration_no: parsedBody?.vehicle_registration_no || 'MH02EK9988',
         valuation_amount: 850000,
       },
@@ -1059,6 +1068,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       ],
     }
     addStoredCase(newCase)
+    syncCaseToCloud(newCase).catch((e) => console.warn('Case creation cloud sync error:', e))
 
     // Generate and store deterministic OCR docs
     const ocrDocs = generateDeterministicOcrDocs({

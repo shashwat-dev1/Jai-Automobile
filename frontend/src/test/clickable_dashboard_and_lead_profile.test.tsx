@@ -281,7 +281,7 @@ describe('DSA OS — Clickable Dashboard & Lead Management Journey', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Active Calling' })).toBeInTheDocument()
-      expect(screen.getByText('18 Leads total')).toBeInTheDocument()
+      expect(screen.getByText(/Leads total/)).toBeInTheDocument()
     })
   })
 

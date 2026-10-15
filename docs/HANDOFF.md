@@ -159,29 +159,26 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
-> **Stitch Dashboard KPIs, All Leads Filtered Desk & Lead Profile Dossier: 100% COMPLETE.**
-> - **Frontend**: 134/134 Vitest tests passing across 17 test suites with clean production build (`tsc -b && vite build` in 6.78s).
-> - **Clickable Dashboard Affordances & Filter Routing**:
->   - All 6 KPI cards (`Leads`, `Active Calling`, `Interested`, `Follow-ups`, `Converted to Clients`, `Unassigned Leads`) are fully clickable with pointer cursor, tactile hover/active animations, keyboard accessibility (`Enter`/`Space`), and navigate to `/cases?view=...&range=...`.
->   - All 3 Due Today rows (`Unassigned leads`, `Follow-ups due today`, `Interested leads awaiting next step`) navigate directly to their operational lead views with exact counts matching the dashboard.
-> - **Single Source of Truth (`caseFilters.ts`)**:
->   - Unified domain filter predicates shared between `dashboardDataService.ts` and `CaseListPage.tsx`. Zero mismatch between dashboard KPI badges, Due Today counters, status tab counts, and table rows.
-> - **Stitch Design 1: All Leads Management Desk (`/cases`)**:
->   - Operations Console › Lead Management › All Leads breadcrumbs, total record pill, Conversion Velocity widget, Export CSV, and New Lead intake modal.
->   - Filter bar: live search across customer name, phone, ref, and vehicle registration; dropdowns for Telecaller, Loan Type, Referral Partner, and Date Range with clear filter reset.
->   - 6 Status tabs with real-time count pills (`All Leads`, `Active Calling`, `Interested`, `Follow-ups Due Today`, `Converted to Clients`, `Unassigned Leads`).
->   - Tabular layout with customer contact, loan specs, Stitch status badges, telecaller monograms, referral channel, and `Open Lead Profile →` row links.
->   - Pagination (`Showing X to Y of Z leads`, rows per page selector, pagination controls).
->   - Bottom 3 summary cards (`Lead Pipeline Health` in ₹Cr, `Telecaller Utilization` bar, `Top Partner Channel`) dynamically calculated from active data.
-> - **Stitch Design 2: Complete Lead Profile Dossier (`/cases/:id`)**:
->   - Breadcrumbs (`Operations Console › Leads › {case_no}`), `← Back to Leads List` preserving filters.
->   - Lead Summary Header Card: squircle monogram initials avatar, quick action buttons (`Call Customer`, `Schedule Follow-up`, `Reassign`, `Update Status`), and 4-metric strip.
->   - Left column: Customer & Vehicle specifications, KYC Documents with regulatory masking notice and secure modal previewer/download, Referral partner attribution with partner ledger link.
->   - Right column: Assignment & fast reassignment (admin-only), Lifecycle stage progression selector, Next scheduled operational milestone card, and Calling activity timeline with modal to log calls and notes.
-> - **RBAC & Security Enforced**:
->   - Admin: unrestricted access to all organization leads, assignment/reassignment controls, stage controls.
->   - Telecaller: scoped to assigned leads only; unauthorized detail view attempts return 403 Forbidden.
->   - Tenant isolation maintained across all Firestore sync and local storage operations.
+> **Sidebar Simplification & Quick Lead Intake Updates: 100% COMPLETE.**
+> - **Frontend**: 144/144 Vitest tests passing across 18 test suites with clean production build (`tsc -b && vite build` in 6.63s).
+> - **Sidebar Navigation**:
+>   - Exactly 10 retained menu items: `Dashboard`, `Today's Console`, `Leads`, `Quick Lead Intake`, `Telecaller Workspace`, `Referral Partners`, `Public Referral Portal`, `Borrowers & Customers`, `Team & Telecallers`, `Audit Trail`.
+>   - "Cold Leads & Files" renamed to "Leads" pointing to `/cases` (All Leads default view).
+>   - "Lead Sources & Channels" (`/sources`) and "Organizations & Branding" (`/admin/organizations`) removed from sidebar and redirected without breaking data or underlying features.
+>   - Active highlighting accurately distinguishes `/cases` & `/cases/:id` ("Leads") from `/cases/new` ("Quick Lead Intake").
+> - **Quick Lead Intake Source Dropdown**:
+>   - Exactly two source options: `Direct` vs `Referral`.
+>   - Direct: hides partner selection, saves with `source_type: 'direct'`, displays properly as Direct in lead table and lead profile dossier.
+>   - Referral: dynamically populates registered referral partner profiles (name & mobile), requires partner selection before proceeding/submitting, accurately persists partner attribution, and provides helpful empty state if none are registered.
+>   - Switching between Referral and Direct clears any stale partner selection.
+> - **Attribution & Reassignment**:
+>   - Reassigning a lead preserves original referral partner attribution.
+>   - Public Referral Portal continues to ingest and attribute partner leads smoothly.
+> - **Stitch Dashboard KPIs, All Leads Filtered Desk & Lead Profile Dossier: 100% COMPLETE.**
+>   - All 6 KPI cards & Due Today rows connected to filtered lead lists.
+>   - Unified domain filter predicates in `caseFilters.ts`.
+>   - Responsive desktop & mobile support.
+>   - Strict RBAC, tenant isolation, and Firestore synchronization.
 
 ---
 

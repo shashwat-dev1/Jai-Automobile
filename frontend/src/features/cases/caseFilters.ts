@@ -216,10 +216,19 @@ export function filterCasesWithAllCriteria(cases: any[], criteria: FilterCriteri
     })
   }
 
-  // Apply Referral Partner Filter
+  // Apply Referral Partner / Sourcing Filter
   if (criteria.referral && criteria.referral !== 'all') {
     const targetRef = criteria.referral.toLowerCase()
     list = list.filter((c: any) => {
+      if (targetRef === 'direct') {
+        return (
+          c.source_type === 'direct' ||
+          (!c.referral_partner_id &&
+            !c.referral_partner_name &&
+            !c.referral_profile_id &&
+            ((c.source_name || '').toLowerCase().includes('direct') || c.source_name === 'Quick Intake Desk'))
+        )
+      }
       const pName = (c.referral_partner_name || c.source_name || '').toLowerCase()
       return pName.includes(targetRef)
     })

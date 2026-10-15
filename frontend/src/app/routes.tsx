@@ -1,16 +1,14 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from './AppShell'
 import { LoginPage } from '../features/auth/LoginPage'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
 import { UsersPage } from '../features/admin/UsersPage'
 import { AuditLogPage } from '../features/admin/AuditLogPage'
-import { TenantsPage } from '../features/admin/TenantsPage'
 import { PERMISSIONS } from '../features/auth/types'
 
 import { CaseListPage } from '../features/cases/CaseListPage'
 import { CaseDetailPage } from '../features/cases/CaseDetailPage'
 import { CaseIntakeWorkspace } from '../features/cases/CaseIntakeWorkspace'
-import { SourcesPage } from '../features/sources/SourcesPage'
 import { PartiesPage } from '../features/parties/PartiesPage'
 import { LendersPage } from '../features/lenders/LendersPage'
 import { TasksPage } from '../features/workflow/TasksPage'
@@ -65,7 +63,7 @@ function AppRoutes() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="parties" element={<PartiesPage />} />
         <Route path="customers" element={<PartiesPage />} />
-        <Route path="sources" element={<SourcesPage />} />
+        <Route path="sources" element={<Navigate to="/cases" replace />} />
         <Route path="reports/sources" element={<SourcesReportPage />} />
         <Route path="lenders" element={<LendersPage />} />
 
@@ -138,27 +136,15 @@ function AppRoutes() {
         />
         <Route
           path="admin/organizations"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
-              <TenantsPage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/users" replace />}
         />
         <Route
           path="admin/branding"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
-              <TenantsPage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/users" replace />}
         />
         <Route
           path="admin/tenants"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.USERS_MANAGE}>
-              <TenantsPage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/users" replace />}
         />
 
         <Route path="*" element={<NotFound />} />
