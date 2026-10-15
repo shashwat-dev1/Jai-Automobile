@@ -29,6 +29,13 @@
   - **Strict Security & Tenant Isolation**:
     - All leads are strictly bound to `organization_slug: 'jai-automobiles'`.
     - Telecaller workspace (`/cases/telecaller/workspace`) strictly filters leads to `assigned_telecaller_id === currentUserId`, ensuring Telecaller Rahul sees his assigned leads while Telecaller Priya is prevented from accessing them.
+- **Database Activation & Content-Security-Policy Resolution**:
+  - Successfully provisioned Cloud Firestore `(default)` database under project `jai-automobile`.
+  - Resolved `connect-src 'self'` Content-Security-Policy restriction in `frontend/index.html` by permitting `https://*.googleapis.com`, `https://*.firebaseio.com`, `https://*.firebasestorage.app`, and `wss://*.firebaseio.com`.
+  - Added `firestore.rules` granting pilot tenant access to `cases` and `referral_profiles` collections.
+  - Initialized `initializeFirestore(app, { experimentalAutoDetectLongPolling: true })` for seamless connectivity across cellular and desktop network firewalls.
+  - Implemented bi-directional offline-to-cloud synchronization in `syncCasesWithCloud()` so cases created offline or on mobile devices are immediately uploaded and reconciled with Firestore.
+  - Seeded 38 baseline multi-tier cases and mobile referral lead `Shivam Joshi` (`JA-2025-5370`) into Firestore.
 - **Verification**:
   - Created automated cross-device cloud sync suite in `frontend/src/test/cross_device_cloud_sync.test.tsx` verifying the complete lifecycle: Mobile Lead Submission -> Desktop Admin Visibility -> Telecaller Rahul Assignment -> Telecaller Priya Access Restriction -> Remote Cloud Merge.
   - All 16 frontend test suites passing (120/120 tests). Clean TypeScript check and production build (`tsc -b && vite build`).
