@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
   DOCUMENTS: 'dsa_os_documents_store_v2',
   REFERRAL_PROFILES: 'dsa_os_referrals_store_v2',
   COMMISSIONS: 'dsa_os_commissions_store_v2',
+  PARTIES: 'dsa_os_parties_store_v1',
 } as const
 
 // --- Helper: Safe LocalStorage Access ---
@@ -228,6 +229,37 @@ export async function syncCasesWithCloud(): Promise<MockCase[]> {
     }
 
     mergeRemoteCases(remoteCases)
+
+    // Sync parties collection from Firestore
+    try {
+      const partiesRef = collection(firestore, 'parties')
+      const partiesSnap = await getDocs(partiesRef)
+      if (!partiesSnap.empty) {
+        const remoteParties: any[] = []
+        partiesSnap.forEach((d) => remoteParties.push({ ...d.data(), id: d.id }))
+        const local = getStoredParties()
+        const map = new Map<string, any>()
+        local.forEach((p) => map.set(p.id, p))
+        let changed = false
+        remoteParties.forEach((rp) => {
+          if (!map.has(rp.id)) {
+            local.unshift(rp)
+            map.set(rp.id, rp)
+            changed = true
+          }
+        })
+        if (changed) {
+          saveStoredParties(local)
+        }
+      } else {
+        // Seed baseline parties to cloud
+        const local = getStoredParties()
+        local.forEach((p) => syncPartyToCloud(p).catch(() => {}))
+      }
+    } catch (partErr) {
+      console.warn('Firestore parties sync notice:', partErr)
+    }
+
     return getStoredCases()
   } catch (err) {
     console.warn('Firestore cloud fetch notice:', err)
@@ -300,6 +332,45 @@ export function initCloudSync(): void {
     )
   } catch (err) {
     console.warn('Failed to attach Firestore referrals listener:', err)
+  }
+
+  // 4. Real-time multi-device subscription for customer parties
+  try {
+    const partiesRef = collection(firestore, 'parties')
+    onSnapshot(
+      partiesRef,
+      (snapshot) => {
+        if (snapshot.empty) return
+        const remoteParties: any[] = []
+        snapshot.forEach((d) => remoteParties.push({ ...d.data(), id: d.id }))
+        const local = getStoredParties()
+        const map = new Map<string, any>()
+        local.forEach((p) => map.set(p.id, p))
+        let changed = false
+        remoteParties.forEach((rp) => {
+          if (!map.has(rp.id)) {
+            local.unshift(rp)
+            map.set(rp.id, rp)
+            changed = true
+          } else {
+            const existing = map.get(rp.id)
+            if (rp.version && rp.version > (existing.version || 0)) {
+              const idx = local.findIndex((p) => p.id === rp.id)
+              if (idx >= 0) {
+                local[idx] = { ...existing, ...rp }
+                changed = true
+              }
+            }
+          }
+        })
+        if (changed) {
+          saveStoredParties(local)
+        }
+      },
+      (err) => console.warn('Real-time Firestore parties listener notice:', err)
+    )
+  } catch (err) {
+    console.warn('Failed to attach Firestore parties listener:', err)
   }
 }
 
@@ -389,7 +460,278 @@ export function addOrUpdateReferralProfile(partner: any): void {
   }
 }
 
-// --- 3. Documents & OCR Scans Persistence ---
+export function enrichReferralProfilesWithCaseMetrics(profiles: any[], allCases: MockCase[]): any[] {
+  return profiles.map((p) => {
+    const partnerLeads = allCases.filter((c: any) =>
+      c.referral_profile_id === p.id ||
+      (p.id && c.referral_partner_id === p.id) ||
+      (p.mobile_primary && c.referral_partner_mobile === p.mobile_primary) ||
+      (p.name && c.referral_partner_name?.toLowerCase().trim() === p.name.toLowerCase().trim())
+    )
+
+    const caseTotal = partnerLeads.length
+    const caseInterested = partnerLeads.filter(
+      (c: any) => c.call_outcome === 'interested' || c.status === 'interested'
+    ).length
+    const caseConverted = partnerLeads.filter(
+      (c: any) => c.status === 'disbursed' || c.status === 'sanctioned' || c.status === 'converted'
+    ).length
+    const caseDisbursed = partnerLeads.filter(
+      (c: any) => c.status === 'disbursed' || c.status === 'converted'
+    ).length
+
+    // Always prefer live derived counts if leads exist for this partner; fallback to profile counts for historical seed partners
+    const totalLeads = caseTotal > 0 ? caseTotal : (p.total_leads || 0)
+    const interestedLeads = caseTotal > 0 ? caseInterested : (p.interested_leads || 0)
+    const convertedLeads = caseTotal > 0 ? caseConverted : (p.converted_leads || 0)
+
+    return {
+      ...p,
+      total_leads: totalLeads,
+      interested_leads: interestedLeads,
+      converted_leads: convertedLeads,
+      disbursed_leads: caseDisbursed,
+    }
+  })
+}
+
+// --- 3. Customer Registry & Parties Persistence ---
+
+export interface StoredCustomerParty {
+  id: string
+  org_id: string
+  name: string
+  mobile_primary: string
+  mobile_secondary?: string | null
+  email?: string | null
+  pan_last_four?: string | null
+  pan_masked?: string | null
+  aadhaar_masked?: string | null
+  employment_type?: string | null
+  city?: string | null
+  state?: string | null
+  monthly_income?: number | null
+  version: number
+  created_at: string
+  active_cases_count?: number
+  total_disbursed_volume?: number
+}
+
+export function isQualifyingCustomerStatus(status?: string | null): boolean {
+  if (!status) return false
+  const s = status.toLowerCase()
+  return (
+    s === 'sanctioned' ||
+    s === 'disbursed' ||
+    s === 'pdd_pending' ||
+    s === 'pdd_completed' ||
+    s === 'completed' ||
+    s === 'converted'
+  )
+}
+
+const INITIAL_BASELINE_PARTIES: StoredCustomerParty[] = [
+  {
+    id: 'p1',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Rajesh Kumar Sharma',
+    mobile_primary: '9820198201',
+    email: 'rajesh.sharma@gmail.com',
+    pan_last_four: '9820',
+    pan_masked: 'ABCDE****F',
+    aadhaar_masked: '**** **** 1234',
+    employment_type: 'salaried',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    monthly_income: 85000,
+    version: 1,
+    created_at: '2025-01-01T10:00:00Z',
+  },
+  {
+    id: 'p2',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Amitabh Singh Chauhan',
+    mobile_primary: '9833441122',
+    email: 'amitabh.chauhan@gmail.com',
+    pan_last_four: '1122',
+    pan_masked: 'BKDPA****M',
+    aadhaar_masked: '**** **** 5678',
+    employment_type: 'self_employed',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    monthly_income: 140000,
+    version: 1,
+    created_at: '2025-01-02T11:00:00Z',
+  },
+  {
+    id: 'p3',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Virender Singh Rathore',
+    mobile_primary: '9845112233',
+    email: 'virender.rathore@gmail.com',
+    pan_last_four: '2233',
+    pan_masked: 'AFXPR****K',
+    aadhaar_masked: '**** **** 9012',
+    employment_type: 'salaried',
+    city: 'Pune',
+    state: 'Maharashtra',
+    monthly_income: 60000,
+    version: 1,
+    created_at: '2025-01-05T09:30:00Z',
+  },
+]
+
+export function getStoredParties(): StoredCustomerParty[] {
+  let parties: StoredCustomerParty[] = []
+  const raw = safeGetItem(STORAGE_KEYS.PARTIES)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parties = parsed
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  if (parties.length === 0) {
+    parties = [...INITIAL_BASELINE_PARTIES]
+  }
+
+  // Idempotently auto-reconcile all qualifying cases in getStoredCases()
+  // so any case marked 'sanctioned' or 'disbursed' automatically has its customer record in the registry
+  const allCases = getStoredCases()
+  const partyMap = new Map<string, StoredCustomerParty>()
+  parties.forEach((p) => {
+    partyMap.set(p.id, p)
+    if (p.mobile_primary) partyMap.set(p.mobile_primary, p)
+  })
+
+  let hasNew = false
+  allCases.forEach((c) => {
+    if (isQualifyingCustomerStatus(c.status)) {
+      const mob = c.primary_applicant_mobile || c.mobile
+      const existing = (c.party_id && partyMap.get(c.party_id)) ||
+        (c.primary_party?.id && partyMap.get(c.primary_party.id)) ||
+        (mob && partyMap.get(mob)) ||
+        parties.find((p) => p.name.toLowerCase().trim() === (c.primary_applicant_name || c.applicant_name || '').toLowerCase().trim())
+
+      if (!existing) {
+        const partyId = c.primary_party?.id || c.party_id || `party-${c.id.replace('case-jai-', '')}`
+        const newParty: StoredCustomerParty = {
+          id: partyId,
+          org_id: c.org_id || '11111111-1111-1111-1111-111111111111',
+          name: c.primary_applicant_name || c.applicant_name || 'Customer',
+          mobile_primary: mob || '9820011223',
+          email: c.primary_party?.email || null,
+          pan_last_four: c.primary_party?.pan_last_four || (c.primary_party?.pan_masked ? c.primary_party.pan_masked.slice(-4) : null),
+          pan_masked: c.primary_party?.pan_masked || (c.primary_party?.pan ? `${c.primary_party.pan.slice(0, 5)}****${c.primary_party.pan.slice(-1)}` : 'ABCDE****F'),
+          aadhaar_masked: c.primary_party?.aadhaar_masked || '**** **** 1234',
+          employment_type: c.primary_party?.employment_type || 'salaried',
+          city: c.primary_party?.city || 'Mumbai',
+          state: c.primary_party?.state || 'Maharashtra',
+          monthly_income: c.primary_party?.monthly_income || 75000,
+          version: 1,
+          created_at: c.created_at || new Date().toISOString(),
+        }
+        parties.unshift(newParty)
+        partyMap.set(newParty.id, newParty)
+        if (mob) partyMap.set(mob, newParty)
+        hasNew = true
+        syncPartyToCloud(newParty).catch(() => {})
+      }
+    }
+  })
+
+  if (hasNew || !raw) {
+    safeSetItem(STORAGE_KEYS.PARTIES, JSON.stringify(parties))
+  }
+
+  return parties
+}
+
+export function saveStoredParties(parties: StoredCustomerParty[]): void {
+  safeSetItem(STORAGE_KEYS.PARTIES, JSON.stringify(parties))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dsa_os_parties_updated', { detail: { count: parties.length } }))
+  }
+}
+
+export function syncPartyToCloud(party: StoredCustomerParty): Promise<void> {
+  if (!isFirebaseConfigured() || !db) return Promise.resolve()
+  try {
+    const docRef = doc(db, 'parties', party.id)
+    return setDoc(docRef, sanitizeForFirestore({
+      ...party,
+      organization_slug: 'jai-automobiles',
+      synced_at: new Date().toISOString(),
+    }), { merge: true }).catch((e) => console.warn('Firestore party sync notice:', e))
+  } catch {
+    return Promise.resolve()
+  }
+}
+
+export function addOrUpdateStoredParty(party: StoredCustomerParty): StoredCustomerParty {
+  const current = getStoredParties()
+  const idx = current.findIndex((p) => p.id === party.id || (party.mobile_primary && p.mobile_primary === party.mobile_primary))
+  let updated: StoredCustomerParty[]
+  if (idx >= 0) {
+    updated = [...current]
+    updated[idx] = { ...updated[idx], ...party, version: (updated[idx].version || 1) + 1 }
+  } else {
+    updated = [party, ...current]
+  }
+  saveStoredParties(updated)
+  syncPartyToCloud(party).catch(() => {})
+  return party
+}
+
+export function syncCustomerFromCase(caseItem: MockCase): StoredCustomerParty | null {
+  if (!isQualifyingCustomerStatus(caseItem.status)) {
+    return null
+  }
+
+  const parties = getStoredParties()
+  const mob = caseItem.primary_applicant_mobile || caseItem.mobile
+  const existing = parties.find(
+    (p) =>
+      p.id === caseItem.party_id ||
+      (caseItem.primary_party?.id && p.id === caseItem.primary_party.id) ||
+      (mob && p.mobile_primary === mob) ||
+      p.name.toLowerCase().trim() === (caseItem.primary_applicant_name || caseItem.applicant_name || '').toLowerCase().trim()
+  )
+
+  if (existing) {
+    // Preserve existing customer and ensure case has party_id linked
+    caseItem.party_id = existing.id
+    return existing
+  }
+
+  const partyId = caseItem.primary_party?.id || caseItem.party_id || `party-${caseItem.id.replace('case-jai-', '')}`
+  const newParty: StoredCustomerParty = {
+    id: partyId,
+    org_id: caseItem.org_id || '11111111-1111-1111-1111-111111111111',
+    name: caseItem.primary_applicant_name || caseItem.applicant_name || 'Customer',
+    mobile_primary: mob || '9820011223',
+    email: caseItem.primary_party?.email || null,
+    pan_last_four: caseItem.primary_party?.pan_last_four || (caseItem.primary_party?.pan_masked ? caseItem.primary_party.pan_masked.slice(-4) : null),
+    pan_masked: caseItem.primary_party?.pan_masked || (caseItem.primary_party?.pan ? `${caseItem.primary_party.pan.slice(0, 5)}****${caseItem.primary_party.pan.slice(-1)}` : 'ABCDE****F'),
+    aadhaar_masked: caseItem.primary_party?.aadhaar_masked || '**** **** 1234',
+    employment_type: caseItem.primary_party?.employment_type || 'salaried',
+    city: caseItem.primary_party?.city || 'Mumbai',
+    state: caseItem.primary_party?.state || 'Maharashtra',
+    monthly_income: caseItem.primary_party?.monthly_income || 75000,
+    version: 1,
+    created_at: caseItem.created_at || new Date().toISOString(),
+  }
+
+  caseItem.party_id = newParty.id
+  addOrUpdateStoredParty(newParty)
+  return newParty
+}
+
+// --- 4. Documents & OCR Scans Persistence ---
 
 export function getStoredDocuments(caseId: string): DocumentItem[] {
   const raw = safeGetItem(STORAGE_KEYS.DOCUMENTS)

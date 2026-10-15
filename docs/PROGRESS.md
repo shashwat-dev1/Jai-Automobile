@@ -8,6 +8,54 @@
 
 **PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
 
+### Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes (Completed)
+- **1. Root Cause Analysis**:
+  - **Borrowers & Customers Disconnect**: `GET /parties` in `api.ts` returned a static, hardcoded array of 3 users (`Rajesh Kumar Sharma`, `Amitabh Singh Chauhan`, `Virender Singh Rathore`). Qualifying leads (`sanctioned`, `disbursed`) never created or linked customer records into `/parties`.
+  - **Missing Firestore Synchronization**: `POST /cases/:id/status` and `POST /cases/:id/call-activity` called `saveStoredCases` locally but omitted `syncCaseToCloud(foundCase)`. On page reload or cross-device cloud sync, remote Firestore cases (still at `status: 'lead'` and `call_outcome: 'new'`) would desynchronize from local updates.
+  - **Static Referral Partner Metrics**: Partner profiles (such as `ref-p-1792100336766` Santosh) maintained static numeric counters (`total_leads: 1, interested_leads: 0, converted_leads: 0`) that were never dynamically recomputed from attributed cases.
+  - **Full-Screen Loading Flash**: `CaseDetailPage.tsx` re-rendered with a full-page loading spinner whenever background storage/sync events fired, interrupting active modals and clearing temporary notice messages.
+- **2. Single Source of Truth & Architecture Implementation**:
+  - **`storeSync.ts`**:
+    - Added `STORAGE_KEYS.PARTIES = 'dsa_os_parties_store_v1'` and `StoredCustomerParty` interface.
+    - Defined authoritative qualifying customer lifecycle rules via `isQualifyingCustomerStatus(status)` (`sanctioned`, `disbursed`, `pdd_pending`, `pdd_completed`, `completed`, `converted`).
+    - Implemented idempotent customer creation and linking `syncCustomerFromCase(caseItem)`: qualifying cases create or update a single customer record in the `parties` collection; non-qualifying cases (`lead`, `in_calling`, `interested`, `callback_scheduled`) do not create customers.
+    - Implemented dynamic referral partner metrics enrichment `enrichReferralProfilesWithCaseMetrics(profiles, allCases)`: live derivation of `total_leads`, `interested_leads`, `converted_leads`, and `disbursed_leads` matched by `referral_profile_id`, `referral_partner_id`, mobile, or name.
+    - Subscribed Firestore `'parties'` collection to real-time `onSnapshot` listeners and initial cloud sync.
+  - **`api.ts`**:
+    - Hooked up `syncCustomerFromCase` and `syncCaseToCloud` in `POST /cases/:id/status`.
+    - Hooked up `syncCaseToCloud` in `POST /cases/:id/call-activity` and returned `{ success, case, case_id, call_outcome }`.
+    - Dynamically enriched referral profiles in `GET /referrals/profiles` and `GET /referrals/profiles/:id`.
+    - Implemented dynamic `GET /parties` backed by persisted `getStoredParties()` enriched with `active_cases_count` and `total_disbursed_volume`.
+    - Supported `primary_applicant_name` and `primary_applicant_mobile` and telecaller assignments on case creation.
+  - **`PartiesPage.tsx`**:
+    - Subscribed to `dsa_os_cases_updated`, `dsa_os_parties_updated`, and `storage` events.
+    - Linked customer cases by `party_id`, customer name, or primary mobile.
+  - **`ReferralPartnersPage.tsx`**:
+    - Enriched partner profiles dynamically using `enrichReferralProfilesWithCaseMetrics`.
+    - Displayed live KPI counters, filtered lists, and lead dossier with both call outcome and case status tags.
+  - **`CaseDetailPage.tsx`**:
+    - Added `isBackground` parameter to `loadCaseAndDocs` to avoid full-page loading re-renders on background sync events.
+  - **`mockDatabase.ts`**:
+    - Extended `MockCase` interface with optional `party_id`, `referral_partner_id`, `referral_partner_mobile`, `source_type`, `referral_node`, `call_attempts_count`.
+    - Added Santosh (`ref-p-1792100336766`) to baseline referral profiles.
+- **3. Safe Cloud Repair of Real Persisted Records**:
+  - Executed safe, non-destructive, idempotent repair script against Cloud Firestore (`jai-automobile`):
+    - `cases/case-jai-1792100336767` (Riddhi Sharma): updated to `status: 'disbursed'`, `call_outcome: 'interested'`, complete chronological audit status history, `party_id: 'p-1792100336767'`.
+    - `parties/p-1792100336767`: created customer record for Riddhi Sharma (`mobile_primary: '9896574125'`, `city: 'Mumbai'`, `state: 'Maharashtra'`).
+    - `parties` collection: seeded baseline customers (`party-01`, `party-02`, `party-03`).
+    - `referral_profiles/ref-p-1792100336766` (Santosh): updated with `total_leads: 1`, `interested_leads: 1`, `converted_leads: 1`.
+- **4. Automated Verification & Testing**:
+  - Created `frontend/src/test/lead_customer_referral_sync.test.tsx` (8 tests) covering:
+    - Lead intake with partner attribution
+    - Telecaller marking 'interested' (customer not created)
+    - Admin marking 'sanctioned' (customer created in Borrowers & Customers)
+    - Admin advancing to 'disbursed' (customer maintained without duplication)
+    - Dynamic partner metrics enrichment across ID, mobile, and name
+    - Telecaller reassignment preserving referral partner attribution
+    - UI convergence across PartiesPage and ReferralPartnersPage
+  - Full test suite: 20 passed (20 test files, 160/160 tests).
+  - Production build: `tsc -b && vite build` clean with 0 errors.
+
 ### Today's Console Redesign — Admin Operations Workflow (Completed)
 - **1. Admin Operational Control Centre Foundation**:
   - Re-architected `/today` from the legacy "Daily Execution Cockpit" into a purpose-built operational control center based on the Stitch UI concepts (Desktop & Mobile).

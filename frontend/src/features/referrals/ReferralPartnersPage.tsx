@@ -8,7 +8,7 @@ import {
   MockReferralProfile,
   MockReferralCommission,
 } from '../../shared/lib/mockDatabase'
-import { getStoredCases } from '../../shared/lib/storeSync'
+import { getStoredCases, enrichReferralProfilesWithCaseMetrics } from '../../shared/lib/storeSync'
 import './ReferralPartnersPage.css'
 
 export function ReferralPartnersPage() {
@@ -40,8 +40,14 @@ export function ReferralPartnersPage() {
         api.get<MockReferralProfile[]>('/referrals/profiles'),
         api.get<MockReferralCommission[]>('/referrals/commissions'),
       ])
-      setProfiles(profilesRes || JAI_MOCK_REFERRAL_PROFILES)
+      const fetchedProfiles = profilesRes || JAI_MOCK_REFERRAL_PROFILES
+      setProfiles(fetchedProfiles)
       setCommissions(commsRes || JAI_MOCK_REFERRAL_COMMISSIONS)
+
+      setSelectedProfile((current) => {
+        if (!current) return null
+        return fetchedProfiles.find((p) => p.id === current.id) || current
+      })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load referral data')
     } finally {
@@ -65,12 +71,18 @@ export function ReferralPartnersPage() {
     }
   }, [loadData])
 
+  // Derive enriched profiles with real-time case metrics
+  const enrichedProfiles = useMemo(() => {
+    const allCases = getStoredCases()
+    return enrichReferralProfilesWithCaseMetrics(profiles, allCases)
+  }, [profiles])
+
   // Aggregate Top KPIs
   const kpis = useMemo(() => {
-    const totalPartners = profiles.length
-    const totalLeads = profiles.reduce((acc, p) => acc + (p.total_leads || 0), 0)
-    const interestedLeads = profiles.reduce((acc, p) => acc + (p.interested_leads || 0), 0)
-    const convertedLeads = profiles.reduce((acc, p) => acc + (p.converted_leads || 0), 0)
+    const totalPartners = enrichedProfiles.length
+    const totalLeads = enrichedProfiles.reduce((acc, p) => acc + (p.total_leads || 0), 0)
+    const interestedLeads = enrichedProfiles.reduce((acc, p) => acc + (p.interested_leads || 0), 0)
+    const convertedLeads = enrichedProfiles.reduce((acc, p) => acc + (p.converted_leads || 0), 0)
 
     const pendingReviewAmount = commissions
       .filter((c) => c.status === 'pending_review')
@@ -93,10 +105,10 @@ export function ReferralPartnersPage() {
       approvedAmount,
       paidAmount,
     }
-  }, [profiles, commissions])
+  }, [enrichedProfiles, commissions])
 
   // Filtered Partners
-  const filteredProfiles = profiles.filter((p) => {
+  const filteredProfiles = enrichedProfiles.filter((p) => {
     const q = search.toLowerCase().trim()
     const matchQ = !q || p.name.toLowerCase().includes(q) || p.masked_mobile.includes(q)
     if (!matchQ) return false
@@ -108,11 +120,21 @@ export function ReferralPartnersPage() {
   const partnerLeads = useMemo(() => {
     if (!selectedProfile) return []
     const allCases = getStoredCases()
-    return allCases.filter(
-      (c: any) =>
-        c.referral_profile_id === selectedProfile.id ||
-        c.referral_partner_name === selectedProfile.name
-    )
+    return allCases.filter((c: any) => {
+      const matchId =
+        (c.referral_profile_id && c.referral_profile_id === selectedProfile.id) ||
+        (c.referral_partner_id && c.referral_partner_id === selectedProfile.id)
+      const matchName =
+        Boolean(c.referral_partner_name &&
+        selectedProfile.name &&
+        c.referral_partner_name.trim().toLowerCase() === selectedProfile.name.trim().toLowerCase())
+      const matchPhone =
+        Boolean(selectedProfile.mobile_primary &&
+        c.referral_partner_mobile &&
+        (c.referral_partner_mobile === selectedProfile.mobile_primary ||
+          c.referral_partner_mobile.slice(-10) === selectedProfile.mobile_primary.slice(-10)))
+      return Boolean(matchId || matchName || matchPhone)
+    })
   }, [selectedProfile, profiles])
 
   // Associated commissions for active dossier
@@ -453,9 +475,12 @@ export function ReferralPartnersPage() {
                           <span className="text-capitalize product-tag">{c.product_type}</span>
                         </div>
                         <h4 className="lead-applicant-name">{c.applicant_name || c.primary_applicant_name}</h4>
-                        <div className="lead-meta-row">
+                        <div className="lead-meta-row" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className="font-mono">{formatINR(c.loan_amount_requested)}</span>
-                          <span className="outcome-chip-small">{c.call_outcome || 'new'}</span>
+                          <span className="outcome-chip-small" style={{ textTransform: 'capitalize' }}>Call: {c.call_outcome || 'new'}</span>
+                          <span className="status-chip-small" style={{ textTransform: 'capitalize', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: '#e0e7ff', color: '#3730a3', fontWeight: 600 }}>
+                            Status: {String(c.status || 'lead').replace(/_/g, ' ')}
+                          </span>
                         </div>
                         <p className="type-body-xs text-muted">
                           Registered: {new Date(c.created_at).toLocaleDateString()} • Vehicle: {c.vehicle_summary || 'N/A'}

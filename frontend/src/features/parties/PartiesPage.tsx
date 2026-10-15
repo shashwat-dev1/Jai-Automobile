@@ -110,24 +110,36 @@ export function PartiesPage() {
 
   useEffect(() => {
     loadData()
+
+    const handleSync = () => {
+      loadData()
+    }
+    window.addEventListener('dsa_os_cases_updated', handleSync)
+    window.addEventListener('dsa_os_parties_updated', handleSync)
+    window.addEventListener('storage', handleSync)
+
+    return () => {
+      window.removeEventListener('dsa_os_cases_updated', handleSync)
+      window.removeEventListener('dsa_os_parties_updated', handleSync)
+      window.removeEventListener('storage', handleSync)
+    }
   }, [loadData])
 
   // Map cases to customers
   const customerCasesMap = useMemo(() => {
     const map = new Map<string, LinkedCaseItem[]>()
     cases.forEach((c) => {
-      if (c.party_id) {
-        const existing = map.get(c.party_id) || []
-        map.set(c.party_id, [...existing, c])
-      } else if (c.primary_applicant_name) {
-        // Fallback match by applicant name if party_id was unpopulated
-        const matched = customers.find(
-          (cust) => cust.name.toLowerCase().trim() === c.primary_applicant_name.toLowerCase().trim()
+      let matched = customers.find((cust) => cust.id === c.party_id)
+      if (!matched && c.primary_applicant_name) {
+        matched = customers.find(
+          (cust) =>
+            cust.name.toLowerCase().trim() === c.primary_applicant_name.toLowerCase().trim() ||
+            (c.primary_applicant_mobile && cust.mobile_primary === c.primary_applicant_mobile)
         )
-        if (matched) {
-          const existing = map.get(matched.id) || []
-          map.set(matched.id, [...existing, c])
-        }
+      }
+      if (matched) {
+        const existing = map.get(matched.id) || []
+        map.set(matched.id, [...existing, c])
       }
     })
     return map

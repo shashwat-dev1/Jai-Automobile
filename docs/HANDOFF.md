@@ -159,6 +159,20 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
+> **Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes: 100% COMPLETE.**
+> - **Frontend**: 160/160 Vitest tests passing across 20 test suites with clean production build (`tsc -b && vite build` in 6.66s).
+> - **Single Source of Truth**:
+>   - Unified customer lifecycle rules in `isQualifyingCustomerStatus(status)` (`sanctioned`, `disbursed`, `pdd_pending`, `pdd_completed`, `completed`, `converted`).
+>   - Implemented idempotent customer creation and linking `syncCustomerFromCase(caseItem)`: qualifying cases create/link customer party records in the `parties` collection; non-qualifying stages (`lead`, `in_calling`, `interested`, `callback_scheduled`) do not create customers.
+>   - Implemented dynamic referral partner metrics enrichment `enrichReferralProfilesWithCaseMetrics(profiles, allCases)`: live derivation of `total_leads`, `interested_leads`, `converted_leads`, and `disbursed_leads` matched by `referral_profile_id`, `referral_partner_id`, mobile, or name.
+>   - Synchronized all state changes (`POST /cases/:id/status`, `POST /cases/:id/call-activity`, `POST /cases/assign`) to Cloud Firestore via `syncCaseToCloud` and real-time `onSnapshot` listeners.
+>   - Avoided full-page loading flashes on background sync in `CaseDetailPage.tsx` using background revalidation.
+> - **Safe Cloud Repair**:
+>   - Verified and repaired real records in Firestore: `case-jai-1792100336767` (Riddhi Sharma) updated to `status: 'disbursed'`, `call_outcome: 'interested'`, complete status history, linked `party_id: 'p-1792100336767'`.
+>   - Created customer party record for Riddhi Sharma in Firestore `parties` collection (`p-1792100336767`).
+>   - Updated partner `ref-p-1792100336766` (Santosh) in Firestore: `total_leads: 1, interested_leads: 1, converted_leads: 1`.
+>   - Seeded baseline parties (`party-01`, `party-02`, `party-03`) to Firestore `parties` collection.
+>
 > **Today's Console Redesign — Admin Operations Workflow: 100% COMPLETE.**
 > - **Frontend**: 152/152 Vitest tests passing across 19 test suites with clean production build (`tsc -b && vite build` in 6.78s).
 > - **Operational Center**:

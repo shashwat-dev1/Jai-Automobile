@@ -64,9 +64,11 @@ export const CaseDetailPage: React.FC = () => {
   // Success banner
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null)
 
-  const loadCaseAndDocs = useCallback(async () => {
+  const loadCaseAndDocs = useCallback(async (isBackground = false) => {
     if (!id) return
-    setIsLoading(true)
+    if (!isBackground) {
+      setIsLoading(true)
+    }
     setError(null)
     try {
       const data = await api.get<any>(`/cases/${id}`)
@@ -85,14 +87,16 @@ export const CaseDetailPage: React.FC = () => {
         setError(err instanceof Error ? err.message : 'Failed to load lead profile dossier')
       }
     } finally {
-      setIsLoading(false)
+      if (!isBackground) {
+        setIsLoading(false)
+      }
     }
   }, [id])
 
   useEffect(() => {
-    loadCaseAndDocs()
+    loadCaseAndDocs(false)
 
-    const handleSync = () => loadCaseAndDocs()
+    const handleSync = () => loadCaseAndDocs(true)
     window.addEventListener('dsa_os_cases_updated', handleSync)
     window.addEventListener('storage', handleSync)
     return () => {

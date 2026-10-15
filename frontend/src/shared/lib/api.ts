@@ -51,6 +51,10 @@ import {
   addStoredCase,
   getStoredReferralProfiles,
   addOrUpdateReferralProfile,
+  enrichReferralProfilesWithCaseMetrics,
+  getStoredParties,
+  addOrUpdateStoredParty,
+  syncCustomerFromCase,
   getStoredDocuments,
   saveStoredDocuments,
   generateDeterministicOcrDocs,
@@ -394,7 +398,22 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         changer_name: 'Current User',
         created_at: new Date().toISOString(),
       })
+
+      // Idempotently create or link customer in parties registry if qualifying lifecycle stage is reached
+      syncCustomerFromCase(foundCase)
+
+      // If attributed to a referral partner, update partner profile
+      if (foundCase.referral_profile_id || foundCase.referral_partner_id) {
+        const partnerId = foundCase.referral_profile_id || foundCase.referral_partner_id
+        const profiles = getStoredReferralProfiles()
+        const partner = profiles.find((p: any) => p.id === partnerId || p.name === foundCase.referral_partner_name)
+        if (partner) {
+          addOrUpdateReferralProfile(partner)
+        }
+      }
+
       saveStoredCases(cases)
+      syncCaseToCloud(foundCase).catch((e) => console.warn('Case status cloud sync error:', e))
       return foundCase
     }
   }
@@ -463,8 +482,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         throw new ApiError('Access denied: Cannot record call activity on unassigned lead.', 403, 'FORBIDDEN')
       }
     }
-    foundCase.call_outcome = parsedBody?.outcome || foundCase.call_outcome
-    foundCase.telecaller_remarks = parsedBody?.remarks || foundCase.telecaller_remarks
+    const outcome = parsedBody?.call_outcome || parsedBody?.outcome
+    const remarks = parsedBody?.telecaller_remarks || parsedBody?.remarks || parsedBody?.notes
+    foundCase.call_outcome = outcome || foundCase.call_outcome
+    foundCase.telecaller_remarks = remarks || foundCase.telecaller_remarks
     foundCase.follow_up_at = parsedBody?.follow_up_at || foundCase.follow_up_at
     foundCase.call_attempts_count = (foundCase.call_attempts_count || 0) + 1
     foundCase.updated_at = new Date().toISOString()
@@ -473,14 +494,28 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
     foundCase.call_activity_history.unshift({
       id: `act-${Date.now()}`,
-      outcome: parsedBody?.outcome,
-      remarks: parsedBody?.remarks,
+      outcome: outcome || 'follow_up',
+      remarks: remarks || '',
       follow_up_at: parsedBody?.follow_up_at,
       telecaller_name: active?.name || 'Priya Sharma',
       created_at: new Date().toISOString(),
     })
+
+    // If associated with a referral partner, update partner profile
+    if (foundCase.referral_profile_id || foundCase.referral_partner_id) {
+      const partnerId = foundCase.referral_profile_id || foundCase.referral_partner_id
+      const profiles = getStoredReferralProfiles()
+      const partner = profiles.find((p: any) => p.id === partnerId || p.name === foundCase.referral_partner_name)
+      if (partner) {
+        addOrUpdateReferralProfile(partner)
+      }
+    }
+
     saveStoredCases(cases)
+    syncCaseToCloud(foundCase).catch((e) => console.warn('Call activity cloud sync error:', e))
     return {
+      success: true,
+      case: foundCase,
       case_id: foundCase.id,
       case_no: foundCase.case_no,
       call_outcome: foundCase.call_outcome,
@@ -697,8 +732,14 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const profileId = profileDetailMatch[1]
     const profiles = getStoredReferralProfiles()
     const allCases = getStoredCases()
-    const profile = profiles.find((p: any) => p.id === profileId) || profiles[0]
-    const associatedLeads = allCases.filter((c: any) => c.referral_profile_id === profile.id || c.referral_partner_name === profile.name)
+    const enriched = enrichReferralProfilesWithCaseMetrics(profiles, allCases)
+    const profile = enriched.find((p: any) => p.id === profileId) || enriched[0]
+    const associatedLeads = allCases.filter((c: any) =>
+      c.referral_profile_id === profile.id ||
+      c.referral_partner_id === profile.id ||
+      (profile.mobile_primary && c.referral_partner_mobile === profile.mobile_primary) ||
+      (profile.name && c.referral_partner_name?.toLowerCase().trim() === profile.name.toLowerCase().trim())
+    )
     const associatedComms = JAI_MOCK_REFERRAL_COMMISSIONS.filter((c: any) => c.referral_profile_id === profile.id)
     return {
       profile,
@@ -711,15 +752,19 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   const profileVerifyMatch = clean.match(/\/referrals\/profiles\/([^\/\?]+)\/verify/)
   if (profileVerifyMatch && method === 'POST') {
     const profileId = profileVerifyMatch[1]
-    const profile = JAI_MOCK_REFERRAL_PROFILES.find((p) => p.id === profileId) || JAI_MOCK_REFERRAL_PROFILES[0]
+    const profiles = getStoredReferralProfiles()
+    const profile = profiles.find((p: any) => p.id === profileId) || profiles[0]
     profile.verification_status = parsedBody?.status || (profile.verification_status === 'verified' ? 'pending_verification' : 'verified')
     profile.verified_at = new Date().toISOString()
+    addOrUpdateReferralProfile(profile)
     return profile
   }
 
   // Phase 1: List Referral Profiles
   if (clean.includes('/referrals/profiles') && method === 'GET') {
-    return getStoredReferralProfiles()
+    const profiles = getStoredReferralProfiles()
+    const allCases = getStoredCases()
+    return enrichReferralProfilesWithCaseMetrics(profiles, allCases)
   }
 
   // Phase 1: Update Referral Commission Status (Approve / Reject / Pay with UTR)
@@ -884,10 +929,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const newCase = {
       id: `case-jai-${Date.now()}`,
       case_no: `JA-2025-${Math.floor(1000 + Math.random() * 9000)}`,
-      applicant_name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-      primary_applicant_name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-      mobile: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
-      primary_applicant_mobile: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+      applicant_name: parsedBody?.primary_applicant_name || parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+      primary_applicant_name: parsedBody?.primary_applicant_name || parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+      mobile: parsedBody?.primary_applicant_mobile || parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+      primary_applicant_mobile: parsedBody?.primary_applicant_mobile || parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
       product: parsedBody?.product_type || parsedBody?.loan?.product || 'used_car',
       product_type: parsedBody?.product_type || parsedBody?.loan?.product || 'used_car',
       status: 'lead',
@@ -904,6 +949,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       referral_partner_name: isDirect ? null : (parsedBody?.referral_partner_name || null),
       referral_partner_mobile: isDirect ? null : (parsedBody?.referral_partner_mobile || null),
       referral_node: isDirect ? 'Direct Walk-in / Telephonic' : (parsedBody?.referral_node || `${parsedBody?.referral_partner_name || 'Partner'} Channel`),
+      assigned_telecaller_id: parsedBody?.assigned_telecaller_id || null,
+      assigned_telecaller_name: parsedBody?.assigned_telecaller_name || null,
       owner_name: 'Aarav Sharma',
       has_consent: true,
       age_in_days: 0,
@@ -912,13 +959,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       updated_at: new Date().toISOString(),
       primary_party: {
         id: `p-${Date.now()}`,
-        name: parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
-        mobile_primary: parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
+        name: parsedBody?.primary_applicant_name || parsedBody?.party_name || parsedBody?.borrower?.name || parsedBody?.applicant_name || 'New Borrower',
+        mobile_primary: parsedBody?.primary_applicant_mobile || parsedBody?.party_mobile || parsedBody?.borrower?.mobile || parsedBody?.mobile || '9820011223',
         pan_masked: parsedBody?.party_pan ? `${parsedBody.party_pan.slice(0, 5)}****${parsedBody.party_pan.slice(-1)}` : 'ABCDE****F',
         aadhaar_masked: '**** **** 1234',
         employment_type: 'Salaried',
-        city: 'Mumbai',
-        monthly_income: 75000,
+        city: parsedBody?.city || 'Mumbai',
+        monthly_income: parsedBody?.monthly_income || 75000,
       },
       vehicle: {
         id: `v-${Date.now()}`,
@@ -1041,13 +1088,66 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     ]
   }
 
-  // Parties & Customers
+  // Parties & Customers (Borrowers & Customers Directory)
   if (clean.includes('/parties') || clean.includes('/customers')) {
-    return [
-      { id: 'p1', name: 'Rajesh Kumar Sharma', mobile: '9820198201', email: 'rajesh.sharma@gmail.com', pan_masked: 'ABCDE****F', active_cases_count: 1, total_disbursed_volume: 800000 },
-      { id: 'p2', name: 'Amitabh Singh Chauhan', mobile: '9833441122', email: 'amitabh.chauhan@gmail.com', pan_masked: 'BKDPA****M', active_cases_count: 1, total_disbursed_volume: 1400000 },
-      { id: 'p3', name: 'Virender Singh Rathore', mobile: '9845112233', email: 'virender.rathore@gmail.com', pan_masked: 'AFXPR****K', active_cases_count: 1, total_disbursed_volume: 500000 },
-    ]
+    if (clean.includes('/reveal') && method === 'POST') {
+      return {
+        field_name: 'pan',
+        value: 'ABCDE1234F',
+        revealed_at: new Date().toISOString(),
+      }
+    }
+
+    if (method === 'POST') {
+      const cleanPan = parsedBody?.pan ? parsedBody.pan.trim().toUpperCase() : undefined
+      const cleanAadhaar = parsedBody?.aadhaar_last_four ? parsedBody.aadhaar_last_four.trim() : undefined
+      const newParty: any = {
+        id: `party-${Date.now()}`,
+        org_id: '11111111-1111-1111-1111-111111111111',
+        name: parsedBody?.name || 'New Customer',
+        mobile_primary: parsedBody?.mobile_primary || '9820011223',
+        email: parsedBody?.email || null,
+        pan_last_four: cleanPan ? cleanPan.slice(-4) : (parsedBody?.pan_last_four || null),
+        pan_masked: cleanPan ? `${cleanPan.slice(0, 5)}****${cleanPan.slice(-1)}` : (parsedBody?.pan_masked || null),
+        aadhaar_masked: cleanAadhaar ? `**** **** ${cleanAadhaar}` : (parsedBody?.aadhaar_masked || '**** **** 1234'),
+        employment_type: parsedBody?.employment_type || 'salaried',
+        city: parsedBody?.city || 'Mumbai',
+        state: parsedBody?.state || 'Maharashtra',
+        monthly_income: parsedBody?.monthly_income ? Number(parsedBody.monthly_income) : 75000,
+        version: 1,
+        created_at: new Date().toISOString(),
+      }
+      addOrUpdateStoredParty(newParty)
+      return newParty
+    }
+
+    // GET list of parties (derived from persistent store and qualifying cases)
+    const storedParties = getStoredParties()
+    const storedCases = getStoredCases()
+
+    // Enrich with computed active cases and disbursed volume
+    return storedParties.map((p) => {
+      const linkedCases = storedCases.filter((c) =>
+        (c.party_id && c.party_id === p.id) ||
+        (c.primary_party?.id && c.primary_party.id === p.id) ||
+        (p.mobile_primary && (c.primary_applicant_mobile === p.mobile_primary || c.mobile === p.mobile_primary)) ||
+        (p.name && (c.primary_applicant_name || c.applicant_name || '').toLowerCase().trim() === p.name.toLowerCase().trim())
+      )
+
+      const activeCount = linkedCases.filter((c) =>
+        ['lead', 'in_calling', 'interested', 'callback_scheduled', 'sanctioned', 'docs_collected', 'login_preparation'].includes(c.status)
+      ).length
+
+      const totalDisbursed = linkedCases
+        .filter((c) => ['disbursed', 'completed', 'pdd_pending'].includes(c.status))
+        .reduce((sum, c) => sum + Number(c.loan_amount_disbursed || c.applied_loan_amount || c.loan_amount_requested || 0), 0)
+
+      return {
+        ...p,
+        active_cases_count: activeCount,
+        total_disbursed_volume: totalDisbursed,
+      }
+    })
   }
 
   // Users Management

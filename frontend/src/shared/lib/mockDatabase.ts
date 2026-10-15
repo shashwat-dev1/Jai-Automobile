@@ -37,8 +37,13 @@ export interface MockCase {
   telecaller_remarks?: string
   follow_up_at?: string
   call_attempts_count?: number
-  referral_profile_id?: string
-  referral_partner_name?: string
+  party_id?: string | null
+  referral_profile_id?: string | null
+  referral_partner_id?: string | null
+  referral_partner_name?: string | null
+  referral_partner_mobile?: string | null
+  source_type?: string
+  referral_node?: string
   organization_slug?: string
   org_id?: string
   call_activity_history?: Array<{
@@ -1204,6 +1209,21 @@ export const JAI_MOCK_REFERRAL_PROFILES: MockReferralProfile[] = [
     paid_commissions: 0,
     notes: 'Submitted first referral via public portal.',
     created_at: '2025-02-23T18:00:00Z',
+  },
+  {
+    id: 'ref-p-1792100336766',
+    org_id: '11111111-1111-1111-1111-111111111111',
+    name: 'Santosh',
+    mobile_primary: '9696969696',
+    masked_mobile: '96****9696',
+    verification_status: 'verified',
+    total_leads: 1,
+    interested_leads: 1,
+    converted_leads: 1,
+    approved_commissions: 0,
+    paid_commissions: 0,
+    notes: 'Registered partner connector referred Riddhi Sharma.',
+    created_at: '2026-10-15T21:38:56.766Z',
   },
 ]
 
