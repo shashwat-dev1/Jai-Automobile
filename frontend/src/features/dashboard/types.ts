@@ -117,6 +117,16 @@ export interface TodayCounts {
   stuck_cases_count: number
   expiring_docs_count: number
   pdd_due_count: number
+  new_leads_count?: number
+  unassigned_count?: number
+  interested_count?: number
+  follow_ups_due_today_count?: number
+  uncalled_count?: number
+  retry_callbacks_count?: number
+  new_leads?: number
+  unassigned?: number
+  interested?: number
+  follow_ups_due?: number
 }
 
 export interface TodayViewResponse {
@@ -126,6 +136,12 @@ export interface TodayViewResponse {
   expiring_documents: ExpiringDocumentItem[]
   pdd_items_due: DuePDDItem[]
   counts: TodayCounts
+  todayData?: import('./todayDataService').TodayConsoleData
+  callbacks_due_today?: any[]
+  uncalled_leads?: any[]
+  interested_prospects?: any[]
+  unassigned_leads?: any[]
+  retry_leads?: any[]
 }
 
 export interface LenderKPIBreakdown {

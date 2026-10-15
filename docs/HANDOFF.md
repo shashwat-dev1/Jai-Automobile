@@ -159,26 +159,27 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
+> **Today's Console Redesign — Admin Operations Workflow: 100% COMPLETE.**
+> - **Frontend**: 152/152 Vitest tests passing across 19 test suites with clean production build (`tsc -b && vite build` in 6.78s).
+> - **Operational Center**:
+>   - Re-architected `/today` into the daily operational control center based on Stitch UI concepts (Desktop & Mobile).
+>   - Derived all metrics and queues dynamically from live stored application cases (`todayDataService.ts` & `getStoredCases()`) with bi-directional Firestore synchronization.
+>   - Obsolete elements cleanly removed (no back link, no "Daily Execution Cockpit", no "Open Telecaller Workspace" or "Inflow Cold Leads" buttons, no "Retry Callbacks" KPI).
+>   - 4 Top KPI Cards (`New Leads`, `Unassigned Leads`, `Interested Prospects`, `Follow-ups Due Today`) with dynamic badges and live case view links.
+>   - Section 1: Fresh unassigned incoming leads table with customer details, vehicle, loan amount, source badge, and instant telecaller assignment modal.
+>   - Section 2: Two-column operational workspaces (Left: Unassigned Leads Backlog with urgency triage; Right: Follow-ups Due Today with time pills and lead links).
+>   - Section 3: Telecaller Activity & Updates live feed with squircle initials avatars, call outcome badges, remarks, and interactive Administrative Attention review modal.
+>   - Responsive design: Full desktop panoramic view and mobile segmented view (`Triage (N)`, `Activity Feed`, `Follow-ups (N)`).
+>
 > **Sidebar Simplification & Quick Lead Intake Updates: 100% COMPLETE.**
-> - **Frontend**: 144/144 Vitest tests passing across 18 test suites with clean production build (`tsc -b && vite build` in 6.63s).
-> - **Sidebar Navigation**:
->   - Exactly 10 retained menu items: `Dashboard`, `Today's Console`, `Leads`, `Quick Lead Intake`, `Telecaller Workspace`, `Referral Partners`, `Public Referral Portal`, `Borrowers & Customers`, `Team & Telecallers`, `Audit Trail`.
->   - "Cold Leads & Files" renamed to "Leads" pointing to `/cases` (All Leads default view).
->   - "Lead Sources & Channels" (`/sources`) and "Organizations & Branding" (`/admin/organizations`) removed from sidebar and redirected without breaking data or underlying features.
->   - Active highlighting accurately distinguishes `/cases` & `/cases/:id` ("Leads") from `/cases/new` ("Quick Lead Intake").
-> - **Quick Lead Intake Source Dropdown**:
->   - Exactly two source options: `Direct` vs `Referral`.
->   - Direct: hides partner selection, saves with `source_type: 'direct'`, displays properly as Direct in lead table and lead profile dossier.
->   - Referral: dynamically populates registered referral partner profiles (name & mobile), requires partner selection before proceeding/submitting, accurately persists partner attribution, and provides helpful empty state if none are registered.
->   - Switching between Referral and Direct clears any stale partner selection.
-> - **Attribution & Reassignment**:
->   - Reassigning a lead preserves original referral partner attribution.
->   - Public Referral Portal continues to ingest and attribute partner leads smoothly.
-> - **Stitch Dashboard KPIs, All Leads Filtered Desk & Lead Profile Dossier: 100% COMPLETE.**
->   - All 6 KPI cards & Due Today rows connected to filtered lead lists.
->   - Unified domain filter predicates in `caseFilters.ts`.
->   - Responsive desktop & mobile support.
->   - Strict RBAC, tenant isolation, and Firestore synchronization.
+> - Exactly 10 retained menu items: `Dashboard`, `Today's Console`, `Leads`, `Quick Lead Intake`, `Telecaller Workspace`, `Referral Partners`, `Public Referral Portal`, `Borrowers & Customers`, `Team & Telecallers`, `Audit Trail`.
+> - "Cold Leads & Files" renamed to "Leads" pointing to `/cases` (All Leads default view).
+> - Quick Lead Intake source dropdown restricted to `Direct` vs `Referral`.
+>
+> **Stitch Dashboard KPIs, All Leads Filtered Desk & Lead Profile Dossier: 100% COMPLETE.**
+> - All 6 KPI cards & Due Today rows connected to filtered lead lists.
+> - Unified domain filter predicates in `caseFilters.ts`.
+> - Strict RBAC, tenant isolation, and Firestore synchronization.
 
 ---
 

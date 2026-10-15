@@ -8,6 +8,36 @@
 
 **PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
 
+### Today's Console Redesign — Admin Operations Workflow (Completed)
+- **1. Admin Operational Control Centre Foundation**:
+  - Re-architected `/today` from the legacy "Daily Execution Cockpit" into a purpose-built operational control center based on the Stitch UI concepts (Desktop & Mobile).
+  - Derived all metrics and queues dynamically from live stored application cases (`todayDataService.ts` & `getStoredCases()`) with bi-directional Firestore synchronization.
+  - Eliminated all obsolete elements: removed the back link (`← Lead Operations Console`), the legacy title (`Daily Execution Cockpit (Today)`), the redundant action buttons (`Open Telecaller Workspace`, `Inflow Cold Leads`), and the obsolete `Retry Callbacks` KPI.
+  - Clean operational header: Breadcrumbs (`Operations Console / Today's Console`), subtitle (`Review new leads, assign unassigned leads, and respond to telecaller updates.`), real-time sync badge (`● Synced [Time] • Auto-sync ON`), and a functional `Refresh` action that re-evaluates genuine application state without page reload.
+- **2. Four Core Operational KPI Cards**:
+  1. **New Leads**: Total inflow count, dynamic badge (`+4 fresh`), linking to `/cases?view=all`.
+  2. **Unassigned Leads**: Count of leads awaiting allocation, badge (`! Action required`), linking to `/cases?view=unassigned`.
+  3. **Interested Prospects**: Count of telecaller-validated prospects, badge (`✓ Pipeline`), linking to `/cases?view=interested`.
+  4. **Follow-ups Due Today**: Count of active callbacks scheduled for today (evaluated using Indian Standard Time `Asia/Kolkata`), badge (`Due today`), linking to `/cases?view=follow-ups-due-today`.
+- **3. Section 1 — New Leads Requiring Assignment (Table & Fast Assignment)**:
+  - High-density tabular layout displaying customer name, contact, case reference (`JA-2025-XXXX`), received timestamp, loan type, vehicle model, requested amount (`₹X,XX,XXX`), referral/direct source badge, and unassigned status.
+  - Interactive "Assign Telecaller" workflow opening a modal to select a registered telecaller (e.g. Priya Sharma, Rahul Verma), executing `/cases/assign`, synchronizing to Firestore, updating the local store, and displaying an alert notification.
+  - "View All Unassigned Leads →" link directing admin to the full unassigned queue at `/cases?view=unassigned`.
+- **4. Section 2 — Two-Column Operational Workspaces**:
+  - **Left Column: Unassigned Leads Backlog**: Prioritized queue of urgent unassigned leads with priority indicators (`Priority Triage`, `Eligible for calling`), customer name, vehicle, requested amount, notes, and direct `Assign Telecaller` action.
+  - **Right Column: Follow-ups Due Today**: Chronological list of scheduled callbacks due today with time badges, assigned telecaller names, initials avatar, customer remarks, and `Open Lead Profile ↗` links to `/cases/:id`.
+- **5. Section 3 — Telecaller Activity Stream & Administrative Attention**:
+  - Real-time activity feed aggregating call outcomes from `call_activity_history` with telecaller squircle avatars, customer links, outcome badges (`Interested`, `Follow-up Scheduled`, `Not Reachable / RNR`, `Not Interested`), customer notes/quotes, and scheduled next dial times.
+  - Administrative attention detection: Highlights items requiring admin action (e.g., `Requires Admin Rate Check`, `Urgent Valuation Review`) with an interactive `Review Request` modal allowing rate concession approval or valuation review.
+- **6. Mobile Responsive Design**:
+  - Responsive layout dynamically switching on mobile screens to 2x2 compact KPI cards and an interactive segmented tab control (`Triage (N)`, `Activity Feed`, `Follow-ups (N)`).
+  - Sticky bottom Quick Intake CTA (`+ Quick Intake New Referral`).
+- **7. RBAC & Security**:
+  - Preserved role-based scoping: Admins have full unassigned assignment controls and oversight, while telecallers have assignment controls restricted and views scoped to their assigned leads.
+- **8. Automated Verification & Testing**:
+  - Created comprehensive test suite `src/test/todays_console_admin_workflow.test.tsx` (8 tests) validating all acceptance criteria.
+  - All 19 test suites passing (152/152 tests). Clean TypeScript check and production build (`tsc -b && vite build`).
+
 ### Sidebar Simplification & Quick Lead Intake Updates (Completed)
 - **1. Sidebar Navigation Clean-Up**:
   - Maintained the 10 retained menu items: `Dashboard`, `Today's Console`, `Leads`, `Quick Lead Intake`, `Telecaller Workspace`, `Referral Partners`, `Public Referral Portal`, `Borrowers & Customers`, `Team & Telecallers`, `Audit Trail`.

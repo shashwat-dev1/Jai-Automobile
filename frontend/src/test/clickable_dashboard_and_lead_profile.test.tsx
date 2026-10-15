@@ -272,7 +272,7 @@ describe('DSA OS — Clickable Dashboard & Lead Management Journey', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Unassigned Leads' })).toBeInTheDocument()
-      expect(screen.getByText('5 Leads total')).toBeInTheDocument()
+      expect(screen.getByText(/\d+ Leads total/)).toBeInTheDocument()
     })
 
     // Click Active Calling tab

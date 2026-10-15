@@ -230,7 +230,7 @@ describe('Dashboard & Reports Component Suite (Phase 08)', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Daily Execution Cockpit (Today)')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: "Today's Console" })).toBeInTheDocument()
       expect(screen.getByText('Collect KYC from Ramesh')).toBeInTheDocument()
       expect(screen.getByText(/CASE-771/)).toBeInTheDocument()
     })
