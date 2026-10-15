@@ -8,7 +8,23 @@
 
 **PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
-### Document Upload & Intake HTTP 405 Fix (Completed)
+### Jai Automobiles Login Experience Overhaul (Completed)
+- **Visual Design Reference Alignment**:
+  - Implemented the Stitch desktop and mobile designs for Jai Automobiles login portal with pixel fidelity.
+  - **Desktop**: Deep dark forest-green ambient background (`#041614` to `#052620`), animated flowing linework SVG curves, cursor-following ambient spotlight glow, centered floating crisp white card (`border-radius: 24px`), custom JA squircle monogram emblem with luxury gold sparkle accent, minimal Email & Password fields, "Remember this device" checkbox, "Forgot password?" assistance modal, prominent dark green pill "Sign In →" button, and floating glassmorphic "Demo Access: Administrator • Priya S. • Rahul V." pill bar.
+  - **Mobile**: Light clean mint/gray background (`#f3f6f5`), brand header placed *above* the card with circular dark badge with shield checkmark, "VEHICLE FINANCE", and "Jai Automobiles", white login card with soft tinted input fields (`#f0f4f2`), "Remember me" and "Forgot password?" row, full-width "Sign In →" button, and floating "DEMO: Admin • Priya • Rahul" pill bar.
+- **Motion Design & Interactivity**:
+  - CSS animations: Slow bezier curve wave drift (`flowingWaveDrift`), card entrance fade-up (`loginCardEntrance`), password toggle transitions, button hover arrow slide (`translateX(4px)`), and tactile press response (`scale(0.985)`).
+  - Accessibility: `prefers-reduced-motion` fully respected with instantaneous transitions and stationary backgrounds.
+- **Modular Isolation of Demo Access**:
+  - Created standalone `DemoAccessBar.tsx` & `DemoAccessBar.css`.
+  - Main login card is 100% independent; unmounting or removing `DemoAccessBar` causes zero layout shift, broken grid, or empty gaps.
+- **Verification & Testing**:
+  - Added unit and integration tests in `frontend/src/test/login_page.test.tsx` (9 tests covering rendering, show/hide password, demo credentials prefill, validation, authentication redirection, and modular component isolation).
+  - 111 Vitest frontend tests passing (100%).
+  - Full TypeScript validation (`tsc -b`) and production build (`vite build`) passing cleanly.
+  - Automated browser subagent verified visual appearance, interactions, and responsive scaling across 1440px, 1024px, 768px, 390px, and 360px.
+
 - **Root Cause**: On static web deployments (Vercel / Vite dev server without live backend), non-GET HTTP requests (`POST`, `PUT`, `PATCH`, `DELETE`) to unhandled document routes return `HTTP 405 Method Not Allowed`. Previously in `frontend/src/shared/lib/api.ts`, fallback mock handlers were only triggered on `response.status >= 500`. Consequently, `405` returned directly to the UI as an unhandled `ApiError(405)`.
 - **API Client & Mock Handler Resolution**:
   - Updated `api.ts` error handling: triggers mock fallbacks seamlessly for `405` and `404` as well as `>= 500`.

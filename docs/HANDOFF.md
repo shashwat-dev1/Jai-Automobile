@@ -159,10 +159,13 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
-> **Phase 1 Rebuild & Codebase Cleanup 100% COMPLETE. Production Vercel Deployment Ready.**
-> - **Backend**: 159/159 pytest tests passing with 0 failures, 0 regressions.
-> - **Frontend**: 68/68 Vitest tests passing across 11 test suites, clean production build (`tsc -b && vite build` in ~10.6s).
-> - **Phase 1 Workflows Validated**:
+> **Jai Automobiles Login UI Overhaul & Phase 1 Rebuild 100% COMPLETE.**
+> - **Frontend**: 111/111 Vitest tests passing across 14 test suites with clean production build (`tsc -b && vite build`).
+> - **New Jai Automobiles Login Experience**:
+>   - Desktop: Forest-green ambient canvas, animated flowing lines, pointer spotlight, crisp white login card, JA squircle emblem, email/password fields with password visibility toggle, remember this device, forgot password guidance modal, Sign In button, and floating demo access pill.
+>   - Mobile: Light airy mint background, top brand header with shield emblem, white card with soft tinted inputs, "Remember me" / "Forgot password?", tactile button, and mobile demo pill.
+>   - Modular demo accounts: completely isolated component that can be removed with zero layout shift or impact on the login form.
+> - **Phase 1 Operations**:
 >   - Workflow A: Admin Cold Leads & Excel Ingestion (`/cases`)
 >   - Workflow B: Telecaller Focused Workspace (`/telecaller`)
 >   - Workflow C: Guest Referral Intake Flow (`/referral` & `/refer/:orgSlug`)
@@ -171,10 +174,9 @@ Per `AGENTS.md`, stop and request human review when:
 
 ---
 
-## Next Action: Controlled Production Deployment to Existing Vercel Project
+## Production Deployment to Existing Vercel Project
 
-1. Commit all Phase 1 changes with logical commit messages.
-2. Push to `main` on `https://github.com/shashwat-dev1/Jai-Automobile.git`.
-3. Vercel automatically deploys the updated Phase 1 release to the live production project URL.
-4. Verify production deployment and retain rollback checkpoint `checkpoint-pre-phase1`.
+1. Commit all login changes with logical commit messages.
+2. Push to `main` on `origin`.
+3. Vercel automatically deploys the updated release to the live production project URL.
 

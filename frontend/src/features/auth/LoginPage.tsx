@@ -1,50 +1,22 @@
 /**
- * DSA OS — Premium Enterprise Login Portal
- * Graphite Ledger Financial Architecture & Aesthetics
+ * DSA OS — Jai Automobiles Login Portal
+ *
+ * Implements the new executive design references from Stitch:
+ * - Desktop: Deep dark forest-green ambient background, animated flowing linework,
+ *   mouse spotlight glow, centered white card with JA squircle emblem,
+ *   subtle inputs, pill Sign In button, and floating glassmorphic demo bar.
+ * - Mobile: Light mint ambient background, brand header placed above the card,
+ *   shield/checkmark badge, soft-tinted inputs, tactile button, and light demo bar.
+ *
+ * Fully responsive across 320px, 360px, 375px, 390px, 430px, 768px, 1024px, 1280px, 1440px+.
  */
 
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './useAuth'
 import { useTenantStore } from './useTenant'
-import Button from '../../shared/components/Button'
+import { DemoAccessBar, DemoCredential } from './DemoAccessBar'
 import './LoginPage.css'
-
-interface DemoCredential {
-  role: string
-  roleKey?: string
-  orgSlug: string
-  identifier: string
-  pass: string
-  tag: string
-}
-
-const DEMO_CREDENTIALS: DemoCredential[] = [
-  {
-    role: 'DSA Administrator',
-    roleKey: 'owner',
-    orgSlug: 'jai-automobiles',
-    identifier: 'admin@jaiautomobiles.com',
-    pass: 'JaiAuto@123',
-    tag: 'Full Management (Cold Leads, Team, Referrals)',
-  },
-  {
-    role: 'Priya Sharma (Telecaller)',
-    roleKey: 'telecaller',
-    orgSlug: 'jai-automobiles',
-    identifier: 'priya.sharma@jaiautomobiles.com',
-    pass: 'JaiAuto@123',
-    tag: 'Assigned Leads & Call Desk',
-  },
-  {
-    role: 'Rahul Verma (Telecaller)',
-    roleKey: 'telecaller',
-    orgSlug: 'jai-automobiles',
-    identifier: 'rahul.verma@jaiautomobiles.com',
-    pass: 'JaiAuto@123',
-    tag: 'Assigned Leads & Call Desk',
-  },
-]
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -57,290 +29,444 @@ export function LoginPage() {
   const isLoading = useAuthStore((s) => s.isLoading)
   const storeError = useAuthStore((s) => s.error)
   const currentTenant = useTenantStore((s) => s.currentTenant)
-  const switchTenant = useTenantStore((s) => s.switchTenant)
-  const branding = currentTenant?.settings?.branding || {
-    name: 'Jai Automobiles',
-    tagline: 'Vehicle Finance & Lead Operations Portal',
-    logo_url: '/jai_auto_logo.jpg',
-  }
 
-  const [orgSlug, setOrgSlug] = useState('jai-automobiles')
+  const orgSlug = currentTenant?.slug || 'jai-automobiles'
   const [identifier, setIdentifier] = useState('admin@jaiautomobiles.com')
   const [password, setPassword] = useState('JaiAuto@123')
-  const [selectedRole, setSelectedRole] = useState('owner')
+  const [selectedRole, setSelectedRole] = useState<'owner' | 'telecaller'>('owner')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberDevice, setRememberDevice] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [showForgotModal, setShowForgotModal] = useState(false)
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Track mouse coordinates for desktop subtle ambient spotlight
+  useEffect(() => {
+    // Only attach mouse tracking on non-touch devices
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    if (isTouch) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!wrapperRef.current) return
+      const rect = wrapperRef.current.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 100
+      const y = ((e.clientY - rect.top) / rect.height) * 100
+      wrapperRef.current.style.setProperty('--mouse-x', `${x.toFixed(1)}%`)
+      wrapperRef.current.style.setProperty('--mouse-y', `${y.toFixed(1)}%`)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  // Handle credentials submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setLocalError(null)
 
-    if (!orgSlug.trim() || !identifier.trim() || !password) {
-      setLocalError('Please provide organization slug, email/mobile, and password.')
+    const trimmedId = identifier.trim()
+    if (!trimmedId) {
+      setLocalError('Please enter your email address.')
       return
     }
 
+    if (!password) {
+      setLocalError('Please enter your password.')
+      return
+    }
+
+    // Determine target route based on role if default root was requested
+    const isTelecaller =
+      selectedRole === 'telecaller' ||
+      trimmedId.toLowerCase().includes('priya') ||
+      trimmedId.toLowerCase().includes('rahul') ||
+      trimmedId.toLowerCase().includes('telecaller')
+
+    const destination =
+      target === '/' && isTelecaller ? '/telecaller' : target
+
     try {
       await login({
-        organization_slug: orgSlug.trim(),
-        identifier: identifier.trim(),
+        organization_slug: orgSlug,
+        identifier: trimmedId,
         password,
-        role: selectedRole,
+        role: isTelecaller ? 'telecaller' : 'owner',
       })
-      navigate(target, { replace: true })
+
+      // If remember device is not checked, clean localStorage copy
+      if (!rememberDevice) {
+        try {
+          localStorage.removeItem('dsa_os_auth_state_v1')
+        } catch {}
+      }
+
+      navigate(destination, { replace: true })
     } catch {
-      // Gracefully activate role profile and navigate into workspace
-      loginAsDemo(selectedRole, identifier.trim())
-      navigate(target, { replace: true })
+      // Graceful fallback to demo profile
+      loginAsDemo(isTelecaller ? 'telecaller' : 'owner', trimmedId)
+      if (!rememberDevice) {
+        try {
+          localStorage.removeItem('dsa_os_auth_state_v1')
+        } catch {}
+      }
+      navigate(destination, { replace: true })
     }
   }
 
-  const fillCredential = (c: DemoCredential) => {
-    setOrgSlug(c.orgSlug)
-    switchTenant(c.orgSlug)
-    setIdentifier(c.identifier)
-    setPassword(c.pass)
-    setSelectedRole(c.roleKey || 'owner')
+  // Pre-fill credentials from Demo Access component
+  const handleSelectDemoCredential = (cred: DemoCredential) => {
+    setIdentifier(cred.identifier)
+    setPassword(cred.pass)
+    setSelectedRole(cred.roleKey)
     setLocalError(null)
   }
 
   const displayError = localError || storeError
 
   return (
-    <div className="login-wrapper">
-      {/* Visual Ambient Background Grid */}
-      <div className="login-ambient-grid" />
+    <div className="jai-login-page" ref={wrapperRef}>
+      {/* Background Layer with Subtle Animated Ambient Glow & Flowing Lines (Desktop) */}
+      <div className="jai-login-bg-ambient" aria-hidden="true">
+        {/* Dynamic Pointer Spotlight */}
+        <div className="jai-login-spotlight" />
 
-      <div className="login-container">
-        {/* Left Branding & Narrative Column */}
-        <div className="login-hero">
-          <div className="login-hero-header">
-            <div className="login-brand-monogram" style={{ background: 'transparent', padding: 0, overflow: 'hidden' }}>
-              <img src={branding.logo_url || '/jai_auto_logo.jpg'} alt={branding.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain' }} />
-            </div>
-            <div>
-              <div className="login-brand-title">{branding.name}</div>
-              <div className="login-brand-tagline">{branding.tagline || 'Vehicle Finance & Lead Operations Portal'}</div>
-            </div>
-          </div>
-
-          <div className="login-thesis-banner">
-            <div className="login-thesis-quote">
-              &ldquo;Never lose track of a lead, and never lose a rupee of payout.&rdquo;
-            </div>
-            <div className="login-thesis-subtext">
-              Dedicated Phase 1 operating platform for cold-lead management, high-velocity telecalling,
-              public partner referrals, and automated commission tracking.
-            </div>
-          </div>
-
-          <div className="login-capabilities-grid">
-            <div className="capability-card">
-              <div className="capability-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
-              </div>
-              <div className="capability-details">
-                <div className="capability-title">Cold Leads & Bulk Import</div>
-                <div className="capability-desc">Excel / CSV intake, column validation & active duplicate detection</div>
-              </div>
-            </div>
-
-            <div className="capability-card">
-              <div className="capability-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-              </div>
-              <div className="capability-details">
-                <div className="capability-title">Telecaller Desk & Queue</div>
-                <div className="capability-desc">Click-to-call, outcome logging, follow-up scheduler & audit logs</div>
-              </div>
-            </div>
-
-            <div className="capability-card">
-              <div className="capability-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </div>
-              <div className="capability-details">
-                <div className="capability-title">Public Guest Referral Desk</div>
-                <div className="capability-desc">Passwordless 10-digit mobile lookup & returning partner recognition</div>
-              </div>
-            </div>
-
-            <div className="capability-card">
-              <div className="capability-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-              </div>
-              <div className="capability-details">
-                <div className="capability-title">Referral Commission Ledger</div>
-                <div className="capability-desc">Approval workflows, payout authorization & bank UTR tracking</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="login-security-notice">
-            <span className="security-shield-icon">🛡️</span>
-            <span>Multi-tenant organization isolation with PostgreSQL RLS & encrypted credentials</span>
-          </div>
-        </div>
-
-        {/* Right Authentication Form Column */}
-        <div className="login-form-pane">
-          <div className="login-card">
-            {/* Mobile Header Brand visible ONLY on narrow viewports */}
-            <div className="login-mobile-brand">
-              <img
-                src="/jai_auto_logo.jpg"
-                alt="Jai Automobiles Logo"
-                style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(212,175,55,0.4)' }}
-              />
-              <div>
-                <div className="login-brand-title" style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>Jai Automobiles</div>
-                <div className="login-brand-tagline" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Vehicle Finance & Loan Operations</div>
-              </div>
-            </div>
-
-            <div className="login-card-header">
-              <div className="terminal-badge">SECURE TERMINAL ACCESS</div>
-              <h2 className="login-title">Sign In to Workspace</h2>
-              <p className="login-desc">Enter your organizational credentials to access live files</p>
-            </div>
-
-            {displayError && (
-              <div className="login-error-alert" role="alert">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" className="error-icon">
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <div className="error-text">
-                  <div className="error-heading">Authentication Failed</div>
-                  <div>{displayError}</div>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="login-form">
-              <div className="form-group">
-                <label htmlFor="org-slug" className="form-label">
-                  Organization Slug
-                  <span className="form-label-hint">Tenant Identifier</span>
-                </label>
-                <div className="input-affix-wrapper">
-                  <span className="login-input-prefix">🏢</span>
-                  <input
-                    id="org-slug"
-                    className="login-input"
-                    placeholder="e.g. apex-loans"
-                    value={orgSlug}
-                    onChange={(e) => setOrgSlug(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="identifier" className="form-label">
-                  Operator Identity
-                  <span className="form-label-hint">Email or Mobile</span>
-                </label>
-                <div className="input-affix-wrapper">
-                  <span className="login-input-prefix">👤</span>
-                  <input
-                    id="identifier"
-                    className="login-input"
-                    type="text"
-                    placeholder="user@apexloans.com"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <div className="form-label-row">
-                  <label htmlFor="password" className="form-label">
-                    Security Password
-                  </label>
-                  <button
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? 'Hide Password' : 'Show Password'}
-                  </button>
-                </div>
-                <div className="input-affix-wrapper">
-                  <span className="login-input-prefix">🔒</span>
-                  <input
-                    id="password"
-                    className="login-input"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                loading={isLoading}
-                className="login-submit-btn"
-              >
-                {isLoading ? 'Authenticating Terminal...' : 'Authenticate & Open Workspace →'}
-              </Button>
-            </form>
-
-            <div className="demo-credentials-section">
-              <div className="demo-section-header">
-                <span className="demo-header-title">Quick Demo Operator Profiles</span>
-                <span className="demo-header-note">Click to Pre-fill</span>
-              </div>
-              <div className="demo-chips-grid">
-                {DEMO_CREDENTIALS.map((cred) => (
-                  <button
-                    key={cred.identifier}
-                    type="button"
-                    className={`demo-chip ${identifier === cred.identifier ? 'demo-chip--active' : ''}`}
-                    onClick={() => fillCredential(cred)}
-                  >
-                    <div className="demo-chip-role">{cred.role}</div>
-                    <div className="demo-chip-meta">
-                      <span className="demo-chip-user">{cred.identifier}</span>
-                      <span className="demo-chip-tag">{cred.tag}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Animated Flowing Linework SVG */}
+        <svg
+          className="jai-login-flowing-lines"
+          viewBox="0 0 1440 900"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+        >
+          <path
+            className="flowing-wave wave-1"
+            d="M-200 450 C 200 320, 600 580, 1000 440 C 1200 370, 1400 480, 1700 420"
+            stroke="url(#lineGradient1)"
+            strokeWidth="1.2"
+          />
+          <path
+            className="flowing-wave wave-2"
+            d="M-150 520 C 250 400, 650 620, 1050 500 C 1250 440, 1450 540, 1750 480"
+            stroke="url(#lineGradient2)"
+            strokeWidth="1"
+          />
+          <path
+            className="flowing-wave wave-3"
+            d="M-100 380 C 300 480, 700 360, 1100 480 C 1300 540, 1500 400, 1800 460"
+            stroke="url(#lineGradient1)"
+            strokeWidth="0.8"
+          />
+          <defs>
+            <linearGradient id="lineGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0" />
+              <stop offset="25%" stopColor="#34d399" stopOpacity="0.15" />
+              <stop offset="50%" stopColor="#059669" stopOpacity="0.25" />
+              <stop offset="75%" stopColor="#34d399" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="lineGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#047857" stopOpacity="0" />
+              <stop offset="30%" stopColor="#10b981" stopOpacity="0.12" />
+              <stop offset="70%" stopColor="#2dd4bf" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#047857" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+        </svg>
       </div>
+
+      {/* Main Login Content Wrapper */}
+      <main className="jai-login-main-container">
+        {/* Mobile-Only Header (Positioned ABOVE the card as shown in mobile design) */}
+        <header className="jai-brand-mobile-header">
+          <div className="jai-shield-badge" aria-hidden="true">
+            <svg
+              className="jai-shield-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </div>
+          <span className="jai-brand-subtitle">VEHICLE FINANCE</span>
+          <h1 className="jai-brand-title">Jai Automobiles</h1>
+        </header>
+
+        {/* Crisp Floating White Login Card */}
+        <div className="jai-login-card">
+          {/* Desktop Brand Header (Positioned INSIDE top of the card as shown in desktop design) */}
+          <div className="jai-brand-desktop-header">
+            <div className="jai-ja-squircle" aria-hidden="true">
+              <span className="jai-ja-monogram">JA</span>
+              <span className="jai-ja-accent-sparkle" />
+            </div>
+            <h1 className="jai-brand-desktop-title">Jai Automobiles</h1>
+            <span className="jai-brand-desktop-subtitle">VEHICLE FINANCE</span>
+          </div>
+
+          {/* Form Header */}
+          <div className="jai-form-intro">
+            <h2 className="jai-signin-heading">Sign In</h2>
+            <p className="jai-signin-subtext">Sign in to continue.</p>
+          </div>
+
+          {/* Error Message Alert */}
+          {displayError && (
+            <div className="jai-login-error" role="alert" aria-live="assertive">
+              <svg
+                className="jai-error-icon"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{displayError}</span>
+            </div>
+          )}
+
+          {/* Login Form */}
+          <form className="jai-form" onSubmit={handleSubmit} noValidate>
+            {/* Email Field */}
+            <div className="jai-field-group">
+              <label htmlFor="login-email" className="jai-field-label">
+                Email
+              </label>
+              <div className="jai-input-wrapper">
+                <span className="jai-input-icon" aria-hidden="true">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                </span>
+                <input
+                  id="login-email"
+                  type="email"
+                  name="email"
+                  className="jai-input"
+                  placeholder="name@dealer.in"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div className="jai-field-group">
+              <div className="jai-field-label-row">
+                <label htmlFor="login-password" className="jai-field-label">
+                  Password
+                </label>
+                {/* Desktop Forgot Password Link (positioned in label row as in desktop design) */}
+                <button
+                  type="button"
+                  className="jai-forgot-link jai-forgot-link--desktop"
+                  onClick={() => setShowForgotModal(true)}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              <div className="jai-input-wrapper">
+                <span className="jai-input-icon" aria-hidden="true">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </span>
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  className="jai-input jai-input--password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="jai-toggle-password-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={0}
+                >
+                  {showPassword ? (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me / Device & Mobile Forgot Password Row */}
+            <div className="jai-options-row">
+              <label className="jai-remember-label">
+                <input
+                  type="checkbox"
+                  className="jai-checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                />
+                <span className="jai-checkbox-custom" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="2.5 6 4.8 8.5 9.5 3.5" />
+                  </svg>
+                </span>
+                <span className="jai-remember-text">
+                  <span className="jai-remember-text--desktop">Remember this device</span>
+                  <span className="jai-remember-text--mobile">Remember me</span>
+                </span>
+              </label>
+
+              {/* Mobile Forgot Password Link (positioned on the right of the checkbox row as in mobile design) */}
+              <button
+                type="button"
+                className="jai-forgot-link jai-forgot-link--mobile"
+                onClick={() => setShowForgotModal(true)}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            {/* Prominent Dark Green Sign In Pill Button */}
+            <button
+              type="submit"
+              className="jai-submit-btn"
+              disabled={isLoading}
+              aria-busy={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="jai-spinner" aria-hidden="true" />
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span className="jai-submit-text">Sign In</span>
+                  <span className="jai-submit-arrow" aria-hidden="true">
+                    →
+                  </span>
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Demo Access Section (Separate component, can be unmounted with 0 layout impact) */}
+        <aside className="jai-demo-section-wrapper" aria-label="Demo operator accounts">
+          <DemoAccessBar
+            onSelectCredential={handleSelectDemoCredential}
+            activeIdentifier={identifier}
+          />
+        </aside>
+      </main>
+
+      {/* Accessible Password Recovery Dialog */}
+      {showForgotModal && (
+        <div
+          className="jai-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forgot-modal-title"
+          onClick={() => setShowForgotModal(false)}
+        >
+          <div
+            className="jai-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="jai-modal-icon-badge" aria-hidden="true">
+              🔒
+            </div>
+            <h3 id="forgot-modal-title" className="jai-modal-title">
+              Credential Assistance
+            </h3>
+            <p className="jai-modal-body">
+              Jai Automobiles enforces centralized organizational access governance.
+              To reset your security password or unlock your account, please contact
+              your DSA Administrator at:
+            </p>
+            <div className="jai-modal-contact">
+              <strong>admin@jaiautomobiles.com</strong>
+            </div>
+            <p className="jai-modal-hint">
+              For testing in the development environment, click any demo profile
+              in the bar below to prefill valid credentials.
+            </p>
+            <button
+              type="button"
+              className="jai-modal-close-btn"
+              onClick={() => setShowForgotModal(false)}
+              autoFocus
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+export default LoginPage

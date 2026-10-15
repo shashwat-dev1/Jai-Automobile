@@ -1,0 +1,195 @@
+/**
+ * DSA OS — Demo Access Bar Styling
+ *
+ * Provides pixel-faithful rendering for both:
+ * 1. Desktop: Glassmorphic dark emerald floating pill
+ * 2. Mobile: Light mint pill with crisp white chips
+ */
+
+.demo-access-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  z-index: 10;
+  user-select: none;
+  animation: demoBarFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+}
+
+@keyframes demoBarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   DESKTOP VIEW (Floating Dark Glassmorphic Pill)
+   ========================================================================== */
+.demo-access-desktop {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(9, 32, 27, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 8px 20px;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: all 0.25s ease;
+}
+
+.demo-access-desktop:hover {
+  border-color: rgba(52, 211, 153, 0.3);
+  box-shadow: 0 14px 34px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.demo-access-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(204, 230, 222, 0.75);
+  letter-spacing: 0.01em;
+}
+
+.demo-access-items {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-access-dot {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+}
+
+.demo-access-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(240, 253, 250, 0.88);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s ease, transform 0.15s ease;
+  outline: none;
+}
+
+.demo-access-btn:hover {
+  color: #34d399;
+  transform: translateY(-1px);
+}
+
+.demo-access-btn:active {
+  transform: translateY(0);
+}
+
+.demo-access-btn:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
+}
+
+.demo-access-btn--active {
+  color: #6ee7b7;
+  font-weight: 600;
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+/* Hide mobile pill on desktop */
+.demo-access-mobile {
+  display: none;
+}
+
+/* ==========================================================================
+   MOBILE VIEW (Light Mint Pill with White Chips)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .demo-access-desktop {
+    display: none;
+  }
+
+  .demo-access-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #e2eae5;
+    border-radius: 9999px;
+    padding: 5px 8px 5px 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .demo-mobile-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #4a635d;
+    text-transform: uppercase;
+  }
+
+  .demo-mobile-items {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .demo-mobile-dot {
+    color: #9cb3ac;
+    font-size: 10px;
+  }
+
+  .demo-mobile-chip {
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 4px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all 0.15s ease;
+    outline: none;
+  }
+
+  .demo-mobile-chip:hover {
+    background: #f8fafc;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+  }
+
+  .demo-mobile-chip:active {
+    transform: scale(0.97);
+  }
+
+  .demo-mobile-chip:focus-visible {
+    outline: 2px solid #064e3b;
+    outline-offset: 1px;
+  }
+
+  .demo-mobile-chip--active {
+    background: #092c27;
+    color: #ffffff;
+    border-color: #092c27;
+    box-shadow: 0 2px 6px rgba(9, 44, 39, 0.25);
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .demo-access-bar {
+    animation: none;
+  }
+  .demo-access-btn,
+  .demo-mobile-chip {
+    transition: none;
+    transform: none !important;
+  }
+}

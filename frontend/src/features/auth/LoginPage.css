@@ -1,66 +1,115 @@
 /**
- * DSA OS — Premium Enterprise Login Portal Styling
- * Executive Financial Architecture & Obsidian-Slate Aesthetics
+ * DSA OS — Jai Automobiles Login Portal Styles
+ *
+ * Implements the new executive design references:
+ * - Desktop: Deep dark forest green with ambient spotlight and flowing linework
+ * - Mobile: Light mint airy background with brand header positioned above the card
  */
 
-.login-wrapper {
+/* ==========================================================================
+   PAGE CONTAINER & DESKTOP AMBIENT CANVAS
+   ========================================================================== */
+.jai-login-page {
   position: relative;
   min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #0A0F1D;
-  overflow-y: auto;
+  background: radial-gradient(circle at 50% 45%, #052620 0%, #031714 65%, #020f0d 100%);
+  background-color: #031714;
   overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 32px 16px 80px;
+  padding: 40px 20px;
   box-sizing: border-box;
+  font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif);
+  color: #0f172a;
 }
 
-/* Subtle operational blueprint grid */
-.login-ambient-grid {
+/* Ambient Layer behind Login Card */
+.jai-login-bg-ambient {
   position: absolute;
   inset: 0;
-  background-size: 36px 36px;
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   pointer-events: none;
+  overflow: hidden;
   z-index: 1;
 }
 
-.login-ambient-grid::after {
-  content: '';
+/* Dynamic Cursor Responsive Spotlight (Desktop) */
+.jai-login-spotlight {
   position: absolute;
-  top: 15%;
-  left: 20%;
-  width: 550px;
-  height: 550px;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, transparent 70%);
-  filter: blur(60px);
-  pointer-events: none;
+  inset: 0;
+  background: radial-gradient(
+    800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(20, 184, 166, 0.09) 0%,
+    rgba(5, 150, 105, 0.04) 40%,
+    transparent 70%
+  );
+  transition: opacity 0.5s ease;
 }
 
-.login-container {
+/* Flowing Linework SVG (Desktop) */
+.jai-login-flowing-lines {
+  position: absolute;
+  width: 130%;
+  height: 100%;
+  left: -15%;
+  top: 0;
+  opacity: 0.65;
+  filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.15));
+}
+
+.flowing-wave {
+  animation: flowingWaveDrift 18s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.wave-1 {
+  animation-duration: 22s;
+}
+
+.wave-2 {
+  animation-duration: 17s;
+  animation-delay: -4s;
+}
+
+.wave-3 {
+  animation-duration: 25s;
+  animation-delay: -8s;
+}
+
+@keyframes flowingWaveDrift {
+  0% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-16px) scaleY(1.05);
+  }
+  100% {
+    transform: translateY(12px) scaleY(0.96);
+  }
+}
+
+/* ==========================================================================
+   MAIN CONTENT WRAPPER
+   ========================================================================== */
+.jai-login-main-container {
   position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 1fr 480px;
-  max-width: 1100px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
-  background: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  animation: loginFadeIn 0.35s ease-out;
+  max-width: 440px;
+  margin: auto;
+  animation: loginCardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes loginFadeIn {
+@keyframes loginCardEntrance {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -68,485 +117,734 @@
   }
 }
 
-/* Left Hero Branding Column */
-.login-hero {
-  padding: 44px 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border-right: 1px solid #E2E8F0;
-  background: linear-gradient(155deg, #0F172A 0%, #1E293B 100%);
-  color: #F8FAFC;
+/* Mobile Header (Hidden by default on Desktop) */
+.jai-brand-mobile-header {
+  display: none;
 }
 
-.login-hero-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.login-brand-monogram {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  background: #0F172A;
-  border: 1.5px solid #F59E0B;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.login-brand-title {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #FFFFFF;
-}
-
-.login-brand-tagline {
-  font-size: 13px;
-  color: #94A3B8;
-  font-weight: 400;
-}
-
-.login-thesis-banner {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-left: 3px solid #F59E0B;
-  border-radius: 6px;
-  padding: 16px 18px;
-  margin-bottom: 24px;
-}
-
-.login-thesis-quote {
-  font-size: 14px;
-  font-weight: 600;
-  color: #FCD34D;
-  font-style: italic;
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
-.login-thesis-subtext {
-  font-size: 12px;
-  color: #CBD5E1;
-  line-height: 1.45;
-}
-
-.login-capabilities-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.capability-card {
-  display: flex;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 12px;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.capability-card:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(245, 158, 11, 0.4);
-}
-
-.capability-icon {
-  color: #FCD34D;
-  display: flex;
-  align-items: flex-start;
-  padding-top: 2px;
-  flex-shrink: 0;
-}
-
-.capability-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #FFFFFF;
-  margin-bottom: 2px;
-}
-
-.capability-desc {
-  font-size: 11px;
-  color: #94A3B8;
-  line-height: 1.35;
-}
-
-.login-security-notice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: #94A3B8;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Right Form Pane — Crisp Light Obsidian */
-.login-form-pane {
-  background: #FFFFFF;
-  padding: 40px 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.login-card {
+/* ==========================================================================
+   LOGIN CARD
+   ========================================================================== */
+.jai-login-card {
   width: 100%;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.1);
+  padding: 40px 36px 36px;
+  box-sizing: border-box;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.login-card-header {
+/* Desktop Brand Header (Inside Card) */
+.jai-brand-desktop-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.jai-ja-squircle {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #092c27 0%, #061e1b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+}
+
+.jai-ja-squircle:hover {
+  transform: scale(1.06) rotate(-1deg);
+}
+
+.jai-ja-monogram {
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.jai-ja-accent-sparkle {
+  position: absolute;
+  top: 13px;
+  right: 14px;
+  width: 4px;
+  height: 4px;
+  background: #fef08a;
+  transform: rotate(45deg);
+  box-shadow: 0 0 6px rgba(254, 240, 138, 0.8);
+  border-radius: 1px;
+}
+
+.jai-brand-desktop-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.jai-brand-desktop-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #0b6656;
+  text-transform: uppercase;
+}
+
+/* Form Intro */
+.jai-form-intro {
   margin-bottom: 22px;
 }
 
-.terminal-badge {
-  display: inline-block;
-  font-family: var(--font-family-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #1D4ED8;
-  background: #EFF6FF;
-  border: 1px solid #BFDBFE;
-  padding: 3px 8px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-
-.login-title {
+.jai-signin-heading {
   font-size: 22px;
   font-weight: 700;
-  color: #0F172A;
+  color: #0f172a;
   margin: 0 0 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
-.login-desc {
-  font-size: 13px;
-  color: #475569;
+.jai-signin-subtext {
+  font-size: 13.5px;
+  color: #64748b;
   margin: 0;
+  line-height: 1.4;
 }
 
-.login-error-alert {
+/* Error Alert */
+.jai-login-error {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
-  border-left: 4px solid #DC2626;
-  border-radius: 4px;
-  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 3.5px solid #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
   margin-bottom: 18px;
-  animation: alertShake 0.3s ease-in-out;
+  font-size: 12.5px;
+  color: #991b1b;
+  animation: errorShake 0.35s ease-in-out;
 }
 
-@keyframes alertShake {
+@keyframes errorShake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 
-.error-icon {
-  color: #DC2626;
+.jai-error-icon {
   flex-shrink: 0;
-  margin-top: 2px;
+  color: #dc2626;
 }
 
-.error-heading {
-  font-size: 12px;
-  font-weight: 700;
-  color: #991B1B;
-  margin-bottom: 2px;
-}
-
-.error-text {
-  font-size: 12px;
-  color: #7F1D1D;
-  line-height: 1.35;
-}
-
-.login-form {
+/* ==========================================================================
+   FORM & INPUTS
+   ========================================================================== */
+.jai-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-.form-group {
+.jai-field-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label {
+.jai-field-label-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+}
+
+.jai-field-label {
   font-size: 13px;
-  font-weight: 700;
-  color: #0F172A !important;
-}
-
-.form-label-hint {
-  font-size: 11px;
-  color: #64748B;
   font-weight: 600;
+  color: #334155;
+  user-select: none;
 }
 
-.form-label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.password-toggle-btn {
-  background: none;
-  border: none;
-  font-size: 11px;
-  color: #2563EB;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-}
-
-.password-toggle-btn:hover {
-  color: #1D4ED8;
-}
-
-.input-affix-wrapper {
+.jai-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
 }
 
-.login-input-prefix {
+.jai-input-icon {
   position: absolute;
-  left: 12px;
-  font-size: 15px;
-  pointer-events: none;
-  user-select: none;
-  z-index: 2;
+  left: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: color 0.2s ease;
+  z-index: 2;
 }
 
-.login-input {
+.jai-input-wrapper:focus-within .jai-input-icon {
+  color: #0b6656;
+}
+
+.jai-input {
   width: 100%;
-  height: 42px;
-  padding: 0 12px 0 38px;
+  height: 46px;
+  padding: 0 14px 0 42px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
-  color: #0F172A !important;
-  background: #FFFFFF !important;
-  border: 1.5px solid #CBD5E1;
-  border-radius: 6px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.login-input:-webkit-autofill,
-.login-input:-webkit-autofill:hover,
-.login-input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-  -webkit-text-fill-color: #0F172A !important;
+.jai-input--password {
+  padding-right: 42px;
 }
 
-.login-input:hover {
-  border-color: #94A3B8;
+.jai-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
 }
 
-.login-input:focus {
-  border-color: #2563EB;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  background: #FFFFFF;
+.jai-input:hover {
+  border-color: #cbd5e1;
 }
 
-.login-input:disabled {
-  background: #F1F5F9;
+.jai-input:focus {
+  border-color: #0b6656;
+  box-shadow: 0 0 0 3.5px rgba(11, 102, 86, 0.12);
+}
+
+.jai-input:disabled {
+  background: #f8fafc;
   cursor: not-allowed;
-  color: #94A3B8;
+  opacity: 0.75;
 }
 
-.login-submit-btn {
-  width: 100%;
-  height: 42px;
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  background: #0F172A;
-  color: #FFFFFF;
-  border-radius: 6px;
+/* Autofill styling */
+.jai-input:-webkit-autofill,
+.jai-input:-webkit-autofill:hover,
+.jai-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
-.login-submit-btn:hover {
-  background: #1E293B;
-}
-
-/* Demo quick-fill section */
-.demo-credentials-section {
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 1px dashed #CBD5E1;
-}
-
-.demo-section-header {
+/* Password Toggle Button */
+.jai-toggle-password-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  padding: 6px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-}
-
-.demo-header-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #334155;
-}
-
-.demo-header-note {
-  font-size: 10px;
-  font-weight: 600;
-  color: #64748B;
-}
-
-.demo-chips-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.demo-chip {
-  text-align: left;
-  background: #F8FAFC;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 8px;
-  padding: 10px 14px;
+  justify-content: center;
+  color: #94a3b8;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  z-index: 2;
+}
+
+.jai-toggle-password-btn:hover {
+  color: #334155;
+  background-color: #f1f5f9;
+}
+
+.jai-toggle-password-btn:focus-visible {
+  outline: 2px solid #0b6656;
+  outline-offset: 1px;
+}
+
+/* Options Row (Remember Me & Forgot Password) */
+.jai-options-row {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.demo-chip:hover {
-  background: #F1F5F9;
-  border-color: #94A3B8;
-  transform: translateY(-1px);
-}
-
-.demo-chip--active {
-  background: #EFF6FF;
-  border-color: #2563EB;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
-}
-
-.demo-chip-role {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0F172A;
-}
-
-.demo-chip-meta {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  justify-content: space-between;
+  margin-top: 2px;
 }
 
-.demo-chip-user {
+.jai-remember-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.jai-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.jai-checkbox-custom {
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.jai-checkbox-custom svg {
+  width: 11px;
+  height: 11px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.jai-checkbox:checked + .jai-checkbox-custom {
+  background: #092c27;
+  border-color: #092c27;
+}
+
+.jai-checkbox:checked + .jai-checkbox-custom svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.jai-checkbox:focus-visible + .jai-checkbox-custom {
+  outline: 2px solid #0b6656;
+  outline-offset: 2px;
+}
+
+.jai-remember-text {
+  font-size: 13px;
   color: #475569;
-  font-family: var(--font-family-mono, monospace);
   font-weight: 500;
 }
 
-.demo-chip-tag {
-  font-size: 10px;
-  font-weight: 700;
-  color: #047857;
-  background: #ECFDF5;
-  border: 1px solid #A7F3D0;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.login-mobile-brand {
+/* Visibility toggling for Desktop vs Mobile text */
+.jai-remember-text--mobile {
   display: none;
 }
 
-/* Responsive breakpoint */
-@media (max-width: 900px) {
-  .login-wrapper {
-    display: block;
-    min-height: 100dvh;
-    height: auto;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    padding: 16px 12px 100px;
-  }
-  .login-container {
-    grid-template-columns: 1fr;
-    max-width: 480px;
-    width: 100%;
-    margin: 0 auto 40px;
-  }
-  .login-hero {
-    display: none;
-  }
-  .login-mobile-brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #E2E8F0;
-  }
-  .login-mobile-brand .login-brand-title {
-    color: #0F172A;
-    font-size: 20px;
-    font-weight: 700;
-  }
-  .login-mobile-brand .login-brand-tagline {
-    color: #475569;
-    font-size: 12px;
-    margin-top: 2px;
+.jai-forgot-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0b6656;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  outline: none;
+}
+
+.jai-forgot-link:hover {
+  color: #044e41;
+  text-decoration: underline;
+}
+
+.jai-forgot-link:focus-visible {
+  outline: 2px solid #0b6656;
+  outline-offset: 2px;
+}
+
+/* On desktop, the mobile forgot link in the bottom row is hidden */
+.jai-forgot-link--mobile {
+  display: none;
+}
+
+/* ==========================================================================
+   SUBMIT BUTTON
+   ========================================================================== */
+.jai-submit-btn {
+  width: 100%;
+  height: 48px;
+  margin-top: 6px;
+  background: #092c27;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(9, 44, 39, 0.3);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.jai-submit-btn:hover:not(:disabled) {
+  background: #0d3d36;
+  box-shadow: 0 6px 22px rgba(9, 44, 39, 0.45);
+}
+
+.jai-submit-btn:hover:not(:disabled) .jai-submit-arrow {
+  transform: translateX(4px);
+}
+
+.jai-submit-btn:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.jai-submit-btn:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 3px;
+}
+
+.jai-submit-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.jai-submit-arrow {
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.jai-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spinnerRotate 0.7s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@media (max-width: 480px) {
-  .login-wrapper {
-    padding: 12px 10px 120px;
+/* ==========================================================================
+   DEMO SECTION WRAPPER
+   (Removable with zero layout shift on the card)
+   ========================================================================== */
+.jai-demo-section-wrapper {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ==========================================================================
+   PASSWORD ASSISTANCE MODAL
+   ========================================================================== */
+.jai-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 23, 20, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.jai-modal-card {
+  background: #ffffff;
+  border-radius: 18px;
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.jai-modal-icon-badge {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.jai-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.jai-modal-body {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.jai-modal-contact {
+  background: #f1f5f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #092c27;
+  font-family: var(--font-family-mono, monospace);
+  margin-bottom: 12px;
+  user-select: all;
+}
+
+.jai-modal-hint {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0 0 20px;
+}
+
+.jai-modal-close-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 9999px;
+  background: #092c27;
+  color: #ffffff;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.jai-modal-close-btn:hover {
+  background: #0d3d36;
+}
+
+/* ==========================================================================
+   MOBILE BREAKPOINT (<= 768px)
+   Aligns with the Mobile Reference Design
+   ========================================================================== */
+@media (max-width: 768px) {
+  .jai-login-page {
+    background: #f3f6f5;
+    background-color: #f3f6f5;
+    padding: 32px 16px 40px;
+    align-items: flex-start;
+  }
+
+  /* Disable desktop ambient glows and flowing lines on mobile to save battery */
+  .jai-login-bg-ambient {
+    display: none;
+  }
+
+  .jai-login-main-container {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  /* Show Brand Header ABOVE the card on Mobile */
+  .jai-brand-mobile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .jai-shield-badge {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #092c27;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 6px 18px rgba(9, 44, 39, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .jai-shield-icon {
+    width: 28px;
+    height: 28px;
+    color: #34d399;
+  }
+
+  .jai-brand-subtitle {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #4a635d;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .jai-brand-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+
+  /* Hide Desktop Brand Header inside the card */
+  .jai-brand-desktop-header {
+    display: none;
+  }
+
+  /* Mobile Card adjustments */
+  .jai-login-card {
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    padding: 28px 22px;
+  }
+
+  .jai-signin-heading {
+    font-size: 22px;
+  }
+
+  .jai-signin-subtext {
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+
+  /* Soft tinted input fields for mobile */
+  .jai-input {
+    height: 48px;
+    background: #f0f4f2;
+    border: 1px solid transparent;
+    border-radius: 12px;
+  }
+
+  .jai-input:focus {
+    background: #ffffff;
+    border-color: #0b6656;
+    box-shadow: 0 0 0 3px rgba(11, 102, 86, 0.12);
+  }
+
+  .jai-input:-webkit-autofill,
+  .jai-input:-webkit-autofill:hover,
+  .jai-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #f0f4f2 inset !important;
+  }
+
+  /* Hide desktop forgot password link (in label row) */
+  .jai-forgot-link--desktop {
+    display: none;
+  }
+
+  /* Show mobile forgot password link (in options row) */
+  .jai-forgot-link--mobile {
     display: block;
-    height: auto;
-    min-height: 100dvh;
-    overflow-y: auto;
+    font-size: 13px;
   }
-  .login-form-pane {
-    padding: 24px 16px;
+
+  /* Swap text to "Remember me" */
+  .jai-remember-text--desktop {
+    display: none;
   }
-  .demo-chips-grid {
-    gap: 8px;
+
+  .jai-remember-text--mobile {
+    display: inline;
   }
-  .login-submit-btn {
-    width: 100%;
+
+  /* Submit button on mobile */
+  .jai-submit-btn {
+    height: 50px;
+    font-size: 15px;
+    border-radius: 9999px;
   }
-  .demo-chip {
-    padding: 10px 12px;
+
+  .jai-submit-btn:active:not(:disabled) {
+    transform: scale(0.98);
   }
-  .login-card-header h2 {
+
+  .jai-demo-section-wrapper {
+    margin-top: 20px;
+  }
+}
+
+/* ==========================================================================
+   EXTRA COMPACT SCREENS (<= 360px)
+   ========================================================================== */
+@media (max-width: 360px) {
+  .jai-login-page {
+    padding: 20px 12px 32px;
+  }
+
+  .jai-login-card {
+    padding: 22px 16px;
+    border-radius: 16px;
+  }
+
+  .jai-signin-heading {
     font-size: 20px;
+  }
+
+  .jai-input {
+    height: 44px;
+    font-size: 13.5px;
+  }
+
+  .jai-submit-btn {
+    height: 46px;
+    font-size: 14px;
+  }
+}
+
+/* ==========================================================================
+   ACCESSIBILITY & REDUCED MOTION PREFERENCES
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .jai-login-main-container,
+  .jai-ja-squircle,
+  .flowing-wave,
+  .jai-modal-overlay,
+  .jai-modal-card {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .jai-submit-arrow {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .jai-submit-btn:hover:not(:disabled) .jai-submit-arrow {
+    transform: none !important;
   }
 }
