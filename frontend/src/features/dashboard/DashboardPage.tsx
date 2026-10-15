@@ -1,60 +1,50 @@
+/**
+ * DSA OS — Jai Automobiles Admin Dashboard
+ *
+ * Implements the executive Stitch design reference (Desktop & Mobile):
+ * - Clean business overview ("Your business at a glance.")
+ * - Functional date filters (All Time, Last 30 Days, Last 90 Days)
+ * - Export CSV of filtered dataset
+ * - 6 KPI cards (Leads, Active Calling, Interested, Follow-ups, Converted, Unassigned)
+ * - Due Today priority actions panel
+ * - Telecaller Performance ranking panel
+ * - Leads Inflow vs Contacted velocity bar chart
+ */
+
 import React, { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../../shared/lib/api'
-import { DashboardOverviewResponse } from './types'
-import { KPIStrip } from './KPIStrip'
-import { StageVelocity } from './StageVelocity'
-import { CommissionChart } from './CommissionChart'
-import { SourceTable } from './SourceTable'
-import { AttentionPanel } from './AttentionPanel'
-import { ReportExportButton } from '../reports/ReportExportButton'
-import { LeadImportModal } from '../cases/LeadImportModal'
-import { usePermission } from '../auth/usePermission'
 import { useAuthStore } from '../auth/useAuth'
 import { TelecallerDashboard } from './TelecallerDashboard'
-import { PERMISSIONS } from '../auth/types'
+import { DashboardKPIs } from './DashboardKPIs'
+import { DueTodaySection } from './DueTodaySection'
+import { TelecallerPerformanceSection } from './TelecallerPerformanceSection'
+import { LeadsInflowChart } from './LeadsInflowChart'
+import { StitchDashboardData } from './dashboardDataService'
 import './DashboardPage.css'
-
-interface RecentLeadItem {
-  id: string
-  case_no: string
-  product_type: string
-  status: string
-  loan_amount_requested: number
-  loan_amount_disbursed?: number | null
-  primary_applicant_name: string
-  mobile?: string
-  primary_applicant_mobile?: string
-  vehicle_summary: string
-  source_name: string
-  owner_name: string
-  is_stuck?: boolean
-  created_at: string
-}
 
 export const DashboardPage: React.FC = () => {
   const user = useAuthStore((s) => s.user)
-  const { can } = usePermission()
 
-  // If authenticated user is a telecaller, render their individual outreach dashboard
+  // Telecallers access their dedicated outreach workspace
   if (user?.role === 'telecaller') {
     return <TelecallerDashboard />
   }
 
-  const [data, setData] = useState<DashboardOverviewResponse | null>(null)
-  const [recentLeads, setRecentLeads] = useState<RecentLeadItem[]>([])
+  const [dateRange, setDateRange] = useState<'all' | 'last30' | 'last90'>('all')
+  const [data, setData] = useState<StitchDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dateRange, setDateRange] = useState<'all' | 'last30' | 'last90'>('all')
-  const [showImportModal, setShowImportModal] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
-  const fetchOverview = useCallback(async () => {
+  // Fetch dashboard overview according to selected date range
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     try {
       let query = ''
       const now = new Date()
+
       if (dateRange === 'last30') {
         const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
         query = `?date_from=${from.toISOString().split('T')[0]}&date_to=${now.toISOString().split('T')[0]}`
@@ -63,15 +53,10 @@ export const DashboardPage: React.FC = () => {
         query = `?date_from=${from.toISOString().split('T')[0]}&date_to=${now.toISOString().split('T')[0]}`
       }
 
-      const [res, leadsRes] = await Promise.all([
-        api.get<DashboardOverviewResponse>(`/dashboard/overview${query}`),
-        Promise.resolve(api.get<RecentLeadItem[]>('/cases?page=1&page_size=6')).catch(() => [] as RecentLeadItem[]),
-      ])
-
+      const res = await api.get<StitchDashboardData>(`/dashboard/overview${query}`)
       setData(res)
-      setRecentLeads(Array.isArray(leadsRes) ? leadsRes : [])
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load lead operations dashboard overview'
+      const msg = err instanceof Error ? err.message : 'Failed to load executive dashboard data'
       setError(msg)
     } finally {
       setLoading(false)
@@ -79,272 +64,207 @@ export const DashboardPage: React.FC = () => {
   }, [dateRange])
 
   useEffect(() => {
-    fetchOverview()
-  }, [fetchOverview])
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
-  const formatCurrency = (val?: number | null) => {
-    if (!val) return '—'
-    return `₹${Number(val).toLocaleString('en-IN')}`
-  }
+  // Direct CSV Export of filtered records
+  const handleExportCSV = async () => {
+    setIsExporting(true)
+    try {
+      const now = new Date()
+      let dateFrom: Date | null = null
+      if (dateRange === 'last30') {
+        dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      } else if (dateRange === 'last90') {
+        dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      }
 
-  const getLeadStatusBadge = (status: string) => {
-    switch (status) {
-      case 'interested':
-      case 'disbursed':
-      case 'completed':
-        return <span className="case-status-badge badge-disbursed">Interested / Qualified</span>
-      case 'callback_scheduled':
-        return <span className="case-status-badge badge-submitted">Callback Scheduled</span>
-      case 'in_calling':
-      case 'submitted_to_lender':
-      case 'under_lender_review':
-        return <span className="case-status-badge badge-sanctioned">In Outreach</span>
-      case 'sanctioned':
-        return <span className="case-status-badge badge-sanctioned">Client Ready</span>
-      default:
-        return <span className="case-status-badge badge-lead">{status.replace('_', ' ')}</span>
+      // Fetch current cases
+      const cases = await api.get<any[]>('/cases').catch(() => [])
+      let exportable = Array.isArray(cases) ? cases : []
+
+      if (dateFrom) {
+        const fromMs = dateFrom.getTime()
+        exportable = exportable.filter((c) => {
+          const t = new Date(c.created_at).getTime()
+          return !isNaN(t) && t >= fromMs
+        })
+      }
+
+      const headers = [
+        'Lead Reference',
+        'Customer Name',
+        'Mobile',
+        'Vehicle / Product',
+        'Requested Loan (INR)',
+        'Status',
+        'Assigned Telecaller',
+        'Call Outcome',
+        'Created Date',
+      ]
+
+      const rows = exportable.map((c) => [
+        c.case_no || c.id,
+        `"${c.primary_applicant_name || c.applicant_name || ''}"`,
+        c.primary_applicant_mobile || c.mobile || '',
+        `"${c.vehicle_summary || c.vehicle_details || c.product || ''}"`,
+        c.loan_amount_requested || c.applied_loan_amount || 0,
+        c.status || '',
+        `"${c.assigned_telecaller_name || 'Unassigned'}"`,
+        c.call_outcome || '',
+        c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : '',
+      ])
+
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute(
+        'download',
+        `jai_automobiles_leads_${dateRange}_${now.toISOString().split('T')[0]}.csv`
+      )
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch {
+      // Graceful fallback
+    } finally {
+      setIsExporting(false)
     }
   }
 
   return (
-    <div className="dashboard-page-container">
-      {/* Executive Header Bar */}
-      <div className="dashboard-header-bar">
-        <div>
-          <div className="dashboard-pretitle">
-            LEAD OPERATIONS COMMAND • OPERATIONS CONSOLE
+    <div className="stitch-dashboard-container">
+      {/* Top Header & Date Filter Bar */}
+      <div className="stitch-dashboard-header">
+        <div className="stitch-dashboard-title-group">
+          <div className="stitch-title-row">
+            <h1 className="stitch-dashboard-title">Dashboard</h1>
+
+            {/* Mobile Export Button (Circular download icon next to title) */}
+            <button
+              type="button"
+              className="stitch-mobile-export-btn"
+              onClick={handleExportCSV}
+              disabled={isExporting}
+              aria-label="Export leads to CSV"
+              title="Export CSV"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
           </div>
-          <h1 className="dashboard-title">
-            Lead Operations Console
-            <span style={{ display: 'none' }}>Operations Console</span>
-          </h1>
-          <p className="dashboard-subtitle">
-            Real-time cold lead ingestion, telecaller calling queue velocity, conversion outcomes, and referral channel attribution.
-          </p>
+          <p className="stitch-dashboard-subtitle">Your business at a glance.</p>
         </div>
 
-        <div className="dashboard-controls">
-          {/* Date Range Selector */}
-          <div className="date-range-pills">
-            {(['all', 'last30', 'last90'] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setDateRange(r)}
-                className={`date-pill-btn ${dateRange === r ? 'is-active' : ''}`}
-              >
-                {r === 'all' ? 'All Time' : r === 'last30' ? 'Last 30d' : 'Last 90d'}
-              </button>
-            ))}
+        {/* Date Filter & Desktop Export Button */}
+        <div className="stitch-controls-group">
+          {/* Segmented Date Range Filter */}
+          <div className="stitch-date-filter" role="tablist" aria-label="Date Range Filter">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dateRange === 'all'}
+              className={`stitch-filter-tab ${dateRange === 'all' ? 'is-active' : ''}`}
+              onClick={() => setDateRange('all')}
+            >
+              All Time
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dateRange === 'last30'}
+              className={`stitch-filter-tab ${dateRange === 'last30' ? 'is-active' : ''}`}
+              onClick={() => setDateRange('last30')}
+            >
+              <span className="stitch-tab-desktop">Last 30 Days</span>
+              <span className="stitch-tab-mobile">30 Days</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dateRange === 'last90'}
+              className={`stitch-filter-tab ${dateRange === 'last90' ? 'is-active' : ''}`}
+              onClick={() => setDateRange('last90')}
+            >
+              <span className="stitch-tab-desktop">Last 90 Days</span>
+              <span className="stitch-tab-mobile">90 Days</span>
+            </button>
           </div>
 
+          {/* Desktop Export CSV Button */}
           <button
             type="button"
-            onClick={() => setShowImportModal(true)}
-            className="btn-today-console"
-            style={{ cursor: 'pointer' }}
+            className="stitch-desktop-export-btn"
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            aria-label="Export leads to CSV"
           >
-            📥 Bulk Excel Import
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
           </button>
-
-          {can(PERMISSIONS.CASES_CREATE) && (
-            <Link to="/cases/new" className="btn-new-intake">
-              + Manual Lead Intake →
-            </Link>
-          )}
-
-          <Link to="/telecaller" className="btn-today-console">
-            🎧 Telecaller Desk →
-          </Link>
-
-          <Link to="/today" className="btn-today-console">
-            📅 Today's Call Cockpit →
-          </Link>
-
-          <ReportExportButton />
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Error state alert */}
       {error && (
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#b91c1c',
-            padding: '12px 16px',
-            marginBottom: '16px',
-            borderRadius: '4px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
+        <div className="stitch-error-banner" role="alert">
           <span>{error}</span>
-          <button
-            onClick={fetchOverview}
-            style={{
-              background: '#b91c1c',
-              color: '#fff',
-              border: 'none',
-              padding: '4px 10px',
-              borderRadius: '3px',
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={fetchDashboardData} className="stitch-retry-btn">
             Retry
           </button>
         </div>
       )}
 
-      {/* Loading state skeleton */}
+      {/* Loading Skeleton Indicator */}
       {loading && !data && (
-        <div style={{ padding: '48px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-          <div className="type-mono-sm">Aggregating live lead operations and telecaller desk queues...</div>
+        <div className="stitch-loading-state" role="status">
+          <div className="stitch-loading-spinner" aria-hidden="true" />
+          <p className="stitch-loading-text">Loading executive dashboard metrics...</p>
         </div>
       )}
 
-      {/* Live Data Grid */}
+      {/* Main Dashboard Content */}
       {data && (
-        <>
-          {/* Tier 1: 6 Compact Lead Operations KPI Cards */}
-          <KPIStrip
-            pipeline={data.pipeline_summary}
-            payout={data.payout_summary}
-            leadSummary={(data as any).lead_operations_summary}
+        <div className="stitch-dashboard-content">
+          {/* 1. Six KPI Cards */}
+          <DashboardKPIs
+            leadsTotal={data.leads_total}
+            leadsNewCount={data.leads_new_count}
+            activeCallingCount={data.active_calling_count}
+            interestedCount={data.interested_count}
+            followUpsCount={data.follow_ups_count}
+            convertedClientsCount={data.converted_clients_count}
+            conversionRatePct={data.conversion_rate_pct}
+            unassignedLeadsCount={data.unassigned_leads_count}
           />
 
-          {/* Tier 2: Lead Funnel (7 cols) + Lead Attention Queue (5 cols) */}
-          <div className="dashboard-grid-tier-mid">
-            <StageVelocity stages={data.funnel_stages || []} />
-            <AttentionPanel attention={data.attention_items || []} />
+          {/* 2. Middle Section: Due Today (Left) + Telecaller Performance (Right) */}
+          <div className="stitch-middle-grid">
+            <DueTodaySection
+              unassignedCount={data.due_today_data?.unassigned_count ?? data.unassigned_leads_count}
+              followUpsCount={data.due_today_data?.follow_ups_count ?? data.follow_ups_count}
+              interestedCount={data.due_today_data?.interested_count ?? data.interested_count}
+            />
+
+            <TelecallerPerformanceSection telecallers={data.telecaller_performance || []} />
           </div>
 
-          {/* Tier 3: Monthly Inflow & Contact Trends (6 cols) + Top Sources (6 cols) */}
-          <div className="dashboard-grid-tier-split">
-            <CommissionChart data={data.monthly_commission || (data as any).monthly_commissions || []} />
-            <SourceTable sources={data.top_sources || []} />
-          </div>
-
-          {/* Tier 4: Recent Inflow & Cold Leads Queue (12 cols full width) */}
-          {recentLeads.length > 0 && (
-            <div className="recent-cases-section">
-              <div className="recent-cases-header">
-                <div>
-                  <h3 className="recent-cases-title">Recent Inflow & Cold Leads Queue</h3>
-                  <div className="recent-cases-subtitle">
-                    Real-time operational stream of cold leads, referral partner submissions, telecaller assignments, and call outcomes.
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <Link to="/telecaller" className="recent-cases-link" style={{ color: '#2563eb' }}>
-                    Open Telecaller Desk →
-                  </Link>
-                  <Link to="/cases" className="recent-cases-link">
-                    View All Leads ({recentLeads.length}) →
-                  </Link>
-                </div>
-              </div>
-
-              <div style={{ overflowX: 'auto' }}>
-                <table className="recent-cases-table">
-                  <thead>
-                    <tr>
-                      <th>Lead Ref No</th>
-                      <th>Customer & Mobile</th>
-                      <th>Vehicle / Requirement</th>
-                      <th>Lead Source</th>
-                      <th>Requested Loan</th>
-                      <th>Outreach Status</th>
-                      <th>Assigned Desk</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentLeads.map((rc) => {
-                      const phone = rc.primary_applicant_mobile || rc.mobile || '9820011223'
-                      return (
-                        <tr key={rc.id}>
-                          <td>
-                            <Link to={`/cases/${rc.id}`} className="case-num-link">
-                              {rc.case_no}
-                            </Link>
-                          </td>
-                          <td>
-                            <div className="case-applicant-name">{rc.primary_applicant_name}</div>
-                            <div style={{ marginTop: '2px' }}>
-                              <a
-                                href={`tel:${phone}`}
-                                style={{
-                                  color: '#059669',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  textDecoration: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                }}
-                              >
-                                📞 {phone}
-                              </a>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="case-vehicle-text">{rc.vehicle_summary}</span>
-                          </td>
-                          <td>
-                            <span className="case-vehicle-text">{rc.source_name}</span>
-                          </td>
-                          <td>
-                            <span className="case-amt-text">{formatCurrency(rc.loan_amount_requested)}</span>
-                          </td>
-                          <td>
-                            {getLeadStatusBadge(rc.status)}
-                            {rc.is_stuck && (
-                              <span style={{ marginLeft: 4, color: '#b91c1c', fontSize: 10, fontWeight: 700 }}>
-                                UNCALLED
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <span className="case-vehicle-text" style={{ fontWeight: 600, color: '#0f172a' }}>
-                              {rc.owner_name}
-                            </span>
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: '6px' }}>
-                              <Link
-                                to="/telecaller"
-                                className="btn-case-action"
-                                style={{ background: '#0f172a', color: '#ffffff', borderColor: '#0f172a' }}
-                              >
-                                🎧 Call Desk
-                              </Link>
-                              <Link to={`/cases/${rc.id}`} className="btn-case-action">
-                                Open Lead →
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+          {/* 3. Bottom Section: Leads Inflow vs Contacted Grouped Bar Chart */}
+          <LeadsInflowChart data={data.chart_data || []} />
+        </div>
       )}
-
-      {/* Lead Import Modal */}
-      <LeadImportModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImportComplete={() => fetchOverview()}
-      />
     </div>
   )
 }
 
 export default DashboardPage
-

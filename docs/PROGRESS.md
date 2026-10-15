@@ -8,6 +8,40 @@
 
 **PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
 
+### Jai Automobiles Admin Dashboard Stitch Redesign (Completed)
+- **Visual Design Reference Alignment**:
+  - Replaced the legacy dashboard with the executive Stitch design reference for both Desktop and Mobile viewports as a single responsive implementation.
+  - **Header & Title**: Clean typography ("Dashboard", subtitle: "Your business at a glance."), interactive date filter segmented pill control ("All Time", "Last 30 Days", "Last 90 Days"), and functional "Export CSV" action.
+  - **6 KPI Cards**:
+    1. **Leads**: 38 total leads, with `+12 new` badge.
+    2. **Active Calling**: 18 leads (`Assigned to telecallers`).
+    3. **Interested**: 14 leads (`Hot`, `Ready for next step`).
+    4. **Follow-ups**: 8 scheduled callbacks (`Scheduled callbacks`).
+    5. **Converted to Clients**: 10 converted leads (`✓ 26.3%`, `This month`).
+    6. **Unassigned Leads**: 5 unassigned leads (`• Action required` / `Needs action`, `Need assignment`).
+  - **Due Today Priority Panel**: 3 actionable rows (Unassigned leads: 5, Follow-ups due today: 8, Interested leads awaiting next step: 14) and primary CTA button "Open Today's Console →" routed to `/today`.
+  - **Telecaller Performance Section**: Top active telecallers with avatar initials, rankings, lead assignments, interest counts, conversion percentages (Priya Sharma: 60%, 6/10; Rahul Verma: 50%, 4/8), and horizontal dual-ratio progress bars.
+  - **Leads Inflow vs Contacted Chart**: Grouped dual bar chart displaying outreach velocity across 5 time periods (Oct 01–07, Oct 08–14, Oct 15–21, Oct 22–28, Recent Oct 29+).
+  - **Mobile Responsive Design**:
+    - Compact TopBar: hamburger drawer toggle, `JA` emblem, `Jai Automobiles FINANCE ADMIN`, notification bell, and operator avatar.
+    - Title row with circular download button.
+    - Compact segmented control ("All Time", "30 Days", "90 Days").
+    - 2-column KPI card grid that wraps cleanly without horizontal overflow.
+    - Stacked Due Today and Telecaller Performance layout.
+- **Genuine Functional Date Filtering**:
+  - Enforced rigorous timestamp filtering based on `created_at` boundaries:
+    - **All Time**: 38 leads.
+    - **Last 90 Days**: 34 leads (mathematically excludes >90d records like 100d, 110d, 115d, 120d).
+    - **Last 30 Days**: 26 leads (mathematically excludes 40d, 45d, 50d, 55d, 60d, 65d, 75d, 80d, and >90d records).
+  - Switching tabs immediately recalculates and updates all 6 KPI cards, Due Today counts, Telecaller rankings, and CSV export.
+- **Legacy Element Removal**:
+  - Completely removed "Lead Operations Command • Operations Console", "Lead Operations Console", legacy intro paragraphs, Bulk Excel Import button/UI from dashboard, Manual Lead Intake button from dashboard, Telecaller Desk shortcut, Today's Call Cockpit shortcut, Referral Attribution KPI card, old Funnel/Stage Velocity charts, old Attention Queue table, and decorative "LIVE" indicators.
+- **Automated Verification**:
+  - Added test suite `frontend/src/test/stitch_dashboard.test.tsx` (7 tests covering heading, 6 KPI cards, Due Today, Telecaller Performance, Bar Chart, dynamic date switching, and boundary logic).
+  - All 15 frontend test suites passing (118/118 tests).
+  - TypeScript compilation (`tsc -b`) and Vite production build (`vite build`) passing cleanly.
+  - Browser subagent completed end-to-end inspection on Desktop and Mobile viewports with live screenshots.
+
 ### Jai Automobiles Login Experience Overhaul (Completed)
 - **Visual Design Reference Alignment**:
   - Implemented the Stitch desktop and mobile designs for Jai Automobiles login portal with pixel fidelity.

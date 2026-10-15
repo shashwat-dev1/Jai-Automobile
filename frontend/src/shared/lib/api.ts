@@ -31,7 +31,6 @@ export interface EnvelopeResponse<T> {
 
 import { useAuthStore } from '../../features/auth/useAuth'
 import {
-  JAI_MOCK_DASHBOARD,
   JAI_MOCK_PDD,
   JAI_MOCK_EXPECTATIONS,
   JAI_MOCK_ATTENTION_ITEMS,
@@ -56,6 +55,7 @@ import {
   saveStoredDocuments,
   generateDeterministicOcrDocs,
 } from './storeSync'
+import { computeStitchDashboard } from '../../features/dashboard/dashboardDataService'
 
 let currentMockSessionUser: any = null
 
@@ -243,7 +243,12 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Dashboard endpoints
   if (clean.includes('/dashboard/overview')) {
-    return JAI_MOCK_DASHBOARD
+    const cases = getStoredCases()
+    const queryStr = endpoint.includes('?') ? endpoint.split('?')[1] : ''
+    const urlParams = new URLSearchParams(queryStr)
+    const dateFrom = urlParams.get('date_from')
+    const dateTo = urlParams.get('date_to')
+    return computeStitchDashboard(cases, dateFrom, dateTo)
   }
   if (clean.includes('/dashboard/today')) {
     return {

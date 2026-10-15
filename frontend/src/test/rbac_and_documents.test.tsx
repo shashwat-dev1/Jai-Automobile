@@ -127,17 +127,17 @@ describe('Role-Based Access Control, Assigned Leads & Document Requirement Rules
 
       // Query lead list
       const cases = await api.get<any[]>('/cases')
-      expect(cases.length).toBe(4)
+      expect(cases.length).toBe(10)
       cases.forEach((c) => {
         expect(c.assigned_telecaller_id).toBe('usr-telecaller-1')
       })
 
       // Query workspace stats
       const ws = await api.get<any>('/cases/telecaller/workspace')
-      expect(ws.total_assigned).toBe(4)
+      expect(ws.total_assigned).toBe(10)
     })
 
-    it('scopes Telecaller B (Rahul Verma) to exactly 2 assigned leads', async () => {
+    it('scopes Telecaller B (Rahul Verma) to exactly 8 assigned leads', async () => {
       // Login as Telecaller B
       const loginRes = await api.post<any>('/auth/login', {
         identifier: 'rahul.verma@jaiautomobiles.com',
@@ -150,22 +150,22 @@ describe('Role-Based Access Control, Assigned Leads & Document Requirement Rules
 
       // Query lead list
       const cases = await api.get<any[]>('/cases')
-      expect(cases.length).toBe(2)
+      expect(cases.length).toBe(8)
       cases.forEach((c) => {
         expect(c.assigned_telecaller_id).toBe('usr-telecaller-2')
       })
 
       // Query workspace stats
       const ws = await api.get<any>('/cases/telecaller/workspace')
-      expect(ws.total_assigned).toBe(2)
+      expect(ws.total_assigned).toBe(8)
     })
 
     it('denies Telecaller A access to Telecaller B lead dossier with 403 Forbidden', async () => {
       useAuthStore.getState().loginAsDemo('telecaller', 'priya.sharma@jaiautomobiles.com')
 
       try {
-        // case-jai-105 is assigned to Telecaller B
-        await api.get('/cases/case-jai-105')
+        // case-jai-102 is assigned to Telecaller B
+        await api.get('/cases/case-jai-102')
         expect.unreachable('Should have thrown 403')
       } catch (err: any) {
         expect(err).toBeInstanceOf(ApiError)

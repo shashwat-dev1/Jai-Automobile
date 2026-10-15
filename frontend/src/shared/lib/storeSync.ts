@@ -6,14 +6,15 @@
  * and survive page reloads and cross-tab navigation.
  */
 
-import { JAI_MOCK_CASES, JAI_MOCK_REFERRAL_PROFILES } from './mockDatabase'
+import { JAI_MOCK_REFERRAL_PROFILES } from './mockDatabase'
+import { createMockCases } from './mockCasesSeed'
 import type { MockCase } from './mockDatabase'
 import type { DocumentItem } from '../../features/documents/types'
 import { isFirebaseConfigured, db } from './firebase'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 export const STORAGE_KEYS = {
-  CASES: 'dsa_os_cases_store_v2',
+  CASES: 'dsa_os_cases_store_v3',
   DOCUMENTS: 'dsa_os_documents_store_v2',
   REFERRAL_PROFILES: 'dsa_os_referrals_store_v2',
   COMMISSIONS: 'dsa_os_commissions_store_v2',
@@ -45,15 +46,15 @@ export function getStoredCases(): MockCase[] {
   if (raw) {
     try {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed) && parsed.length >= 20) {
         return parsed
       }
     } catch {
       // Fallback to initial seeds
     }
   }
-  // Initialize storage with JAI_MOCK_CASES
-  const initial = [...JAI_MOCK_CASES]
+  // Initialize storage with 38 multi-tier mock cases
+  const initial = createMockCases()
   safeSetItem(STORAGE_KEYS.CASES, JSON.stringify(initial))
   return initial
 }

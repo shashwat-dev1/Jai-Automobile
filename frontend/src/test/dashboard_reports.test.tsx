@@ -10,7 +10,9 @@ import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { TodayPage } from '../features/dashboard/TodayPage'
 import { formatINR } from '../features/dashboard/utils'
 import { api } from '../shared/lib/api'
-import type { DashboardOverviewResponse, TodayViewResponse } from '../features/dashboard/types'
+import type { TodayViewResponse } from '../features/dashboard/types'
+import { computeStitchDashboard } from '../features/dashboard/dashboardDataService'
+import { createMockCases } from '../shared/lib/mockCasesSeed'
 
 vi.mock('../shared/lib/api', () => ({
   api: {
@@ -166,66 +168,10 @@ describe('Dashboard & Reports Component Suite (Phase 08)', () => {
   })
 
   it('DashboardPage loads live data from api and renders complete console', async () => {
-    const mockOverview: DashboardOverviewResponse = {
-      pipeline_summary: {
-        active_files_count: 12,
-        total_loan_amount_requested: '7200000.00',
-        new_inflow_count: 4,
-        docs_pending_count: 2,
-        logged_in_count: 3,
-        sanctioned_count: 2,
-        disbursed_count: 5,
-        disbursed_volume: '4100000.00',
-        closed_count: 1,
-        rejected_count: 0,
-      },
-      payout_summary: {
-        total_expected_net: '82000.00',
-        total_received_net: '75000.00',
-        realisation_rate_pct: '91.46',
-        outstanding_net: '7000.00',
-        variance_net: '-7000.00',
-      },
-      monthly_commission: [
-        {
-          month: '2026-10',
-          expected_amount: '82000.00',
-          settled_amount: '75000.00',
-          case_count: 5,
-        },
-      ],
-      funnel_stages: [
-        {
-          stage: 'lead',
-          stage_label: 'Lead Inflow',
-          count: 3,
-          total_amount: '1500000.00',
-          avg_ageing_hours: '8.5',
-          is_bottleneck: false,
-        },
-      ],
-      top_sources: [
-        {
-          source_id: 's-123',
-          source_name: 'Metro Wheels',
-          source_type: 'dealer',
-          total_cases: 8,
-          disbursed_cases: 4,
-          conversion_rate_pct: '50.0',
-          disbursed_volume: '3200000.00',
-          accrued_payout: '64000.00',
-        },
-      ],
-      attention_items: {
-        stuck_cases_count: 1,
-        urgent_tasks_count: 2,
-        overdue_pdd_count: 0,
-        discrepancy_payouts_count: 1,
-        expiring_docs_count: 0,
-      },
-    }
+    const cases = createMockCases()
+    const stitchOverview = computeStitchDashboard(cases)
 
-    vi.mocked(api.get).mockResolvedValueOnce(mockOverview)
+    vi.mocked(api.get).mockResolvedValueOnce(stitchOverview)
 
     render(
       <MemoryRouter>
@@ -234,9 +180,9 @@ describe('Dashboard & Reports Component Suite (Phase 08)', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Operations Console')).toBeInTheDocument()
-      expect(screen.getByText('Metro Wheels')).toBeInTheDocument()
-      expect(screen.getAllByText(/82,000/).length).toBeGreaterThan(0)
+      expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+      expect(screen.getByText('Your business at a glance.')).toBeInTheDocument()
+      expect(screen.getByTestId('kpi-leads')).toBeInTheDocument()
     })
   })
 
