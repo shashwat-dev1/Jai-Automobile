@@ -65,6 +65,16 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData()
+
+    const handleUpdate = () => {
+      fetchDashboardData()
+    }
+    window.addEventListener('dsa_os_cases_updated', handleUpdate)
+    window.addEventListener('storage', handleUpdate)
+    return () => {
+      window.removeEventListener('dsa_os_cases_updated', handleUpdate)
+      window.removeEventListener('storage', handleUpdate)
+    }
   }, [fetchDashboardData])
 
   // Direct CSV Export of filtered records

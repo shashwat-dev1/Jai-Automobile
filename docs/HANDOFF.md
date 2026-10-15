@@ -159,8 +159,12 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
-> **Jai Automobiles Login UI Overhaul & Phase 1 Rebuild 100% COMPLETE.**
-> - **Frontend**: 111/111 Vitest tests passing across 14 test suites with clean production build (`tsc -b && vite build`).
+> **Critical Production Bug Fix: Cross-Device Cloud Sync 100% COMPLETE.**
+> - **Frontend**: 120/120 Vitest tests passing across 16 test suites with clean production build (`tsc -b && vite build`).
+> - **Cross-Device Cloud Sync Architecture**:
+>   - Firebase Firestore cloud synchronization implemented in `frontend/src/shared/lib/storeSync.ts` with automatic `undefined` field sanitization.
+>   - Real-time `onSnapshot` listeners actively propagate mobile referral submissions and telecaller assignments directly to Desktop Admin sessions in real time without manual reload.
+>   - Strict tenant isolation (`organization_slug: 'jai-automobiles'`) and role-based telecaller scoping maintained.
 > - **New Jai Automobiles Login Experience**:
 >   - Desktop: Forest-green ambient canvas, animated flowing lines, pointer spotlight, crisp white login card, JA squircle emblem, email/password fields with password visibility toggle, remember this device, forgot password guidance modal, Sign In button, and floating demo access pill.
 >   - Mobile: Light airy mint background, top brand header with shield emblem, white card with soft tinted inputs, "Remember me" / "Forgot password?", tactile button, and mobile demo pill.
@@ -176,7 +180,7 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Production Deployment to Existing Vercel Project
 
-1. Commit all login changes with logical commit messages.
+1. Commit all changes with logical commit messages.
 2. Push to `main` on `origin`.
 3. Vercel automatically deploys the updated release to the live production project URL.
 

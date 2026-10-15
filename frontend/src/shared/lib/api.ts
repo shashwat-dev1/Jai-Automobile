@@ -54,6 +54,8 @@ import {
   getStoredDocuments,
   saveStoredDocuments,
   generateDeterministicOcrDocs,
+  syncCaseToCloud,
+  initCloudSync,
 } from './storeSync'
 import { computeStitchDashboard } from '../../features/dashboard/dashboardDataService'
 
@@ -243,6 +245,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Dashboard endpoints
   if (clean.includes('/dashboard/overview')) {
+    initCloudSync()
     const cases = getStoredCases()
     const queryStr = endpoint.includes('?') ? endpoint.split('?')[1] : ''
     const urlParams = new URLSearchParams(queryStr)
@@ -564,6 +567,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           found.assigned_telecaller_name = tcName
           found.updated_at = new Date().toISOString()
           count++
+          syncCaseToCloud(found).catch((e) => console.warn('Assign sync error:', e))
         }
       })
       saveStoredCases(cases)
@@ -752,6 +756,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       vehicle_details: parsedBody?.vehicle_reg_no ? `Vehicle (${parsedBody.vehicle_reg_no})` : `${isNew ? 'New' : 'Used'} Vehicle Loan`,
       source_name: `Referral: ${partner.name}`,
       owner_name: 'Aarav Sharma',
+      organization_slug: 'jai-automobiles',
+      org_id: '11111111-1111-1111-1111-111111111111',
+      assigned_telecaller_id: null,
+      assigned_telecaller_name: null,
       referral_profile_id: partner.id,
       referral_partner_name: partner.name,
       referral_partner_mobile: rawMobile,
@@ -904,6 +912,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Telecaller Workspace (GET /cases/telecaller/workspace)
   if (clean.includes('/cases/telecaller/workspace')) {
+    initCloudSync()
     const active = getActiveMockUser()
     const cases = getStoredCases()
     const myLeads = (active && active.role === 'telecaller')
@@ -928,11 +937,14 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const stored = getStoredCases()
     const updated = stored.map((c: any) => {
       if (caseIds.includes(c.id) || caseIds.includes(c.case_no)) {
-        return {
+        const item = {
           ...c,
           assigned_telecaller_id: telecallerId,
           assigned_telecaller_name: tcName,
+          updated_at: new Date().toISOString(),
         }
+        syncCaseToCloud(item).catch((e) => console.warn('Assign sync error:', e))
+        return item
       }
       return c
     })
@@ -988,6 +1000,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
 
   // Cases List (GET /cases) with Strict Telecaller Assignment Filter
   if (clean.includes('/cases') && method === 'GET') {
+    initCloudSync()
     const active = getActiveMockUser()
     const cases = getStoredCases()
     if (active && active.role === 'telecaller') {

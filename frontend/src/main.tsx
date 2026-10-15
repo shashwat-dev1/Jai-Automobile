@@ -10,6 +10,11 @@ import './design-system/tokens.css'
 import './design-system/reset.css'
 import './design-system/typography.css'
 
+import { initCloudSync } from './shared/lib/storeSync'
+
+// Initialize real-time cross-device cloud synchronization
+initCloudSync()
+
 // -------------------------------------------------------------------------
 // TanStack Query client configuration
 // -------------------------------------------------------------------------

@@ -11,7 +11,16 @@ import { createMockCases } from './mockCasesSeed'
 import type { MockCase } from './mockDatabase'
 import type { DocumentItem } from '../../features/documents/types'
 import { isFirebaseConfigured, db } from './firebase'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+  writeBatch,
+} from 'firebase/firestore'
 
 export const STORAGE_KEYS = {
   CASES: 'dsa_os_cases_store_v3',
@@ -39,7 +48,22 @@ function safeSetItem(key: string, value: string): void {
   }
 }
 
-// --- 1. Cases Persistence & Cross-Tab Sync ---
+// --- Helper: Clean object for Firestore (eliminates undefined values) ---
+export function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === undefined) return null as unknown as T
+  if (obj === null || typeof obj !== 'object') return obj
+  if (obj instanceof Date) return obj.toISOString() as unknown as T
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirestore) as unknown as T
+  }
+  const cleaned: Record<string, any> = {}
+  for (const [k, v] of Object.entries(obj as Record<string, any>)) {
+    cleaned[k] = v === undefined ? null : sanitizeForFirestore(v)
+  }
+  return cleaned as T
+}
+
+// --- 1. Cases Persistence & Cross-Device Cloud Sync ---
 
 export function getStoredCases(): MockCase[] {
   const raw = safeGetItem(STORAGE_KEYS.CASES)
@@ -67,9 +91,202 @@ export function saveStoredCases(cases: MockCase[]): void {
   }
 }
 
+/**
+ * Asynchronously synchronizes a single case to Firebase Firestore.
+ * Preserves multi-tenant isolation under organization_slug: 'jai-automobiles'.
+ */
+export async function syncCaseToCloud(caseItem: MockCase): Promise<void> {
+  if (!isFirebaseConfigured() || !db) return
+  const firestore = db
+  try {
+    const cleanCase = sanitizeForFirestore({
+      ...caseItem,
+      organization_slug: caseItem.organization_slug || 'jai-automobiles',
+      org_id: caseItem.org_id || '11111111-1111-1111-1111-111111111111',
+      synced_at: new Date().toISOString(),
+    })
+    const docRef = doc(firestore, 'cases', caseItem.id)
+    await setDoc(docRef, cleanCase, { merge: true })
+  } catch (err) {
+    console.warn('Firestore case push notice:', err)
+  }
+}
+
+/**
+ * Merges cases received from Firebase Firestore into the local storage cache.
+ * Dispatches a UI update event if any new records or assignments are found.
+ */
+export function mergeRemoteCases(remoteCases: MockCase[]): void {
+  if (!remoteCases || remoteCases.length === 0) return
+
+  const localCases = getStoredCases()
+  let hasChanges = false
+  const caseMap = new Map<string, MockCase>()
+
+  // Index existing local cases
+  localCases.forEach((c) => {
+    if (c.id) caseMap.set(c.id, c)
+    if (c.case_no) caseMap.set(c.case_no, c)
+  })
+
+  const updatedCases = [...localCases]
+
+  remoteCases.forEach((remote) => {
+    const existing = caseMap.get(remote.id) || (remote.case_no ? caseMap.get(remote.case_no) : undefined)
+    if (!existing) {
+      // Remote case is brand new (e.g., created on mobile)
+      updatedCases.unshift(remote)
+      caseMap.set(remote.id, remote)
+      if (remote.case_no) caseMap.set(remote.case_no, remote)
+      hasChanges = true
+    } else {
+      // Check if remote has newer assignment or status change
+      const isRemoteNewer =
+        !existing.updated_at ||
+        (remote.updated_at && new Date(remote.updated_at).getTime() >= new Date(existing.updated_at).getTime())
+
+      if (
+        isRemoteNewer &&
+        (existing.assigned_telecaller_id !== remote.assigned_telecaller_id ||
+          existing.status !== remote.status ||
+          existing.call_outcome !== remote.call_outcome)
+      ) {
+        const idx = updatedCases.findIndex((c) => c.id === existing.id || c.case_no === existing.case_no)
+        if (idx >= 0) {
+          updatedCases[idx] = { ...existing, ...remote }
+          hasChanges = true
+        }
+      }
+    }
+  })
+
+  if (hasChanges) {
+    safeSetItem(STORAGE_KEYS.CASES, JSON.stringify(updatedCases))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dsa_os_cases_updated', { detail: { count: updatedCases.length } }))
+    }
+  }
+}
+
+/**
+ * Syncs the local dataset with Firebase Firestore.
+ * If cloud database is empty, seeds baseline multi-tier cases.
+ */
+export async function syncCasesWithCloud(): Promise<MockCase[]> {
+  if (!isFirebaseConfigured() || !db) {
+    return getStoredCases()
+  }
+  const firestore = db
+
+  try {
+    const casesRef = collection(firestore, 'cases')
+    const q = query(casesRef, where('organization_slug', '==', 'jai-automobiles'))
+    const snap = await getDocs(q)
+
+    if (snap.empty) {
+      // Cloud is empty: seed baseline multi-tier cases to Firestore
+      const baselineCases = getStoredCases()
+      try {
+        const batch = writeBatch(firestore)
+        baselineCases.forEach((c) => {
+          const docRef = doc(firestore, 'cases', c.id)
+          batch.set(docRef, sanitizeForFirestore({
+            ...c,
+            organization_slug: 'jai-automobiles',
+            org_id: '11111111-1111-1111-1111-111111111111',
+          }))
+        })
+        await batch.commit()
+      } catch (seedErr) {
+        console.warn('Initial Firestore seeding notice:', seedErr)
+      }
+      return baselineCases
+    }
+
+    const remoteCases: MockCase[] = []
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as MockCase
+      remoteCases.push({ ...data, id: docSnap.id })
+    })
+
+    mergeRemoteCases(remoteCases)
+    return getStoredCases()
+  } catch (err) {
+    console.warn('Firestore cloud fetch notice:', err)
+    return getStoredCases()
+  }
+}
+
+let cloudSyncInitialized = false
+
+/**
+ * Initializes real-time two-way cloud synchronization across all devices (Desktop, Mobile, Tablet).
+ */
+export function initCloudSync(): void {
+  if (cloudSyncInitialized || typeof window === 'undefined') return
+  cloudSyncInitialized = true
+
+  if (!isFirebaseConfigured() || !db) return
+  const firestore = db
+
+  // 1. Initial pull and seed from cloud
+  syncCasesWithCloud().catch((err) => console.warn('Initial cloud sync error:', err))
+
+  // 2. Real-time multi-device subscription for cases
+  try {
+    const casesRef = collection(firestore, 'cases')
+    const q = query(casesRef, where('organization_slug', '==', 'jai-automobiles'))
+    onSnapshot(
+      q,
+      (snapshot) => {
+        if (snapshot.empty) return
+        const remoteCases: MockCase[] = []
+        snapshot.forEach((docSnap) => {
+          remoteCases.push({ ...(docSnap.data() as MockCase), id: docSnap.id })
+        })
+        mergeRemoteCases(remoteCases)
+      },
+      (err) => {
+        console.warn('Real-time Firestore cases subscription notice:', err)
+      }
+    )
+  } catch (err) {
+    console.warn('Failed to attach Firestore cases listener:', err)
+  }
+
+  // 3. Real-time multi-device subscription for referral partner profiles
+  try {
+    const refProfilesRef = collection(firestore, 'referral_profiles')
+    onSnapshot(
+      refProfilesRef,
+      (snapshot) => {
+        if (snapshot.empty) return
+        const remoteProfiles: any[] = []
+        snapshot.forEach((d) => remoteProfiles.push({ ...d.data(), id: d.id }))
+        const local = getStoredReferralProfiles()
+        const map = new Map<string, any>()
+        local.forEach((p) => map.set(p.id, p))
+        let changed = false
+        remoteProfiles.forEach((rp) => {
+          if (!map.has(rp.id)) {
+            local.unshift(rp)
+            map.set(rp.id, rp)
+            changed = true
+          }
+        })
+        if (changed) {
+          saveStoredReferralProfiles(local)
+        }
+      },
+      (err) => console.warn('Real-time Firestore referrals listener notice:', err)
+    )
+  } catch (err) {
+    console.warn('Failed to attach Firestore referrals listener:', err)
+  }
+}
+
 export function addStoredCase(newCase: MockCase): void {
   const current = getStoredCases()
-  // Check duplicate ID
   const existingIdx = current.findIndex((c) => c.id === newCase.id || c.case_no === newCase.case_no)
   let updated: MockCase[]
   if (existingIdx >= 0) {
@@ -80,19 +297,8 @@ export function addStoredCase(newCase: MockCase): void {
   }
   saveStoredCases(updated)
 
-  // Asynchronously sync to Firebase Firestore if configured
-  if (isFirebaseConfigured() && db) {
-    try {
-      const docRef = doc(db, 'cases', newCase.id)
-      setDoc(docRef, {
-        ...newCase,
-        created_at: serverTimestamp(),
-        organization_slug: 'jai-automobiles',
-      }).catch((e) => console.warn('Background Firestore push notice:', e))
-    } catch {
-      // Silent non-blocking fail
-    }
-  }
+  // Asynchronously sync to Firebase Firestore for cross-device visibility
+  syncCaseToCloud(newCase).catch((e) => console.warn('Background Firestore push notice:', e))
 }
 
 export function updateStoredCase(caseId: string, updates: Partial<MockCase>): MockCase | null {
@@ -108,6 +314,9 @@ export function updateStoredCase(caseId: string, updates: Partial<MockCase>): Mo
   }
   current[idx] = updatedCase
   saveStoredCases(current)
+
+  // Asynchronously sync to Firebase Firestore for cross-device visibility
+  syncCaseToCloud(updatedCase).catch((e) => console.warn('Background Firestore update notice:', e))
   return updatedCase
 }
 
@@ -148,6 +357,18 @@ export function addOrUpdateReferralProfile(partner: any): void {
     updated = [partner, ...current]
   }
   saveStoredReferralProfiles(updated)
+
+  // Sync referral profile to Firebase Firestore
+  if (isFirebaseConfigured() && db) {
+    try {
+      const docRef = doc(db, 'referral_profiles', partner.id)
+      setDoc(docRef, sanitizeForFirestore({
+        ...partner,
+        organization_slug: 'jai-automobiles',
+        synced_at: new Date().toISOString(),
+      }), { merge: true }).catch((e) => console.warn('Firestore referral sync notice:', e))
+    } catch {}
+  }
 }
 
 // --- 3. Documents & OCR Scans Persistence ---

@@ -6,7 +6,32 @@
 
 ## Current Phase
 
-**PHASE 1 REBUILD & LIVE DEPLOYMENT COMPLETE**
+**PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
+
+### Critical Production Bug Fix: Mobile-to-Desktop Data Consistency & Real-Time Cloud Sync (Completed)
+- **Root Cause Identified**:
+  - The live Vercel deployment hosts the client SPA where API routes utilize client-side storage fallback.
+  - The fallback mechanism previously relied strictly on device-local `window.localStorage` (`dsa_os_cases_store_v3`). Because `localStorage` is scoped to the physical device hardware, leads submitted or assigned on a mobile phone remained trapped on that device and were never visible on a desktop browser.
+  - While Firebase Firestore credentials existed in `frontend/.env`, active cloud synchronization was dormant: `addStoredCase` failed silently because Firestore SDK throws `FirebaseError: Unsupported field value: undefined` on objects containing `undefined` fields; telecaller assignments in `/cases/assign` were never propagated to the cloud; and application startup never polled or attached real-time listeners to Firestore.
+- **Implementation & Architecture**:
+  - **Firestore Data Sanitization**: Implemented `sanitizeForFirestore<T>()` in `frontend/src/shared/lib/storeSync.ts` to recursively convert all `undefined` values to `null`, ensuring error-free serialization with Google Cloud Firestore.
+  - **Two-Way Cloud Persistence**:
+    - `syncCaseToCloud(caseItem)`: Persists submitted leads and updated assignments to Firestore collection `'cases'` with `{ merge: true }`.
+    - `syncCasesWithCloud()`: On initial load, pulls remote cases from Firestore into the local cache, or seeds baseline cases if Firestore is brand new.
+    - `initCloudSync()`: Establishes real-time `onSnapshot` listeners on both `'cases'` and `'referral_profiles'` Firestore collections, ensuring changes originating on any mobile device immediately sync to desktop sessions within milliseconds.
+    - `mergeRemoteCases(remoteCases)`: Merges cloud updates into local storage and dispatches a custom `dsa_os_cases_updated` event.
+  - **API Integration**:
+    - `POST /referrals/guest-submit`: Explicitly sets `organization_slug: 'jai-automobiles'` and `org_id: '11111111-1111-1111-1111-111111111111'`, tags partner attribution, and dispatches the lead to Firestore via `syncCaseToCloud`.
+    - `POST /cases/assign`: Immediately updates and synchronizes all assigned leads to Firestore with telecaller ID and telecaller name.
+    - `GET /cases`, `GET /dashboard/overview`, `GET /cases/telecaller/workspace`: Automatically trigger `initCloudSync()` to guarantee up-to-date cloud state.
+  - **Reactive Admin Dashboard**:
+    - `DashboardPage.tsx` listens for `dsa_os_cases_updated` and `storage` events, instantly recalculating all 6 KPI cards, Due Today priority panel, and telecaller rankings whenever a new lead arrives from mobile.
+  - **Strict Security & Tenant Isolation**:
+    - All leads are strictly bound to `organization_slug: 'jai-automobiles'`.
+    - Telecaller workspace (`/cases/telecaller/workspace`) strictly filters leads to `assigned_telecaller_id === currentUserId`, ensuring Telecaller Rahul sees his assigned leads while Telecaller Priya is prevented from accessing them.
+- **Verification**:
+  - Created automated cross-device cloud sync suite in `frontend/src/test/cross_device_cloud_sync.test.tsx` verifying the complete lifecycle: Mobile Lead Submission -> Desktop Admin Visibility -> Telecaller Rahul Assignment -> Telecaller Priya Access Restriction -> Remote Cloud Merge.
+  - All 16 frontend test suites passing (120/120 tests). Clean TypeScript check and production build (`tsc -b && vite build`).
 
 ### Jai Automobiles Admin Dashboard Stitch Redesign (Completed)
 - **Visual Design Reference Alignment**:

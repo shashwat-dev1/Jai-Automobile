@@ -39,6 +39,8 @@ export interface MockCase {
   call_attempts_count?: number
   referral_profile_id?: string
   referral_partner_name?: string
+  organization_slug?: string
+  org_id?: string
   call_activity_history?: Array<{
     id: string
     outcome: string
