@@ -90,6 +90,8 @@ export function GuestReferralPage() {
   const [loanAmount, setLoanAmount] = useState('850000')
   const [selectedPreset, setSelectedPreset] = useState<number | null>(850000)
   const [pincode, setPincode] = useState('400001')
+  const [locality, setLocality] = useState('Fort')
+  const [district, setDistrict] = useState('Mumbai')
   const [city, setCity] = useState('Mumbai')
   const [state, setState] = useState('Maharashtra')
   const [stateShort, setStateShort] = useState('MH')
@@ -363,6 +365,8 @@ export function GuestReferralPage() {
         if (controller.signal.aborted) return
 
         if (result) {
+          setLocality(result.locality)
+          setDistrict(result.district)
           setCity(result.city)
           setState(result.state)
           setStateShort(result.stateShort)
@@ -564,6 +568,8 @@ export function GuestReferralPage() {
         product_type: vehicleCondition === 'new' ? 'new_car' : 'used_car',
         loan_amount_requested: numAmount,
         pincode,
+        locality: locality.trim(),
+        district: district.trim(),
         city: city.trim(),
         state: state.trim(),
         expected_loan_required_date: expectedLoanRequiredDate,
@@ -615,6 +621,8 @@ export function GuestReferralPage() {
     setLoanAmount('850000')
     setSelectedPreset(850000)
     setPincode('400001')
+    setLocality('Fort')
+    setDistrict('Mumbai')
     setCity('Mumbai')
     setState('Maharashtra')
     setStateShort('MH')
@@ -1136,9 +1144,28 @@ export function GuestReferralPage() {
                         </svg>
                       </div>
                       <div className="city-text-stack">
-                        <span className="city-label">{t.cityStateLabel}</span>
-                        <span className="city-value">
-                          {city}{stateShort ? `, ${stateShort}` : state ? `, ${state}` : ''}
+                        <span className="city-label">{t.townDistrictStateLabel}</span>
+                        <span
+                          className="city-value"
+                          title={`${locality ? `${locality}, ` : ''}${district ? `Dist: ${district}, ` : ''}${state}`}
+                        >
+                          {locality ? (
+                            <>
+                              <strong className="city-locality-bold">{locality}</strong>
+                              {district ? `, Dist: ${district}` : ''}
+                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
+                            </>
+                          ) : district ? (
+                            <>
+                              <strong>{district}</strong>
+                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
+                            </>
+                          ) : (
+                            <>
+                              {city}
+                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
+                            </>
+                          )}
                         </span>
                       </div>
                       <div className="city-actions-wrapper">
@@ -1158,13 +1185,30 @@ export function GuestReferralPage() {
                   {isEditingLocationManually && (
                     <div className="manual-location-inputs-row conditional-slide-down">
                       <div className="manual-col">
-                        <label className="sub-field-label" htmlFor="manual-city-input">{t.cityLabel}</label>
+                        <label className="sub-field-label" htmlFor="manual-locality-input">{t.townLocalityLabel}</label>
                         <input
-                          id="manual-city-input"
+                          id="manual-locality-input"
                           type="text"
                           className="text-input text-input-sm"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
+                          value={locality}
+                          onChange={(e) => {
+                            setLocality(e.target.value)
+                            setCity(e.target.value || district)
+                          }}
+                        />
+                      </div>
+                      <div className="manual-col">
+                        <label className="sub-field-label" htmlFor="manual-district-input">{t.districtLabel}</label>
+                        <input
+                          id="manual-district-input"
+                          aria-label={`${t.districtLabel} (${t.cityLabel})`}
+                          type="text"
+                          className="text-input text-input-sm"
+                          value={district}
+                          onChange={(e) => {
+                            setDistrict(e.target.value)
+                            if (!locality) setCity(e.target.value)
+                          }}
                         />
                       </div>
                       <div className="manual-col">

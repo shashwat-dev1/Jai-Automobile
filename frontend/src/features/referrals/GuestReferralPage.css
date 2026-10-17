@@ -1259,13 +1259,18 @@
 
 .manual-location-inputs-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
   gap: 10px;
   margin-top: 10px;
   background: #ffffff;
   padding: 10px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
+}
+
+.city-locality-bold {
+  font-weight: 800;
+  color: #062422;
 }
 
 .manual-col {

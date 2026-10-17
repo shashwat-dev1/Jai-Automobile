@@ -202,19 +202,38 @@ describe('Referral Portal Final Updates Test Suite', () => {
       fireEvent.change(pincodeInput, { target: { value: '560001' } })
 
       await waitFor(() => {
-        expect(screen.getByText(/Bengaluru/i)).toBeInTheDocument()
-        expect(screen.getByText(/KA/i)).toBeInTheDocument()
+        const text = document.querySelector('.city-value')?.textContent || ''
+        expect(text).toContain('Bengaluru')
+        expect(text).toContain('Karnataka')
       })
 
       // Enter New Delhi PIN code
       fireEvent.change(pincodeInput, { target: { value: '110001' } })
 
       await waitFor(() => {
-        expect(screen.getByText(/New Delhi|Delhi/i)).toBeInTheDocument()
+        const text = document.querySelector('.city-value')?.textContent || ''
+        expect(text).toMatch(/New Delhi|Delhi|Connaught Place/i)
       })
     })
 
-    it('displays error for invalid PIN codes and allows manual location editing', async () => {
+    it('accurately resolves rural and town-level postal code 470229 to Garhakota, Sagar, Madhya Pradesh', async () => {
+      await advanceToScreen2()
+
+      const pincodeInput = document.getElementById('customer-pincode') as HTMLInputElement
+      expect(pincodeInput).toBeInTheDocument()
+
+      // Enter Garhakota (Sagar, MP) PIN code
+      fireEvent.change(pincodeInput, { target: { value: '470229' } })
+
+      await waitFor(() => {
+        const text = document.querySelector('.city-value')?.textContent || ''
+        expect(text).toContain('Garhakota')
+        expect(text).toContain('Sagar')
+        expect(text).toContain('Madhya Pradesh')
+      })
+    })
+
+    it('displays error for invalid PIN codes and allows manual location editing with Town/Locality, District, and State', async () => {
       await advanceToScreen2()
 
       const pincodeInput = document.getElementById('customer-pincode') as HTMLInputElement
@@ -230,12 +249,15 @@ describe('Referral Portal Final Updates Test Suite', () => {
       expect(editBtn).toBeInTheDocument()
       fireEvent.click(editBtn)
 
-      expect(screen.getByLabelText(/City \/ District/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Town \/ Locality/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/District/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/State/i)).toBeInTheDocument()
 
-      fireEvent.change(screen.getByLabelText(/City \/ District/i), { target: { value: 'Nashik' } })
+      fireEvent.change(screen.getByLabelText(/Town \/ Locality/i), { target: { value: 'Panchavati' } })
+      fireEvent.change(screen.getByLabelText(/District/i), { target: { value: 'Nashik' } })
       fireEvent.change(screen.getByLabelText(/State/i), { target: { value: 'Maharashtra' } })
 
+      expect(screen.getByText(/Panchavati/i)).toBeInTheDocument()
       expect(screen.getByText(/Nashik/i)).toBeInTheDocument()
     })
   })

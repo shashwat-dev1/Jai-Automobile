@@ -105,9 +105,10 @@ describe('DSA OS Phase 1 Rebuild Test Suite', () => {
       const pinInput = screen.getByPlaceholderText('400001')
       fireEvent.change(pinInput, { target: { value: '302001' } })
 
-      // Jaipur, RJ should be automatically populated in city card
+      // Jaipur should be automatically populated in city card
       await waitFor(() => {
-        expect(screen.getByText(/Jaipur, RJ/i)).toBeInTheDocument()
+        const text = document.querySelector('.city-value')?.textContent || ''
+        expect(text).toContain('Jaipur')
       })
     })
   })

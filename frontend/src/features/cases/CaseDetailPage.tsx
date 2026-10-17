@@ -267,8 +267,11 @@ export const CaseDetailPage: React.FC = () => {
   const regNo = caseData.vehicle?.registration_no || (caseData as any).vehicle_reg_no || 'MH 02 CD 8821'
   const fuel = (caseData as any).fuel_type || 'Petrol'
   const vehicleYear = caseData.vehicle?.year_of_manufacture || 2021
+  const locality = caseData.primary_party?.locality || (caseData as any).locality || null
+  const district = caseData.primary_party?.district || (caseData as any).district || null
   const city = caseData.primary_party?.city || 'Andheri West, Mumbai, MH'
-  const pincode = (caseData as any).pincode || '400058'
+  const partyState = caseData.primary_party?.state || ''
+  const pincode = (caseData as any).pincode || caseData.primary_party?.pincode || '400058'
   const expectedLoanDate = (caseData as any).expected_loan_required_date || null
 
   const isDirectLead =
@@ -562,7 +565,11 @@ export const CaseDetailPage: React.FC = () => {
 
               <div className="spec-field-box">
                 <span className="spec-label">CUSTOMER LOCATION</span>
-                <span className="spec-val">{city} • PIN: {pincode}</span>
+                <span className="spec-val">
+                  {locality && district
+                    ? `${locality}, Dist: ${district}${partyState ? `, ${partyState}` : ''} • PIN: ${pincode}`
+                    : `${city} • PIN: ${pincode}`}
+                </span>
               </div>
 
               <div className="spec-field-box">

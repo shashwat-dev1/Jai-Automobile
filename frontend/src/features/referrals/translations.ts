@@ -75,10 +75,13 @@ export interface ReferralTranslations {
   dealerCustomerPincode: string
   pincodePlaceholder: string
   cityStateLabel: string
+  townDistrictStateLabel: string
   autoBadge: string
   editLocation: string
   saveLocation: string
   cityLabel: string
+  townLocalityLabel: string
+  districtLabel: string
   stateLabel: string
   pincodeLookupError: string
   pincodeInvalidError: string
@@ -199,10 +202,13 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     dealerCustomerPincode: 'Dealer / Customer PIN Code',
     pincodePlaceholder: '400001',
     cityStateLabel: 'CITY & STATE',
+    townDistrictStateLabel: 'TOWN / LOCALITY, DISTRICT & STATE',
     autoBadge: 'Auto',
     editLocation: 'Edit',
     saveLocation: 'Done',
     cityLabel: 'City / District',
+    townLocalityLabel: 'Town / Locality',
+    districtLabel: 'District',
     stateLabel: 'State',
     pincodeLookupError: 'Could not resolve location for PIN code. You can enter it manually.',
     pincodeInvalidError: 'Enter a valid 6-digit Indian PIN code.',
@@ -317,10 +323,13 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     dealerCustomerPincode: 'डीलर / ग्राहक का पिन कोड',
     pincodePlaceholder: '400001',
     cityStateLabel: 'शहर और राज्य',
+    townDistrictStateLabel: 'कस्बा, जिला और राज्य',
     autoBadge: 'स्वतः',
     editLocation: 'संशोधित करें',
     saveLocation: 'सहेजें',
     cityLabel: 'शहर / जिला',
+    townLocalityLabel: 'कस्बा / इलाका',
+    districtLabel: 'जिला',
     stateLabel: 'राज्य',
     pincodeLookupError: 'पिन कोड का स्थान प्राप्त नहीं हुआ। आप इसे मैन्युअल रूप से दर्ज कर सकते हैं।',
     pincodeInvalidError: 'कृपया 6 अंकों का वैध भारतीय पिन कोड दर्ज करें।',

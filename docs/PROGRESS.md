@@ -21,11 +21,14 @@
   - Responsive HTML5 date picker constrained to `min={today}` and `max={oneYearLater}`.
   - Persisted in lead record as `expected_loan_required_date` via `/referrals/guest-submit` and synchronized to Cloud Firestore.
   - Rendered in authorized administrator dossier on [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx) within the `Customer & Vehicle Loan Specifications` grid.
-- **3. Resilient PIN-code Location Autofill**:
-  - Created [`pincodeService.ts`](file:///c:/Projects/project_backup/frontend/src/shared/lib/pincodeService.ts): integrates in-memory cache, official India Post API lookup with 3-second timeout, comprehensive 60+ city directory, and 2-digit regional postal circle fallback.
-  - Added race-condition guard with `AbortController` cancellation for rapid typing.
-  - Added loading indicator spinner during lookup and graceful error handling.
-  - Added manual location edit toggle enabling users to refine or manually enter City/District and State without losing form progress.
+- **3. Resilient PIN-code Location Autofill (Town/Locality, District & State)**:
+  - Upgraded [`pincodeService.ts`](file:///c:/Projects/project_backup/frontend/src/shared/lib/pincodeService.ts) to resolve granular 3-tier geography: **Town / Locality** (PostOffice `Name` / `Block`), **District** (PostOffice `District`), and **State** (PostOffice `State`).
+  - Solved rural and town postal code fallback issues (e.g. PIN `470229` accurately resolves to Town/Locality: **Garhakota**, District: **Sagar**, State: **Madhya Pradesh**, preventing coarse 2-digit fallback to Gwalior).
+  - Integrated 6-second official India Post API lookup timeout, 3-digit regional sub-circle mapping (`470` -> Sagar, MP), direct offline cache for common postal zones, and universal 2-digit state fallbacks.
+  - Added race-condition guard with `AbortController` cancellation for rapid user typing.
+  - Updated location display card with bilingual label `TOWN / LOCALITY, DISTRICT & STATE` (`t.townDistrictStateLabel`), bold town highlight, district, and state.
+  - Updated manual location editing mode with 3 dedicated inputs: **Town / Locality** (`t.townLocalityLabel`), **District** (`t.districtLabel`), and **State** (`t.stateLabel`).
+  - Persisted `locality` and `district` in lead submission payload, API mock store, and admin dossier [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx).
 - **4. Complete Hindi (हिन्दी) & English Language Switching**:
   - Created [`translations.ts`](file:///c:/Projects/project_backup/frontend/src/features/referrals/translations.ts) providing 100% localization coverage for headings, labels, buttons, selection pills, validation errors, and confirmation dossier.
   - Added top header language switcher (`English` | `हिन्दी`) with persistent `localStorage` preference.
@@ -36,10 +39,9 @@
   - Deterministic OCR document generation on submission, inspectable in admin case details.
   - Mandatory rules: Aadhaar and PAN are required for all leads; RC Book is mandatory for Used Car and optional/hidden for New Car.
 - **6. Verification & Automated Test Coverage**:
-  - Created dedicated acceptance suite [`referral_portal_final_updates.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_portal_final_updates.test.tsx) (11 tests).
-  - Updated [`referral_flow_acceptance.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_flow_acceptance.test.tsx) (22 tests).
-  - Entire test suite: 21 test files, 171 passed tests (100% pass rate).
-  - Production build: `npm run build` (`tsc -b && vite build`) passed with zero errors.
+  - Maintained dedicated acceptance suite [`referral_portal_final_updates.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_portal_final_updates.test.tsx) with 12 tests, including explicit validation for PIN `470229` (Garhakota, Sagar, Madhya Pradesh) and 3-field manual edit inputs.
+  - Entire test suite: 21 test files, 172 passed tests (100% pass rate).
+  - Production build: `npm run build` (`tsc -b && vite build`) passed cleanly with zero errors.
 
 ### Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes (Completed)
 - **1. Root Cause Analysis**:
