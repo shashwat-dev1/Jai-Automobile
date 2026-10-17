@@ -314,6 +314,16 @@ describe('Referral Flow Automated Acceptance Tests', () => {
       const mobileInput = screen.getByPlaceholderText('9820145692')
       fireEvent.change(mobileInput, { target: { value: '9820112233' } })
 
+      // Attach genuine files for mandatory Aadhaar and PAN cards
+      const aadhaarFile = new File(['dummy aadhaar content'], 'aadhaar_card.pdf', { type: 'application/pdf' })
+      const panFile = new File(['dummy pan content'], 'pan_card.jpg', { type: 'image/jpeg' })
+      fireEvent.change(screen.getByTestId('aadhaar-file-input'), { target: { files: [aadhaarFile] } })
+      fireEvent.change(screen.getByTestId('pan-file-input'), { target: { files: [panFile] } })
+
+      await waitFor(() => {
+        expect(screen.getAllByText(/Uploaded \(Quarantined\)/i).length).toBe(2)
+      })
+
       // 1. Used car with registration but without RC fails
       fireEvent.click(screen.getByRole('radio', { name: /Used Car/i }))
       const regInput = screen.getByLabelText(/Vehicle Registration Number/i)

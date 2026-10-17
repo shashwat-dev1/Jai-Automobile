@@ -348,6 +348,8 @@ class ReferralService:
         # 7. Create Case
         condition_str = "new" if is_new_vehicle else "used"
         combined_notes = f"Referred by: {partner.name} ({partner.mobile_primary}). Vehicle condition: {condition_str}. PIN: {payload.pincode}, {payload.city}, {payload.state}"
+        if payload.expected_loan_required_date:
+            combined_notes += f". Expected loan required date: {payload.expected_loan_required_date}"
         if payload.notes:
             combined_notes += f" | {payload.notes}"
 

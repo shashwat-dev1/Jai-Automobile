@@ -55,6 +55,7 @@ export interface MockCase {
     created_at: string
   }>
   status_history?: any[]
+  expected_loan_required_date?: string | null
 }
 
 export const JAI_MOCK_CASES: MockCase[] = [

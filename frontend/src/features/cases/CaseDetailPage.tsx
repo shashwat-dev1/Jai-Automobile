@@ -269,6 +269,7 @@ export const CaseDetailPage: React.FC = () => {
   const vehicleYear = caseData.vehicle?.year_of_manufacture || 2021
   const city = caseData.primary_party?.city || 'Andheri West, Mumbai, MH'
   const pincode = (caseData as any).pincode || '400058'
+  const expectedLoanDate = (caseData as any).expected_loan_required_date || null
 
   const isDirectLead =
     caseData.source_type === 'direct' ||
@@ -562,6 +563,19 @@ export const CaseDetailPage: React.FC = () => {
               <div className="spec-field-box">
                 <span className="spec-label">CUSTOMER LOCATION</span>
                 <span className="spec-val">{city} • PIN: {pincode}</span>
+              </div>
+
+              <div className="spec-field-box">
+                <span className="spec-label">EXPECTED LOAN REQUIRED DATE</span>
+                <span className="spec-val-bold">
+                  {expectedLoanDate
+                    ? new Date(expectedLoanDate).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : 'Immediate / Not specified'}
+                </span>
               </div>
             </div>
           </div>

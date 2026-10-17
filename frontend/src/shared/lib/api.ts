@@ -529,14 +529,25 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
   // Phase 1: Referral Document Upload (Quarantine)
   if ((clean.includes('/referrals/upload-document') || clean.includes('/upload-document')) && method === 'POST') {
     const docType = getBodyField('doc_type') || getBodyField('document_type_id') || 'aadhaar'
-    const fileName = getBodyField('file') || getBodyField('file_name') || `quarantined_${docType}.pdf`
+    let fileName = `quarantined_${docType}.pdf`
+    let fileSize = 245000
+    if (parsedBody instanceof FormData) {
+      const fileEntry = parsedBody.get('file')
+      if (fileEntry && typeof fileEntry === 'object' && 'name' in fileEntry) {
+        fileName = (fileEntry as File).name
+        fileSize = (fileEntry as File).size
+      }
+    } else {
+      fileName = getBodyField('file_name') || getBodyField('file') || fileName
+      fileSize = Number(getBodyField('file_size')) || fileSize
+    }
     const docId = `doc-quar-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     return {
       success: true,
       document_id: docId,
       doc_type: docType,
       file_name: fileName,
-      file_size: 245000,
+      file_size: fileSize,
       status: 'quarantined',
       message: 'Document successfully uploaded to private quarantine.',
     }
@@ -673,6 +684,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       has_consent: true,
       age_in_days: 0,
       version: 1,
+      expected_loan_required_date: parsedBody?.expected_loan_required_date || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       primary_party: {
@@ -697,6 +709,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       ],
     }
     addStoredCase(newCase)
+
+    // Sync to cloud for cross-device visibility
+    try {
+      syncCaseToCloud(newCase)
+    } catch {
+      // Offline fallback
+    }
 
     // Generate and store deterministic OCR documents for this case
     const ocrDocs = generateDeterministicOcrDocs({
@@ -955,6 +974,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       has_consent: true,
       age_in_days: 0,
       version: 1,
+      expected_loan_required_date: parsedBody?.expected_loan_required_date || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       primary_party: {

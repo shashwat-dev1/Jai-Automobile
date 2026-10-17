@@ -159,6 +159,14 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
+> **Public Referral Portal / New Lead Submission Updates: 100% COMPLETE.**
+> - **Frontend**: 171/171 Vitest tests passing across 21 test suites with clean production build (`tsc -b && vite build` in 25.88s).
+> - **Reordered Form Sections**: Exactly 1. Customer Details -> 2. Loan Type -> 3. Vehicle & Loan Details -> 4. Expected Loan Required Date -> 5. Vehicle Condition -> 6. Document Uploads (final section of form).
+> - **Expected Loan Required Date**: Date picker with min=today, max=1 year; persisted to lead record and displayed in Admin Case Detail Dossier.
+> - **Resilient PIN Autofill**: `pincodeService.ts` combines cache, official India Post API, comprehensive 60+ city offline directory, and regional prefix fallback with manual override editing.
+> - **Hindi & English Localization**: Header switcher (`English` | `हिन्दी`) with complete dictionary coverage (`translations.ts`) preserving form state on toggle.
+> - **Zero Sample Documents & Quarantined Badging**: Form starts completely empty; uploads display actual filename and `Uploaded (Quarantined)` status with genuine OCR pipeline.
+>
 > **Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes: 100% COMPLETE.**
 > - **Frontend**: 160/160 Vitest tests passing across 20 test suites with clean production build (`tsc -b && vite build` in 6.66s).
 > - **Single Source of Truth**:

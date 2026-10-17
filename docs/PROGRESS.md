@@ -8,6 +8,39 @@
 
 **PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
 
+### Public Referral Portal / New Lead Submission Updates (Completed)
+- **1. Exact Form Section Reordering**:
+  - Arranged all referral lead intake sections in the strict required sequence:
+    1. **Customer Details** (`customer-details`): Customer Full Name & Mobile Number.
+    2. **Loan Type** (`loan-type`): Moved directly above Vehicle Condition (Car, CV, Tractor, Two Wheeler).
+    3. **Vehicle & Loan Details** (`vehicle-loan-details`): Requested Loan Amount with quick presets (₹3L, ₹5L, ₹8.5L, ₹10L, ₹15L), PIN code autofill, City & State card, and manual edit override.
+    4. **Expected Loan Required Date** (`expected-loan-date`): Added as dedicated subsection following Vehicle & Loan Details.
+    5. **Vehicle Condition** (`vehicle-condition`): Positioned immediately above Document Uploads. Starts unselected (`null`), conditional Vehicle Reg No only rendered for Used Car.
+    6. **Document Uploads** (`document-uploads`): Guaranteed to be the final section of the form. Never placed above Vehicle Condition.
+- **2. Expected Loan Required Date Implementation & Persistence**:
+  - Responsive HTML5 date picker constrained to `min={today}` and `max={oneYearLater}`.
+  - Persisted in lead record as `expected_loan_required_date` via `/referrals/guest-submit` and synchronized to Cloud Firestore.
+  - Rendered in authorized administrator dossier on [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx) within the `Customer & Vehicle Loan Specifications` grid.
+- **3. Resilient PIN-code Location Autofill**:
+  - Created [`pincodeService.ts`](file:///c:/Projects/project_backup/frontend/src/shared/lib/pincodeService.ts): integrates in-memory cache, official India Post API lookup with 3-second timeout, comprehensive 60+ city directory, and 2-digit regional postal circle fallback.
+  - Added race-condition guard with `AbortController` cancellation for rapid typing.
+  - Added loading indicator spinner during lookup and graceful error handling.
+  - Added manual location edit toggle enabling users to refine or manually enter City/District and State without losing form progress.
+- **4. Complete Hindi (हिन्दी) & English Language Switching**:
+  - Created [`translations.ts`](file:///c:/Projects/project_backup/frontend/src/features/referrals/translations.ts) providing 100% localization coverage for headings, labels, buttons, selection pills, validation errors, and confirmation dossier.
+  - Added top header language switcher (`English` | `हिन्दी`) with persistent `localStorage` preference.
+  - Switching languages preserves entered data, uploaded documents, selected loan type, and partner attribution.
+- **5. Document Uploads & Genuine OCR Workflow**:
+  - Removed all prefilled sample documents, fake filenames (`aadhaar_front_back.pdf`, `pan_card_copy.jpg`), and fabricated verification badges. Form starts with 0 files.
+  - Uploaded files are tagged with `Uploaded (Quarantined)` badge.
+  - Deterministic OCR document generation on submission, inspectable in admin case details.
+  - Mandatory rules: Aadhaar and PAN are required for all leads; RC Book is mandatory for Used Car and optional/hidden for New Car.
+- **6. Verification & Automated Test Coverage**:
+  - Created dedicated acceptance suite [`referral_portal_final_updates.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_portal_final_updates.test.tsx) (11 tests).
+  - Updated [`referral_flow_acceptance.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_flow_acceptance.test.tsx) (22 tests).
+  - Entire test suite: 21 test files, 171 passed tests (100% pass rate).
+  - Production build: `npm run build` (`tsc -b && vite build`) passed with zero errors.
+
 ### Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes (Completed)
 - **1. Root Cause Analysis**:
   - **Borrowers & Customers Disconnect**: `GET /parties` in `api.ts` returned a static, hardcoded array of 3 users (`Rajesh Kumar Sharma`, `Amitabh Singh Chauhan`, `Virender Singh Rathore`). Qualifying leads (`sanctioned`, `disbursed`) never created or linked customer records into `/parties`.

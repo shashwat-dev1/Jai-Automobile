@@ -6,6 +6,8 @@ import {
   isValidIndianMobile,
   formatIndianMobileDisplay,
 } from '../../shared/lib/validators'
+import { lookupIndianPincode, isValidIndianPincode } from '../../shared/lib/pincodeService'
+import { Language, REFERRAL_TRANSLATIONS } from './translations'
 import './GuestReferralPage.css'
 
 interface OrgBranding {
@@ -22,30 +24,38 @@ interface LookupCacheItem {
   verification_status?: string | null
 }
 
-// PIN-code directory for Indian locations
-const PINCODE_MAP: Record<string, { city: string; state: string; stateShort: string }> = {
-  '400001': { city: 'Mumbai', state: 'Maharashtra', stateShort: 'MH' },
-  '400053': { city: 'Mumbai', state: 'Maharashtra', stateShort: 'MH' },
-  '400601': { city: 'Thane', state: 'Maharashtra', stateShort: 'MH' },
-  '411001': { city: 'Pune', state: 'Maharashtra', stateShort: 'MH' },
-  '302001': { city: 'Jaipur', state: 'Rajasthan', stateShort: 'RJ' },
-  '302015': { city: 'Jaipur', state: 'Rajasthan', stateShort: 'RJ' },
-  '110001': { city: 'New Delhi', state: 'Delhi', stateShort: 'DL' },
-  '560001': { city: 'Bengaluru', state: 'Karnataka', stateShort: 'KA' },
-  '500001': { city: 'Hyderabad', state: 'Telangana', stateShort: 'TS' },
-  '380001': { city: 'Ahmedabad', state: 'Gujarat', stateShort: 'GJ' },
-  '600001': { city: 'Chennai', state: 'Tamil Nadu', stateShort: 'TN' },
-}
-
 export function GuestReferralPage() {
   const { orgSlug } = useParams<{ orgSlug?: string }>()
+
+  // ---------------------------------------------------------------------------
+  // Localization: English (default) & हिन्दी
+  // ---------------------------------------------------------------------------
+  const [language, setLanguage] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem('dsa_referral_portal_lang')
+      return saved === 'hi' ? 'hi' : 'en'
+    } catch {
+      return 'en'
+    }
+  })
+
+  const t = REFERRAL_TRANSLATIONS[language]
+
+  const handleLanguageChange = (lang: Language) => {
+    setLanguage(lang)
+    try {
+      localStorage.setItem('dsa_referral_portal_lang', lang)
+    } catch {
+      // Ignore storage restrictions
+    }
+  }
 
   // Organization branding
   const [branding, setBranding] = useState<OrgBranding>({
     name: 'Jai Automobiles',
     tagline: 'PARTNER REFERRAL NETWORK',
     logo_url: '/jai_auto_logo.jpg',
-    portal_version: 'Portal v2.4',
+    portal_version: 'Portal v2.5',
   })
 
   // Navigation Steps: 1 = Mobile Identification, 2 = Customer Lead Intake, 3 = Confirmation
@@ -67,38 +77,51 @@ export function GuestReferralPage() {
   const inFlightNumberRef = useRef<string>('')
 
   // ---------------------------------------------------------------------------
-  // Screen 2: Customer Lead Intake State
+  // Screen 2: Customer Lead Intake State (Exact Section Order 1 to 6)
   // ---------------------------------------------------------------------------
+  // 1. Customer Details
   const [applicantName, setApplicantName] = useState('')
   const [applicantMobile, setApplicantMobile] = useState('')
 
-  // MANDATORY REQUIREMENT: Neither Used Car nor New Car must be selected initially!
-  const [vehicleCondition, setVehicleCondition] = useState<'used' | 'new' | null>(null)
-
-  // Conditional Registration Number (Only for Used Car)
-  const [vehicleRegNo, setVehicleRegNo] = useState('')
-
-  // Loan Type
+  // 2. Loan Type (Moved above Vehicle Condition)
   const [loanType, setLoanType] = useState<'car' | 'cv' | 'tractor' | 'two_wheeler'>('car')
 
-  // Requested Loan Amount
+  // 3. Vehicle & Loan Details
   const [loanAmount, setLoanAmount] = useState('850000')
   const [selectedPreset, setSelectedPreset] = useState<number | null>(850000)
-
-  // PIN Code, City & State
   const [pincode, setPincode] = useState('400001')
   const [city, setCity] = useState('Mumbai')
   const [state, setState] = useState('Maharashtra')
   const [stateShort, setStateShort] = useState('MH')
+  const [isLookingUpPincode, setIsLookingUpPincode] = useState(false)
+  const [pincodeError, setPincodeError] = useState<string | null>(null)
+  const [isEditingLocationManually, setIsEditingLocationManually] = useState(false)
+  const pincodeAbortRef = useRef<AbortController | null>(null)
 
-  // Document Uploads
+  // 4. Expected Loan Required Date (New subsection after Vehicle & Loan Details)
+  // Default to 14 days in future for realistic workflow
+  const defaultFutureDate = () => {
+    const d = new Date()
+    d.setDate(d.getDate() + 14)
+    return d.toISOString().split('T')[0]
+  }
+  const [expectedLoanRequiredDate, setExpectedLoanRequiredDate] = useState<string>(defaultFutureDate)
+
+  // 5. Vehicle Condition (Moved to immediately above Document Uploads)
+  // MANDATORY REQUIREMENT: Neither Used Car nor New Car must be selected initially!
+  const [vehicleCondition, setVehicleCondition] = useState<'used' | 'new' | null>(null)
+  // Conditional Registration Number (Only for Used Car)
+  const [vehicleRegNo, setVehicleRegNo] = useState('')
+
+  // 6. Document Uploads (FINAL section: Aadhaar, PAN, and conditional RC)
+  // MANDATORY REQUIREMENT: Zero sample documents prefilled! Starts with no files.
   const [, setAadhaarFile] = useState<File | null>(null)
-  const [aadhaarDocId, setAadhaarDocId] = useState<string | null>('doc-init-aadhaar-01')
-  const [aadhaarFileName, setAadhaarFileName] = useState<string>('aadhaar_front_back.pdf (1.2 MB)')
+  const [aadhaarDocId, setAadhaarDocId] = useState<string | null>(null)
+  const [aadhaarFileName, setAadhaarFileName] = useState<string>('')
 
   const [, setPanFile] = useState<File | null>(null)
-  const [panDocId, setPanDocId] = useState<string | null>('doc-init-pan-01')
-  const [panFileName, setPanFileName] = useState<string>('pan_card_copy.jpg (840 KB)')
+  const [panDocId, setPanDocId] = useState<string | null>(null)
+  const [panFileName, setPanFileName] = useState<string>('')
 
   // Conditional RC Upload (Only for Used Car)
   const [, setRcFile] = useState<File | null>(null)
@@ -130,20 +153,20 @@ export function GuestReferralPage() {
       if (orgSlug.includes('raj')) {
         setBranding({
           name: 'Raj Auto Consultants',
-          tagline: 'PARTNER REFERRAL NETWORK',
+          tagline: t.portalTagline,
           logo_url: '/jai_auto_logo.jpg',
-          portal_version: 'Portal v2.4',
+          portal_version: 'Portal v2.5',
         })
       } else if (orgSlug.includes('nishant')) {
         setBranding({
           name: 'Nishant Automobiles',
-          tagline: 'PARTNER REFERRAL NETWORK',
+          tagline: t.portalTagline,
           logo_url: '/jai_auto_logo.jpg',
-          portal_version: 'Portal v2.4',
+          portal_version: 'Portal v2.5',
         })
       }
     }
-  }, [orgSlug])
+  }, [orgSlug, t.portalTagline])
 
   // ===========================================================================
   // SCREEN 1: Automatic 10th Digit Database Lookup
@@ -215,7 +238,6 @@ export function GuestReferralPage() {
       }
       setHasLookupCompleted(true)
     } catch (err: unknown) {
-      // Ignore AbortError from cancellation
       if (err instanceof Error && err.name === 'AbortError') {
         return
       }
@@ -227,7 +249,7 @@ export function GuestReferralPage() {
           ? err.message
           : err instanceof Error
           ? err.message
-          : 'Database unavailable. Please check connection and retry.'
+          : t.dbUnavailableRetry
       setLookupError(msg)
       setHasLookupCompleted(false)
       setIsExistingPartner(false)
@@ -245,7 +267,6 @@ export function GuestReferralPage() {
     setPartnerMobile(normalized)
     setLookupError(null)
 
-    // If user edited away from 10 digits, cancel pending and reset partner state
     if (normalized.length < 10) {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
@@ -259,22 +280,19 @@ export function GuestReferralPage() {
       return
     }
 
-    // Exact 10 digits reached: check validity and trigger immediate auto-lookup
     if (normalized.length === 10) {
       if (!isValidIndianMobile(normalized)) {
-        setLookupError('Mobile number must start with 6, 7, 8, or 9.')
+        setLookupError(t.mobileStartError)
         setHasLookupCompleted(false)
         return
       }
-      // Valid Indian 10 digits: start lookup immediately
       initiateLookup(normalized)
     }
   }
 
-  // Continue from Screen 1 to Screen 2
   const handleContinueFromScreen1 = () => {
     if (!isValidIndianMobile(partnerMobile)) {
-      setLookupError('Please enter a valid 10-digit Indian mobile number.')
+      setLookupError(t.enterValidMobileError)
       return
     }
     if (!hasLookupCompleted) {
@@ -282,7 +300,7 @@ export function GuestReferralPage() {
       return
     }
     if (!isExistingPartner && !partnerName.trim()) {
-      setLookupError('Please enter your name to register as a partner.')
+      setLookupError(t.enterPartnerNameError)
       return
     }
     setLookupError(null)
@@ -290,7 +308,7 @@ export function GuestReferralPage() {
   }
 
   // ===========================================================================
-  // SCREEN 2: Customer Lead Submission & Conditional Logic
+  // SCREEN 2: Customer Lead Intake & Conditional Handlers
   // ===========================================================================
 
   // Vehicle condition selector: strictly enforce switching logic
@@ -299,14 +317,13 @@ export function GuestReferralPage() {
     setFormError(null)
 
     if (condition === 'new') {
-      // Requirement 5 & 6: Switching to New Car hides registration & RC,
-      // and clears/excludes stale values from payload
+      // Switching to New Car hides registration & RC, and clears them
       setVehicleRegNo('')
       setRcFile(null)
       setRcDocId(null)
       setRcFileName('')
     } else if (condition === 'used') {
-      // Switching to Used Car requires fresh values
+      // Switching to Used Car requires registration number & RC
       setVehicleRegNo('')
       setRcFile(null)
       setRcDocId(null)
@@ -314,14 +331,53 @@ export function GuestReferralPage() {
     }
   }
 
-  // PIN Code input and automatic City/State lookup
-  const handlePincodeChange = (e: ChangeEvent<HTMLInputElement>) => {
+  // PIN Code input with resilient API + Directory + Prefix fallback
+  const handlePincodeChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 6)
     setPincode(val)
-    if (val.length === 6 && PINCODE_MAP[val]) {
-      setCity(PINCODE_MAP[val].city)
-      setState(PINCODE_MAP[val].state)
-      setStateShort(PINCODE_MAP[val].stateShort)
+    setPincodeError(null)
+
+    // Cancel in-flight lookup if user modifies PIN
+    if (pincodeAbortRef.current) {
+      pincodeAbortRef.current.abort()
+      pincodeAbortRef.current = null
+    }
+
+    if (val.length < 6) {
+      setIsLookingUpPincode(false)
+      return
+    }
+
+    if (val.length === 6) {
+      if (!isValidIndianPincode(val)) {
+        setPincodeError(t.pincodeInvalidError)
+        return
+      }
+
+      const controller = new AbortController()
+      pincodeAbortRef.current = controller
+      setIsLookingUpPincode(true)
+
+      try {
+        const result = await lookupIndianPincode(val, controller.signal)
+        if (controller.signal.aborted) return
+
+        if (result) {
+          setCity(result.city)
+          setState(result.state)
+          setStateShort(result.stateShort)
+          setPincodeError(null)
+        } else {
+          setPincodeError(t.pincodeLookupError)
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        setPincodeError(t.pincodeLookupError)
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLookingUpPincode(false)
+        }
+      }
     }
   }
 
@@ -368,14 +424,14 @@ export function GuestReferralPage() {
     if (!allowedTypes.includes(file.type.toLowerCase())) {
       setUploadErrors((prev) => ({
         ...prev,
-        [docType]: 'Only PDF, JPEG, or PNG files are supported.',
+        [docType]: t.uploadTypeError,
       }))
       return
     }
     if (file.size > 10 * 1024 * 1024) {
       setUploadErrors((prev) => ({
         ...prev,
-        [docType]: 'File size exceeds 10MB limit.',
+        [docType]: t.uploadSizeError,
       }))
       return
     }
@@ -385,12 +441,16 @@ export function GuestReferralPage() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('doc_type', docType)
+      formData.append('file_name', file.name)
+      formData.append('file_size', String(file.size))
       if (orgSlug) formData.append('org_slug', orgSlug)
 
-      const res = await api.post<{ document_id: string }>(
-        '/referrals/upload-document',
-        formData
-      )
+      const res = await api.post<{
+        document_id: string
+        file_name?: string
+        file_size?: number
+      }>('/referrals/upload-document', formData)
+
       const assignedId = res?.document_id || `doc-${Date.now()}-${docType}`
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
       const displayName = `${file.name} (${sizeMb} MB)`
@@ -416,6 +476,13 @@ export function GuestReferralPage() {
     }
   }
 
+  // Date range constraints for Expected Loan Required Date
+  const todayObj = new Date()
+  const minDateStr = todayObj.toISOString().split('T')[0]
+  const oneYearFutureObj = new Date()
+  oneYearFutureObj.setFullYear(oneYearFutureObj.getFullYear() + 1)
+  const maxDateStr = oneYearFutureObj.toISOString().split('T')[0]
+
   // Final Form Submission
   const handleSubmitLead = async (e: FormEvent) => {
     e.preventDefault()
@@ -423,48 +490,65 @@ export function GuestReferralPage() {
 
     // 1. Validate Customer Name
     if (!applicantName.trim()) {
-      setFormError('Please enter Customer Full Name.')
+      setFormError(t.formErrorCustomerName)
       return
     }
 
     // 2. Validate Customer Mobile
     if (!isValidIndianMobile(applicantMobile)) {
-      setFormError('Customer Mobile Number must be a valid 10-digit Indian number starting with 6, 7, 8, or 9.')
+      setFormError(t.formErrorCustomerMobile)
       return
     }
 
-    // 3. MANDATORY VALIDATION: Vehicle Condition must be explicitly selected
-    if (vehicleCondition === null) {
-      setFormError('Please select Vehicle Condition (Used Car or New Car).')
-      return
-    }
-
-    // 4. Conditional Vehicle Registration validation
-    if (vehicleCondition === 'used' && !vehicleRegNo.trim()) {
-      setFormError('Vehicle Registration Number is mandatory for Used Car leads.')
-      return
-    }
-
-    // 5. Loan Amount validation
+    // 3. Validate Loan Amount
     const numAmount = Number(loanAmount)
     if (!numAmount || numAmount < 10000) {
-      setFormError('Requested Loan Amount must be at least ₹10,000.')
+      setFormError(t.formErrorLoanAmount)
+      return
+    }
+
+    // 4. Validate Expected Loan Required Date
+    if (!expectedLoanRequiredDate) {
+      setFormError(t.dateRequiredError)
+      return
+    }
+    const chosenDate = new Date(expectedLoanRequiredDate)
+    const todayMidnight = new Date()
+    todayMidnight.setHours(0, 0, 0, 0)
+    if (chosenDate < todayMidnight) {
+      setFormError(t.datePastError)
+      return
+    }
+    if (chosenDate > oneYearFutureObj) {
+      setFormError(t.dateFutureLimitError)
+      return
+    }
+
+    // 5. MANDATORY VALIDATION: Vehicle Condition must be explicitly selected
+    if (vehicleCondition === null) {
+      setFormError(t.formErrorVehicleCondition)
+      return
+    }
+
+    // Conditional Vehicle Registration validation (for Used Car)
+    if (vehicleCondition === 'used' && !vehicleRegNo.trim()) {
+      setFormError(t.formErrorVehicleRegNo)
       return
     }
 
     // 6. Mandatory KYC Documents (Aadhaar & PAN)
     if (!aadhaarDocId) {
-      setFormError('Aadhaar Card is mandatory for every lead submission. Please attach Aadhaar.')
+      setFormError(t.formErrorAadhaar)
       return
     }
     if (!panDocId) {
-      setFormError('PAN Card is mandatory for every lead submission. Please attach PAN Card.')
+      setFormError(t.formErrorPan)
       return
     }
 
-    // 7. Conditional RC Document (Only for Used Car)
+    // Conditional RC Document (Only for Used Car)
     if (vehicleCondition === 'used' && !rcDocId) {
-      setFormError('RC Book is mandatory for Used Car loan applications. Please upload RC copy.')
+      setFormError(t.formErrorRc)
       return
     }
 
@@ -476,11 +560,13 @@ export function GuestReferralPage() {
         org_slug: orgSlug || 'jai-automobiles',
         applicant_name: applicantName.trim(),
         applicant_mobile: applicantMobile,
+        loan_type: loanType,
         product_type: vehicleCondition === 'new' ? 'new_car' : 'used_car',
         loan_amount_requested: numAmount,
         pincode,
         city: city.trim(),
         state: state.trim(),
+        expected_loan_required_date: expectedLoanRequiredDate,
         vehicle_condition: vehicleCondition,
         aadhaar_doc_id: aadhaarDocId,
         pan_doc_id: panDocId,
@@ -514,7 +600,7 @@ export function GuestReferralPage() {
           ? err.message
           : err instanceof Error
           ? err.message
-          : 'Lead submission failed. Please verify your entries and try again.'
+          : t.submissionFailedGeneric
       setFormError(msg)
     } finally {
       setIsSubmitting(false)
@@ -525,8 +611,6 @@ export function GuestReferralPage() {
   const handleResetForNextLead = () => {
     setApplicantName('')
     setApplicantMobile('')
-    setVehicleCondition(null) // Reset to unselected initial state!
-    setVehicleRegNo('')
     setLoanType('car')
     setLoanAmount('850000')
     setSelectedPreset(850000)
@@ -534,12 +618,16 @@ export function GuestReferralPage() {
     setCity('Mumbai')
     setState('Maharashtra')
     setStateShort('MH')
+    setIsEditingLocationManually(false)
+    setExpectedLoanRequiredDate(defaultFutureDate())
+    setVehicleCondition(null) // Unselected initial state!
+    setVehicleRegNo('')
     setAadhaarFile(null)
-    setAadhaarDocId('doc-init-aadhaar-01')
-    setAadhaarFileName('aadhaar_front_back.pdf (1.2 MB)')
+    setAadhaarDocId(null)
+    setAadhaarFileName('')
     setPanFile(null)
-    setPanDocId('doc-init-pan-01')
-    setPanFileName('pan_card_copy.jpg (840 KB)')
+    setPanDocId(null)
+    setPanFileName('')
     setRcFile(null)
     setRcDocId(null)
     setRcFileName('')
@@ -561,6 +649,29 @@ export function GuestReferralPage() {
     <div className="referral-app-viewport">
       <div className="referral-phone-frame">
         {/* ================================================================= */}
+        {/* Top Floating Language Switcher                                   */}
+        {/* ================================================================= */}
+        <div className="referral-lang-bar">
+          <div className="lang-switcher-pill" role="group" aria-label={t.selectLanguage}>
+            <button
+              type="button"
+              className={`lang-option-btn ${language === 'en' ? 'active' : ''}`}
+              onClick={() => handleLanguageChange('en')}
+            >
+              English
+            </button>
+            <span className="lang-divider" aria-hidden="true">|</span>
+            <button
+              type="button"
+              className={`lang-option-btn ${language === 'hi' ? 'active' : ''}`}
+              onClick={() => handleLanguageChange('hi')}
+            >
+              हिन्दी
+            </button>
+          </div>
+        </div>
+
+        {/* ================================================================= */}
         {/* SCREEN 1: Mobile Number Entry & Partner Identification            */}
         {/* ================================================================= */}
         {step === 1 && (
@@ -578,7 +689,7 @@ export function GuestReferralPage() {
                 </div>
                 <div className="header-brand-titles">
                   <span className="brand-primary-text">{branding.name}</span>
-                  <span className="brand-subtitle-text">{branding.tagline}</span>
+                  <span className="brand-subtitle-text">{t.portalTagline}</span>
                 </div>
               </div>
               <div className="portal-version-pill">
@@ -588,14 +699,14 @@ export function GuestReferralPage() {
             </header>
 
             {/* Main Screen Title */}
-            <h1 className="screen-1-title">Enter Mobile Number</h1>
+            <h1 className="screen-1-title">{t.enterMobileNumber}</h1>
 
             {/* Mobile Number Entry Card */}
             <div className="mobile-entry-card">
               <div className="mobile-card-top-row">
-                <span className="mobile-card-label">Registered Partner Mobile</span>
+                <span className="mobile-card-label">{t.registeredPartnerMobile}</span>
                 {partnerMobile.length === 10 && isValidIndianMobile(partnerMobile) && (
-                  <span className="mobile-verified-tag">10/10 Verified</span>
+                  <span className="mobile-verified-tag">{t.tenOfTenVerified}</span>
                 )}
                 {partnerMobile.length > 0 && partnerMobile.length < 10 && (
                   <span className="mobile-counter-tag">{partnerMobile.length}/10</span>
@@ -614,17 +725,17 @@ export function GuestReferralPage() {
                   placeholder="98765 43210"
                   value={formatIndianMobileDisplay(partnerMobile)}
                   onChange={handleMobileInputChange}
-                  maxLength={11} // 10 digits + 1 space
+                  maxLength={11}
                   autoFocus
-                  aria-label="Partner Mobile Number"
+                  aria-label={t.registeredPartnerMobile}
                 />
 
                 <div className="mobile-status-icon-wrapper">
                   {isCheckingMobile && (
-                    <div className="lookup-spinner" title="Checking database..." />
+                    <div className="lookup-spinner" title={t.checkingDatabase} />
                   )}
                   {!isCheckingMobile && hasLookupCompleted && isValidIndianMobile(partnerMobile) && (
-                    <div className="verified-check-circle" title="Verified Mobile">
+                    <div className="verified-check-circle" title={t.verifiedMobile}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                       </svg>
@@ -645,13 +756,13 @@ export function GuestReferralPage() {
                     className="retry-lookup-btn"
                     onClick={() => initiateLookup(partnerMobile)}
                   >
-                    Retry
+                    {t.retry}
                   </button>
                 )}
               </div>
             )}
 
-            {/* Registered Partner Card (when registered partner identified) */}
+            {/* Registered Partner Card */}
             {hasLookupCompleted && isExistingPartner && partnerName && (
               <div className="partner-verified-card">
                 <div className="partner-badge-circle">
@@ -664,23 +775,23 @@ export function GuestReferralPage() {
               </div>
             )}
 
-            {/* Unregistered Partner Name Input (when 10 digits valid but not registered) */}
+            {/* Unregistered Partner Name Input */}
             {hasLookupCompleted && !isExistingPartner && !isCheckingMobile && (
               <div className="new-partner-name-card">
                 <label className="new-partner-label" htmlFor="new-partner-input">
-                  Your Full Name (New Partner) *
+                  {t.yourFullNameNewPartner}
                 </label>
                 <input
                   id="new-partner-input"
                   type="text"
                   className="new-partner-input"
-                  placeholder="e.g. Vikram Sharma"
+                  placeholder={t.newPartnerPlaceholder}
                   value={partnerName}
                   onChange={(e) => setPartnerName(e.target.value)}
                   autoFocus
                 />
                 <span className="new-partner-hint">
-                  Enter your name to register as a partner. Profile will be created upon Continue.
+                  {t.newPartnerHint}
                 </span>
               </div>
             )}
@@ -697,7 +808,7 @@ export function GuestReferralPage() {
                 }
                 onClick={handleContinueFromScreen1}
               >
-                <span>{isCheckingMobile ? 'Verifying...' : 'Continue'}</span>
+                <span>{isCheckingMobile ? t.verifying : t.continue}</span>
                 <span className="btn-arrow-icon">→</span>
               </button>
             </div>
@@ -709,10 +820,10 @@ export function GuestReferralPage() {
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
-                <span>Encrypted Dealership Terminal</span>
+                <span>{t.encryptedTerminal}</span>
               </div>
               <div className="footer-company-row">
-                <span>Jai Automobiles Financial Services</span>
+                <span>{t.financialServices}</span>
               </div>
             </footer>
           </div>
@@ -720,6 +831,13 @@ export function GuestReferralPage() {
 
         {/* ================================================================= */}
         {/* SCREEN 2: Customer Lead Submission Form                          */}
+        {/* Exact Order:                                                      */}
+        {/* 1. Customer Details                                               */}
+        {/* 2. Loan Type                                                      */}
+        {/* 3. Vehicle & Loan Details                                         */}
+        {/* 4. Expected Loan Required Date                                    */}
+        {/* 5. Vehicle Condition                                              */}
+        {/* 6. Document Uploads                                               */}
         {/* ================================================================= */}
         {step === 2 && (
           <div className="screen-2-container">
@@ -729,7 +847,7 @@ export function GuestReferralPage() {
                 type="button"
                 className="nav-back-button"
                 onClick={() => setStep(1)}
-                aria-label="Back to mobile number entry"
+                aria-label={t.back}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -743,10 +861,10 @@ export function GuestReferralPage() {
                       <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
                     </svg>
                   </div>
-                  <span className="nav-brand-title">Jai Automobiles</span>
-                  <span className="nav-partner-badge">PARTNER DESK</span>
+                  <span className="nav-brand-title">{branding.name}</span>
+                  <span className="nav-partner-badge">{t.partnerDesk}</span>
                 </div>
-                <span className="nav-sub-title">Submit Referral</span>
+                <span className="nav-sub-title">{t.submitReferral}</span>
               </div>
 
               <div className="nav-avatar-circle" aria-label="Partner account">
@@ -767,7 +885,7 @@ export function GuestReferralPage() {
                   </svg>
                 </div>
                 <div className="partner-strip-text">
-                  <span className="partner-text-label">Partner: </span>
+                  <span className="partner-text-label">{t.partner}</span>
                   <span className="partner-text-name">{partnerName || 'Partner'}</span>
                 </div>
               </div>
@@ -776,14 +894,14 @@ export function GuestReferralPage() {
                 className="partner-strip-edit"
                 onClick={() => setStep(1)}
               >
-                Edit
+                {t.edit}
               </button>
             </div>
 
             {/* Stepper Title */}
             <div className="lead-submission-heading">
               <span className="step-number-badge">❶</span>
-              <h2 className="step-title-text">New Lead Submission</h2>
+              <h2 className="step-title-text">{t.newLeadSubmission}</h2>
             </div>
 
             {/* Form Validation Banner */}
@@ -795,8 +913,10 @@ export function GuestReferralPage() {
             )}
 
             <form noValidate onSubmit={handleSubmitLead} className="lead-intake-form">
-              {/* SECTION 1: CUSTOMER DETAILS */}
-              <div className="lead-card-section">
+              {/* =========================================================== */}
+              {/* SECTION 1: CUSTOMER DETAILS                                 */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="customer-details">
                 <div className="section-title-row">
                   <div className="section-heading-group">
                     <span className="section-icon">
@@ -806,22 +926,22 @@ export function GuestReferralPage() {
                         <path d="M15 8h2M15 12h2M7 16h10" />
                       </svg>
                     </span>
-                    <span className="section-heading-text">1. CUSTOMER DETAILS</span>
+                    <span className="section-heading-text">{t.customerDetailsHeading}</span>
                   </div>
-                  <span className="kyc-badge">KYC Base</span>
+                  <span className="kyc-badge">{t.kycBase}</span>
                 </div>
 
                 {/* Customer Full Name */}
                 <div className="field-group">
                   <label className="field-label" htmlFor="applicant-name">
-                    Customer Full Name <span className="req-star">*</span>
+                    {t.customerFullName} <span className="req-star">*</span>
                   </label>
                   <div className="field-input-wrapper">
                     <input
                       id="applicant-name"
                       type="text"
                       className="text-input"
-                      placeholder="Vikramaditya Rathore"
+                      placeholder={t.customerNamePlaceholder}
                       value={applicantName}
                       onChange={(e) => setApplicantName(e.target.value)}
                       required
@@ -839,7 +959,7 @@ export function GuestReferralPage() {
                 {/* Customer Mobile Number */}
                 <div className="field-group">
                   <label className="field-label" htmlFor="applicant-mobile">
-                    Customer Mobile Number <span className="req-star">*</span>
+                    {t.customerMobileNumber} <span className="req-star">*</span>
                   </label>
                   <div className="customer-phone-input-row">
                     <div className="country-code-pill-sm">
@@ -850,7 +970,7 @@ export function GuestReferralPage() {
                       type="tel"
                       inputMode="numeric"
                       className="text-input phone-digits"
-                      placeholder="9820145692"
+                      placeholder={t.customerMobilePlaceholder}
                       value={applicantMobile}
                       onChange={(e) => setApplicantMobile(normalizeIndianMobile(e.target.value))}
                       maxLength={10}
@@ -860,8 +980,74 @@ export function GuestReferralPage() {
                 </div>
               </div>
 
-              {/* SECTION 2: VEHICLE & LOAN DETAILS */}
-              <div className="lead-card-section">
+              {/* =========================================================== */}
+              {/* SECTION 2: LOAN TYPE (Moved above Vehicle Condition)         */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="loan-type">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">{t.loanTypeHeading}</span>
+                  </div>
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label">
+                    {t.loanTypeLabel} <span className="req-star">*</span>
+                  </label>
+                  <div className="loan-types-grid" role="radiogroup" aria-label={t.loanTypeLabel}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={loanType === 'car'}
+                      className={`loan-type-chip ${loanType === 'car' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('car')}
+                    >
+                      <span className="chip-icon">🚗</span>
+                      <span>{t.car}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={loanType === 'cv'}
+                      className={`loan-type-chip ${loanType === 'cv' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('cv')}
+                    >
+                      <span className="chip-icon">🚚</span>
+                      <span>{t.commercialVehicle}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={loanType === 'tractor'}
+                      className={`loan-type-chip ${loanType === 'tractor' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('tractor')}
+                    >
+                      <span className="chip-icon">🚜</span>
+                      <span>{t.tractor}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={loanType === 'two_wheeler'}
+                      className={`loan-type-chip ${loanType === 'two_wheeler' ? 'selected' : ''}`}
+                      onClick={() => setLoanType('two_wheeler')}
+                    >
+                      <span className="chip-icon">🏍️</span>
+                      <span>{t.twoWheeler}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* =========================================================== */}
+              {/* SECTION 3: VEHICLE & LOAN DETAILS (Amount & Location)       */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="vehicle-loan-details">
                 <div className="section-title-row">
                   <div className="section-heading-group">
                     <span className="section-icon">
@@ -872,119 +1058,14 @@ export function GuestReferralPage() {
                         <circle cx="17" cy="17" r="2" />
                       </svg>
                     </span>
-                    <span className="section-heading-text">2. VEHICLE & LOAN DETAILS</span>
-                  </div>
-                </div>
-
-                {/* Vehicle Condition: MANDATORY UNSELECTED INITIAL STATE */}
-                <div className="field-group">
-                  <label className="field-label">
-                    Vehicle Condition <span className="req-star">*</span>
-                  </label>
-                  <div className="vehicle-condition-segmented-control" role="radiogroup" aria-label="Vehicle Condition">
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={vehicleCondition === 'used'}
-                      className={`condition-pill-button ${vehicleCondition === 'used' ? 'selected' : ''}`}
-                      onClick={() => handleSelectVehicleCondition('used')}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        <path d="M9 12l2 2 4-4" />
-                      </svg>
-                      <span>Used Car</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={vehicleCondition === 'new'}
-                      className={`condition-pill-button ${vehicleCondition === 'new' ? 'selected' : ''}`}
-                      onClick={() => handleSelectVehicleCondition('new')}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="7" width="20" height="12" rx="2" />
-                        <circle cx="7" cy="17" r="2" />
-                        <circle cx="17" cy="17" r="2" />
-                      </svg>
-                      <span>New Car</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* CONDITIONAL: Vehicle Registration Number (ONLY RENDERED FOR USED CAR) */}
-                {vehicleCondition === 'used' && (
-                  <div className="field-group conditional-slide-down">
-                    <label className="field-label" htmlFor="vehicle-reg-no">
-                      Vehicle Registration Number <span className="req-star">*</span>
-                    </label>
-                    <div className="field-input-wrapper">
-                      <input
-                        id="vehicle-reg-no"
-                        type="text"
-                        className="text-input uppercase-text"
-                        placeholder="MH 02 CK 4821"
-                        value={vehicleRegNo}
-                        onChange={(e) => setVehicleRegNo(e.target.value.toUpperCase())}
-                        required={vehicleCondition === 'used'}
-                      />
-                      {vehicleRegNo.trim().length >= 6 && (
-                        <span className="field-check-icon">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#059669">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                          </svg>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Loan Type */}
-                <div className="field-group">
-                  <label className="field-label">
-                    Loan Type <span className="req-star">*</span>
-                  </label>
-                  <div className="loan-types-grid">
-                    <button
-                      type="button"
-                      className={`loan-type-chip ${loanType === 'car' ? 'selected' : ''}`}
-                      onClick={() => setLoanType('car')}
-                    >
-                      <span className="chip-icon">🚗</span>
-                      <span>Car</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`loan-type-chip ${loanType === 'cv' ? 'selected' : ''}`}
-                      onClick={() => setLoanType('cv')}
-                    >
-                      <span className="chip-icon">🚚</span>
-                      <span>CV</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`loan-type-chip ${loanType === 'tractor' ? 'selected' : ''}`}
-                      onClick={() => setLoanType('tractor')}
-                    >
-                      <span className="chip-icon">🚜</span>
-                      <span>Tractor</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`loan-type-chip ${loanType === 'two_wheeler' ? 'selected' : ''}`}
-                      onClick={() => setLoanType('two_wheeler')}
-                    >
-                      <span className="chip-icon">🏍️</span>
-                      <span>Two Wheeler</span>
-                    </button>
+                    <span className="section-heading-text">{t.vehicleLoanDetailsHeading}</span>
                   </div>
                 </div>
 
                 {/* Requested Loan Amount */}
                 <div className="field-group">
                   <label className="field-label" htmlFor="loan-amount">
-                    Requested Loan Amount <span className="req-star">*</span>
+                    {t.requestedLoanAmount} <span className="req-star">*</span>
                   </label>
                   <div className="amount-input-card">
                     <input
@@ -1015,31 +1096,36 @@ export function GuestReferralPage() {
                           onClick={() => handleSelectPreset(preset.val)}
                         >
                           {preset.label}
-                          {isSel ? ' (Selected)' : ''}
+                          {isSel ? t.presetSelected : ''}
                         </button>
                       )
                     })}
                   </div>
                 </div>
 
-                {/* Dealer / Customer PIN Code */}
+                {/* Dealer / Customer PIN Code & Resilient Location Autofill */}
                 <div className="field-group">
                   <label className="field-label" htmlFor="customer-pincode">
-                    Dealer / Customer PIN Code <span className="req-star">*</span>
+                    {t.dealerCustomerPincode} <span className="req-star">*</span>
                   </label>
                   <div className="pincode-city-row">
                     <div className="pincode-input-col">
-                      <input
-                        id="customer-pincode"
-                        type="text"
-                        inputMode="numeric"
-                        className="text-input"
-                        placeholder="400001"
-                        value={pincode}
-                        onChange={handlePincodeChange}
-                        maxLength={6}
-                        required
-                      />
+                      <div className="pincode-field-wrapper">
+                        <input
+                          id="customer-pincode"
+                          type="text"
+                          inputMode="numeric"
+                          className="text-input"
+                          placeholder={t.pincodePlaceholder}
+                          value={pincode}
+                          onChange={handlePincodeChange}
+                          maxLength={6}
+                          required
+                        />
+                        {isLookingUpPincode && (
+                          <div className="pincode-spinner" title={t.lookingUpLocation} />
+                        )}
+                      </div>
                     </div>
 
                     <div className="city-state-card-col">
@@ -1050,17 +1136,186 @@ export function GuestReferralPage() {
                         </svg>
                       </div>
                       <div className="city-text-stack">
-                        <span className="city-label">CITY & STATE</span>
-                        <span className="city-value">{city}, {stateShort}</span>
+                        <span className="city-label">{t.cityStateLabel}</span>
+                        <span className="city-value">
+                          {city}{stateShort ? `, ${stateShort}` : state ? `, ${state}` : ''}
+                        </span>
                       </div>
-                      <span className="city-auto-badge">Auto</span>
+                      <div className="city-actions-wrapper">
+                        <span className="city-auto-badge">{t.autoBadge}</span>
+                        <button
+                          type="button"
+                          className="city-manual-edit-btn"
+                          onClick={() => setIsEditingLocationManually(!isEditingLocationManually)}
+                        >
+                          {isEditingLocationManually ? t.saveLocation : t.editLocation}
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Manual Location Entry Override if lookup failed or user wishes to edit */}
+                  {isEditingLocationManually && (
+                    <div className="manual-location-inputs-row conditional-slide-down">
+                      <div className="manual-col">
+                        <label className="sub-field-label" htmlFor="manual-city-input">{t.cityLabel}</label>
+                        <input
+                          id="manual-city-input"
+                          type="text"
+                          className="text-input text-input-sm"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                        />
+                      </div>
+                      <div className="manual-col">
+                        <label className="sub-field-label" htmlFor="manual-state-input">{t.stateLabel}</label>
+                        <input
+                          id="manual-state-input"
+                          type="text"
+                          className="text-input text-input-sm"
+                          value={state}
+                          onChange={(e) => {
+                            setState(e.target.value)
+                            setStateShort(e.target.value.slice(0, 2).toUpperCase())
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {pincodeError && (
+                    <div className="pincode-error-notice" role="alert">
+                      <span>⚠️ {pincodeError}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* SECTION 3: DOCUMENT UPLOADS */}
-              <div className="lead-card-section">
+              {/* =========================================================== */}
+              {/* SECTION 4: EXPECTED LOAN REQUIRED DATE (New Subsection)      */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="expected-loan-date">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">{t.expectedLoanRequiredDateHeading}</span>
+                  </div>
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label" htmlFor="expected-loan-date">
+                    {t.expectedLoanRequiredDateLabel} <span className="req-star">*</span>
+                  </label>
+                  <div className="field-input-wrapper date-picker-wrapper">
+                    <input
+                      id="expected-loan-date"
+                      type="date"
+                      className="text-input date-input"
+                      min={minDateStr}
+                      max={maxDateStr}
+                      value={expectedLoanRequiredDate}
+                      onChange={(e) => setExpectedLoanRequiredDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <span className="field-help-hint">
+                    {t.expectedDateHelpText}
+                  </span>
+                </div>
+              </div>
+
+              {/* =========================================================== */}
+              {/* SECTION 5: VEHICLE CONDITION (Immediately above Documents)  */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="vehicle-condition">
+                <div className="section-title-row">
+                  <div className="section-heading-group">
+                    <span className="section-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 3" />
+                      </svg>
+                    </span>
+                    <span className="section-heading-text">{t.vehicleConditionHeading}</span>
+                  </div>
+                </div>
+
+                {/* Vehicle Condition: MANDATORY UNSELECTED INITIAL STATE */}
+                <div className="field-group">
+                  <label className="field-label">
+                    {t.vehicleConditionLabel} <span className="req-star">*</span>
+                  </label>
+                  <div className="vehicle-condition-segmented-control" role="radiogroup" aria-label={t.vehicleConditionLabel}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={vehicleCondition === 'used'}
+                      className={`condition-pill-button ${vehicleCondition === 'used' ? 'selected' : ''}`}
+                      onClick={() => handleSelectVehicleCondition('used')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                      <span>{t.usedCar}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={vehicleCondition === 'new'}
+                      className={`condition-pill-button ${vehicleCondition === 'new' ? 'selected' : ''}`}
+                      onClick={() => handleSelectVehicleCondition('new')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="12" rx="2" />
+                        <circle cx="7" cy="17" r="2" />
+                        <circle cx="17" cy="17" r="2" />
+                      </svg>
+                      <span>{t.newCar}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONDITIONAL: Vehicle Registration Number (ONLY RENDERED FOR USED CAR) */}
+                {vehicleCondition === 'used' && (
+                  <div className="field-group conditional-slide-down">
+                    <label className="field-label" htmlFor="vehicle-reg-no">
+                      {t.vehicleRegNoLabel} <span className="req-star">*</span>
+                    </label>
+                    <div className="field-input-wrapper">
+                      <input
+                        id="vehicle-reg-no"
+                        type="text"
+                        className="text-input uppercase-text"
+                        placeholder={t.vehicleRegNoPlaceholder}
+                        value={vehicleRegNo}
+                        onChange={(e) => setVehicleRegNo(e.target.value.toUpperCase())}
+                        required={vehicleCondition === 'used'}
+                      />
+                      {vehicleRegNo.trim().length >= 6 && (
+                        <span className="field-check-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#059669">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* =========================================================== */}
+              {/* SECTION 6: DOCUMENT UPLOADS (FINAL SECTION OF THE FORM)      */}
+              {/* =========================================================== */}
+              <div className="lead-card-section" data-section="document-uploads">
                 <div className="section-title-row">
                   <div className="section-heading-group">
                     <span className="section-icon">
@@ -1070,7 +1325,7 @@ export function GuestReferralPage() {
                         <path d="m16 16-4-4-4 4" />
                       </svg>
                     </span>
-                    <span className="section-heading-text">3. DOCUMENT UPLOADS</span>
+                    <span className="section-heading-text">{t.documentUploadsHeading}</span>
                   </div>
                 </div>
 
@@ -1080,6 +1335,7 @@ export function GuestReferralPage() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden-file-input"
+                  data-testid="aadhaar-file-input"
                   onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'aadhaar')}
                 />
                 <input
@@ -1087,6 +1343,7 @@ export function GuestReferralPage() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden-file-input"
+                  data-testid="pan-file-input"
                   onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'pan')}
                 />
                 <input
@@ -1094,6 +1351,7 @@ export function GuestReferralPage() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden-file-input"
+                  data-testid="rc-file-input"
                   onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'rc')}
                 />
 
@@ -1109,17 +1367,17 @@ export function GuestReferralPage() {
                     </div>
                     <div className="doc-info-stack">
                       <div className="doc-title-row">
-                        <span className="doc-title">Aadhaar Card <span className="req-star">*</span></span>
+                        <span className="doc-title">{t.aadhaarCard} <span className="req-star">*</span></span>
                         {aadhaarDocId && (
-                          <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                          </svg>
+                          <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
+                            🛡️ {t.uploadedQuarantined}
+                          </span>
                         )}
                       </div>
                       <span className="doc-filename-text">
                         {uploadingDoc === 'aadhaar'
-                          ? 'Uploading to secure quarantine...'
-                          : aadhaarFileName || 'Tap to scan or attach Aadhaar (PDF/JPG)'}
+                          ? t.uploadingToQuarantine
+                          : aadhaarFileName || t.aadhaarPrompt}
                       </span>
                       {uploadErrors.aadhaar && (
                         <span className="doc-upload-error">{uploadErrors.aadhaar}</span>
@@ -1131,7 +1389,7 @@ export function GuestReferralPage() {
                     className="doc-action-btn"
                     onClick={() => aadhaarInputRef.current?.click()}
                   >
-                    {aadhaarDocId ? 'Replace' : 'Upload'}
+                    {aadhaarDocId ? t.replace : t.upload}
                   </button>
                 </div>
 
@@ -1146,17 +1404,17 @@ export function GuestReferralPage() {
                     </div>
                     <div className="doc-info-stack">
                       <div className="doc-title-row">
-                        <span className="doc-title">PAN Card <span className="req-star">*</span></span>
+                        <span className="doc-title">{t.panCard} <span className="req-star">*</span></span>
                         {panDocId && (
-                          <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                          </svg>
+                          <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
+                            🛡️ {t.uploadedQuarantined}
+                          </span>
                         )}
                       </div>
                       <span className="doc-filename-text">
                         {uploadingDoc === 'pan'
-                          ? 'Uploading to secure quarantine...'
-                          : panFileName || 'Tap to scan or attach PAN card (PDF/JPG)'}
+                          ? t.uploadingToQuarantine
+                          : panFileName || t.panPrompt}
                       </span>
                       {uploadErrors.pan && (
                         <span className="doc-upload-error">{uploadErrors.pan}</span>
@@ -1168,7 +1426,7 @@ export function GuestReferralPage() {
                     className="doc-action-btn"
                     onClick={() => panInputRef.current?.click()}
                   >
-                    {panDocId ? 'Replace' : 'Upload'}
+                    {panDocId ? t.replace : t.upload}
                   </button>
                 </div>
 
@@ -1176,10 +1434,10 @@ export function GuestReferralPage() {
                 {vehicleCondition === 'used' && (
                   <div className="rc-doc-wrapper conditional-slide-down">
                     <div className="rc-header-row">
-                      <span className="rc-title-text">RC Book (Registration Certificate)</span>
+                      <span className="rc-title-text">{t.rcBook}</span>
                       <div className="rc-mandatory-badge">
                         <span className="rc-star">*</span>
-                        <span>Mandatory for Used Car</span>
+                        <span>{t.rcMandatoryForUsed}</span>
                       </div>
                     </div>
 
@@ -1197,8 +1455,8 @@ export function GuestReferralPage() {
                             <circle cx="12" cy="13" r="4" />
                           </svg>
                         </div>
-                        <span className="rc-prompt-bold">Tap to scan RC or browse file</span>
-                        <span className="rc-prompt-sub">Supports PDF, JPG, PNG up to 10MB</span>
+                        <span className="rc-prompt-bold">{t.rcPromptBold}</span>
+                        <span className="rc-prompt-sub">{t.rcPromptSub}</span>
                         {uploadingDoc === 'rc' && (
                           <div className="lookup-spinner" style={{ margin: '8px auto 0' }} />
                         )}
@@ -1217,10 +1475,10 @@ export function GuestReferralPage() {
                           </div>
                           <div className="doc-info-stack">
                             <div className="doc-title-row">
-                              <span className="doc-title">Vehicle RC Copy</span>
-                              <svg className="doc-verified-check" width="16" height="16" viewBox="0 0 24 24" fill="#059669">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                              </svg>
+                              <span className="doc-title">{t.rcBook}</span>
+                              <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
+                                🛡️ {t.uploadedQuarantined}
+                              </span>
                             </div>
                             <span className="doc-filename-text">{rcFileName}</span>
                           </div>
@@ -1230,7 +1488,7 @@ export function GuestReferralPage() {
                           className="doc-action-btn"
                           onClick={() => rcInputRef.current?.click()}
                         >
-                          Replace
+                          {t.replace}
                         </button>
                       </div>
                     )}
@@ -1245,7 +1503,7 @@ export function GuestReferralPage() {
                   className="submit-lead-pill-button"
                   disabled={isSubmitting}
                 >
-                  <span>{isSubmitting ? 'Submitting Lead...' : 'Submit Lead'}</span>
+                  <span>{isSubmitting ? t.submittingLead : t.submitLead}</span>
                   <span className="btn-arrow-icon">→</span>
                 </button>
               </div>
@@ -1264,37 +1522,49 @@ export function GuestReferralPage() {
               </svg>
             </div>
 
-            <h2 className="success-heading">Lead Successfully Submitted!</h2>
-            <p className="success-subtext">
-              The loan lead has been registered in the operations queue with verified referral attribution.
-            </p>
+            <h2 className="success-heading">{t.leadSuccessfullySubmitted}</h2>
+            <p className="success-subtext">{t.successSubtext}</p>
 
             <div className="confirmation-dossier-card">
               <div className="dossier-row">
-                <span className="dossier-label">Case Number</span>
+                <span className="dossier-label">{t.caseNumber}</span>
                 <span className="dossier-value bold-num">{submitResult.case_no}</span>
               </div>
               {submitResult.tracking_id && (
                 <div className="dossier-row">
-                  <span className="dossier-label">Tracking ID</span>
+                  <span className="dossier-label">{t.trackingId}</span>
                   <span className="dossier-value monospace">{submitResult.tracking_id}</span>
                 </div>
               )}
               <div className="dossier-row">
-                <span className="dossier-label">Referral Partner</span>
+                <span className="dossier-label">{t.referralPartner}</span>
                 <span className="dossier-value">{partnerName}</span>
               </div>
               <div className="dossier-row">
-                <span className="dossier-label">Borrower</span>
+                <span className="dossier-label">{t.borrower}</span>
                 <span className="dossier-value">{applicantName}</span>
               </div>
               <div className="dossier-row">
-                <span className="dossier-label">Vehicle Condition</span>
-                <span className="dossier-value capitalize">{vehicleCondition === 'used' ? 'Used Car' : 'New Car'}</span>
+                <span className="dossier-label">{t.vehicleConditionSummary}</span>
+                <span className="dossier-value capitalize">
+                  {vehicleCondition === 'used' ? t.usedCar : t.newCar}
+                </span>
               </div>
               <div className="dossier-row">
-                <span className="dossier-label">Loan Amount</span>
+                <span className="dossier-label">{t.loanAmountSummary}</span>
                 <span className="dossier-value">{formatAmountDisplay(loanAmount)}</span>
+              </div>
+              <div className="dossier-row">
+                <span className="dossier-label">{t.expectedDateSummary}</span>
+                <span className="dossier-value">
+                  {expectedLoanRequiredDate
+                    ? new Date(expectedLoanRequiredDate).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : 'Immediate'}
+                </span>
               </div>
             </div>
 
@@ -1304,7 +1574,7 @@ export function GuestReferralPage() {
                 className="submit-lead-pill-button"
                 onClick={handleResetForNextLead}
               >
-                <span>Submit Another Lead</span>
+                <span>{t.submitAnotherLead}</span>
                 <span className="btn-arrow-icon">→</span>
               </button>
             </div>

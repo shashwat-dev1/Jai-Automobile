@@ -99,6 +99,7 @@ class GuestLeadSubmissionRequest(BaseModel):
 
     # Notes & Uploaded Document References
     notes: str | None = None
+    expected_loan_required_date: str | None = None
     aadhaar_doc_id: uuid.UUID | None = None
     pan_doc_id: uuid.UUID | None = None
     rc_doc_id: uuid.UUID | None = None
