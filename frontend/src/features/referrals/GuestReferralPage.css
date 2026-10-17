@@ -882,6 +882,25 @@
   text-overflow: ellipsis;
 }
 
+.locality-select-dropdown {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  text-overflow: ellipsis;
+}
+
+.locality-select-dropdown option {
+  background: #ffffff;
+  color: #111827;
+  font-weight: 500;
+}
+
 .pill-placeholder {
   color: #9ca3af;
   font-weight: 400;

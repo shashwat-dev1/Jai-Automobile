@@ -94,6 +94,7 @@ export function GuestReferralPage() {
   const [district, setDistrict] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
+  const [availableLocalities, setAvailableLocalities] = useState<string[]>([])
   const [isLookingUpPincode, setIsLookingUpPincode] = useState(false)
   const [pincodeError, setPincodeError] = useState<string | null>(null)
   const [isEditingLocationManually, setIsEditingLocationManually] = useState(false)
@@ -326,7 +327,7 @@ export function GuestReferralPage() {
     }
   }
 
-  // PIN Code input with resilient API + Directory + Prefix fallback
+  // PIN Code input with resilient live API lookup
   const handlePincodeChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 6)
     setPincode(val)
@@ -337,6 +338,13 @@ export function GuestReferralPage() {
       pincodeAbortRef.current.abort()
       pincodeAbortRef.current = null
     }
+
+    // Immediately clear previously autofilled location values so stale data is not retained
+    setLocality('')
+    setDistrict('')
+    setCity('')
+    setState('')
+    setAvailableLocalities([])
 
     if (val.length < 6) {
       setIsLookingUpPincode(false)
@@ -358,10 +366,11 @@ export function GuestReferralPage() {
         if (controller.signal.aborted) return
 
         if (result) {
-          setLocality(result.locality)
           setDistrict(result.district)
           setCity(result.city)
           setState(result.state)
+          setAvailableLocalities(result.availableLocalities)
+          setLocality(result.locality)
           setPincodeError(null)
         } else {
           setPincodeError(t.pincodeLookupError)
@@ -617,6 +626,7 @@ export function GuestReferralPage() {
     setDistrict('')
     setCity('')
     setState('')
+    setAvailableLocalities([])
     setIsEditingLocationManually(false)
     setExpectedLoanRequiredDate('')
     setVehicleCondition(null) // Unselected initial state!
@@ -1147,9 +1157,28 @@ export function GuestReferralPage() {
                       <div className="locality-cell">
                         <div className="location-data-pill">
                           <span className="pill-sub-label">{t.townLocalityLabel}</span>
-                          <span className="pill-main-value locality-value">
-                            {locality || <span className="pill-placeholder">—</span>}
-                          </span>
+                          {availableLocalities.length > 1 ? (
+                            <select
+                              id="customer-locality-select"
+                              aria-label={t.townLocalityLabel}
+                              className="locality-select-dropdown locality-value"
+                              value={locality}
+                              onChange={(e) => {
+                                setLocality(e.target.value)
+                                setCity(district || e.target.value)
+                              }}
+                            >
+                              {availableLocalities.map((name) => (
+                                <option key={name} value={name}>
+                                  {name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="pill-main-value locality-value">
+                              {locality || <span className="pill-placeholder">—</span>}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

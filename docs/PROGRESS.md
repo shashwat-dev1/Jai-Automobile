@@ -23,16 +23,20 @@
   - Constrained via HTML5 date picker bounds to `min={today}` and `max={oneYearLater}`.
   - Persisted in lead record as `expected_loan_required_date` via `/referrals/guest-submit` and synchronized to Cloud Firestore.
   - Rendered in authorized administrator dossier on [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx) within the `Customer & Vehicle Loan Specifications` grid.
-- **3. Dynamic India Post API Location Autofill (Zero Hardcoding) & 2-Row Layout**:
-  - **Eliminated all static PIN code tables (`KNOWN_PINCODES`)**: Pure dynamic resolution directly querying official India Post API (`https://api.postalpincode.in/pincode/{pincode}`).
-  - Dynamic extraction: Locality/Town (`po.Name` / `po.Block`), District/City (`po.District` / `po.Division`), and State (`po.State`).
-  - Tested and verified with PIN `470229` dynamically returning **Garhakota**, District/City: **Sagar**, State: **Madhya Pradesh**.
-  - Retained fast in-memory session cache to avoid duplicate network fetches during rapid editing, with 2-digit state prefix fallback only when completely offline or API unreachable.
-  - **Re-engineered 2-Row Location UI Layout**:
-    - **Row 1**: PIN Code input (left) | **Locality / Town** (`t.townLocalityLabel`) auto-fill pill (right).
-    - **Row 2**: **City** (`t.cityLabel`) pill (left, below PIN Code) | **State** (`t.stateLabel`) pill (right, next to City).
-    - Compact header controls with `AUTO-FETCHED` badge and accessible manual `Edit Location` toggle.
-    - Clean manual entry fields with dedicated accessibility labels for Town/Locality, District, and State.
+- **3. Dynamic India Post API Location Autofill (Zero Hardcoding & Official Postal API)**:
+  - **Identified & Resolved True Root Cause**:
+    - CSP policy in `frontend/index.html` lacked `https://api.postalpincode.in` in `connect-src`, causing real browsers to block network requests.
+    - When blocked, code fell back to a hardcoded 2-digit table (`PIN_PREFIX_STATE_MAP`), returning wrong/fabricated cities.
+  - **Eliminated all static mappings & fake fallback data**:
+    - Completely removed `PIN_PREFIX_STATE_MAP` and all fallback dictionaries.
+    - Directly queries `https://api.postalpincode.in/pincode/{pincode}`.
+    - Validates HTTP response, `response.ok`, valid JSON, `Status === "Success"`, and non-empty `PostOffice` array.
+    - If API returns multiple post offices, populates common District and State while providing a locality dropdown (`#customer-locality-select`) allowing the user to select their specific Post Office / Town name.
+    - Invalid PIN (or no records) clears location values and displays a clear error notice with zero fabricated data.
+    - Form changes: clearing/typing immediately resets state to prevent stale data; aborts pending requests on new input to eliminate race conditions.
+  - **End-to-End Real Browser Verified (Playwright + Edge)**:
+    - Tested `462001` (Bhopal, MP: 12 post offices returned), `110001` (Central Delhi, Delhi: 21 post offices returned), `470229` (Garhakota, Sagar, MP), `999999` (Invalid: Error status handled with no fallback), `46200` (5-digit: no API trigger, cleared data), and concurrent race condition.
+    - Production build (`tsc -b && vite build`) and 21 unit test suites (173 tests) passed.
 - **4. Complete Hindi (हिन्दी) & English Language Switching**:
   - Created [`translations.ts`](file:///c:/Projects/project_backup/frontend/src/features/referrals/translations.ts) providing 100% localization coverage for headings, labels, buttons, selection pills, validation errors, and confirmation dossier.
   - Added top header language switcher (`English` | `हिन्दी`) with persistent `localStorage` preference.
