@@ -217,7 +217,7 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     expectedLoanRequiredDateHeading: '4. EXPECTED LOAN REQUIRED DATE',
     expectedLoanRequiredDateLabel: 'Expected Loan Required Date',
     expectedDateHelpText: 'Select when the borrower needs this loan disbursed (Today up to 1 year ahead).',
-    dateRequiredError: 'Please select the Expected Loan Required Date.',
+    dateRequiredError: 'Please select an expected loan required date.',
     datePastError: 'Expected Loan Required Date cannot be in the past.',
     dateFutureLimitError: 'Expected Loan Required Date cannot be more than 1 year in advance.',
 

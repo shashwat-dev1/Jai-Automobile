@@ -89,25 +89,18 @@ export function GuestReferralPage() {
   // 3. Vehicle & Loan Details
   const [loanAmount, setLoanAmount] = useState('850000')
   const [selectedPreset, setSelectedPreset] = useState<number | null>(850000)
-  const [pincode, setPincode] = useState('400001')
-  const [locality, setLocality] = useState('Fort')
-  const [district, setDistrict] = useState('Mumbai')
-  const [city, setCity] = useState('Mumbai')
-  const [state, setState] = useState('Maharashtra')
-  const [stateShort, setStateShort] = useState('MH')
+  const [pincode, setPincode] = useState('')
+  const [locality, setLocality] = useState('')
+  const [district, setDistrict] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
   const [isLookingUpPincode, setIsLookingUpPincode] = useState(false)
   const [pincodeError, setPincodeError] = useState<string | null>(null)
   const [isEditingLocationManually, setIsEditingLocationManually] = useState(false)
   const pincodeAbortRef = useRef<AbortController | null>(null)
 
-  // 4. Expected Loan Required Date (New subsection after Vehicle & Loan Details)
-  // Default to 14 days in future for realistic workflow
-  const defaultFutureDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 14)
-    return d.toISOString().split('T')[0]
-  }
-  const [expectedLoanRequiredDate, setExpectedLoanRequiredDate] = useState<string>(defaultFutureDate)
+  // 4. Expected Loan Required Date — starts blank, user must select
+  const [expectedLoanRequiredDate, setExpectedLoanRequiredDate] = useState<string>('')
 
   // 5. Vehicle Condition (Moved to immediately above Document Uploads)
   // MANDATORY REQUIREMENT: Neither Used Car nor New Car must be selected initially!
@@ -369,7 +362,6 @@ export function GuestReferralPage() {
           setDistrict(result.district)
           setCity(result.city)
           setState(result.state)
-          setStateShort(result.stateShort)
           setPincodeError(null)
         } else {
           setPincodeError(t.pincodeLookupError)
@@ -620,14 +612,13 @@ export function GuestReferralPage() {
     setLoanType('car')
     setLoanAmount('850000')
     setSelectedPreset(850000)
-    setPincode('400001')
-    setLocality('Fort')
-    setDistrict('Mumbai')
-    setCity('Mumbai')
-    setState('Maharashtra')
-    setStateShort('MH')
+    setPincode('')
+    setLocality('')
+    setDistrict('')
+    setCity('')
+    setState('')
     setIsEditingLocationManually(false)
-    setExpectedLoanRequiredDate(defaultFutureDate())
+    setExpectedLoanRequiredDate('')
     setVehicleCondition(null) // Unselected initial state!
     setVehicleRegNo('')
     setAadhaarFile(null)
@@ -1113,70 +1104,73 @@ export function GuestReferralPage() {
 
                 {/* Dealer / Customer PIN Code & Resilient Location Autofill */}
                 <div className="field-group">
-                  <label className="field-label" htmlFor="customer-pincode">
-                    {t.dealerCustomerPincode} <span className="req-star">*</span>
-                  </label>
-                  <div className="pincode-city-row">
-                    <div className="pincode-input-col">
-                      <div className="pincode-field-wrapper">
-                        <input
-                          id="customer-pincode"
-                          type="text"
-                          inputMode="numeric"
-                          className="text-input"
-                          placeholder={t.pincodePlaceholder}
-                          value={pincode}
-                          onChange={handlePincodeChange}
-                          maxLength={6}
-                          required
-                        />
-                        {isLookingUpPincode && (
-                          <div className="pincode-spinner" title={t.lookingUpLocation} />
-                        )}
+                  <div className="pincode-header-row">
+                    <label className="field-label" htmlFor="customer-pincode">
+                      {t.dealerCustomerPincode} <span className="req-star">*</span>
+                    </label>
+                    <div className="pincode-actions-group">
+                      {(locality || city || district || state) && (
+                        <span className="city-auto-badge">{t.autoBadge}</span>
+                      )}
+                      <button
+                        type="button"
+                        className="city-manual-edit-btn"
+                        onClick={() => setIsEditingLocationManually(!isEditingLocationManually)}
+                      >
+                        {isEditingLocationManually ? t.saveLocation : t.editLocation}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2-row layout with .city-value class for semantic location lookup */}
+                  <div className="pincode-location-grid city-value">
+                    {/* Row 1: Pincode (left) | Locality/Town (right) */}
+                    <div className="pincode-grid-row">
+                      <div className="pincode-cell">
+                        <div className="pincode-field-wrapper">
+                          <input
+                            id="customer-pincode"
+                            type="text"
+                            inputMode="numeric"
+                            className="text-input pincode-text-input"
+                            placeholder={t.pincodePlaceholder}
+                            value={pincode}
+                            onChange={handlePincodeChange}
+                            maxLength={6}
+                            required
+                          />
+                          {isLookingUpPincode && (
+                            <div className="pincode-spinner" title={t.lookingUpLocation} />
+                          )}
+                        </div>
+                      </div>
+                      <div className="locality-cell">
+                        <div className="location-data-pill">
+                          <span className="pill-sub-label">{t.townLocalityLabel}</span>
+                          <span className="pill-main-value locality-value">
+                            {locality || <span className="pill-placeholder">—</span>}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="city-state-card-col">
-                      <div className="city-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="4" width="18" height="18" rx="2" />
-                          <path d="M16 2v4M8 2v4M3 10h18" />
-                        </svg>
+                    {/* Row 2: City (below pincode) | State (on right of city) */}
+                    <div className="city-state-grid-row">
+                      <div className="city-cell">
+                        <div className="location-data-pill">
+                          <span className="pill-sub-label">{t.cityLabel}</span>
+                          <span className="pill-main-value city-pill-value">
+                            {city || district || <span className="pill-placeholder">—</span>}
+                          </span>
+                        </div>
                       </div>
-                      <div className="city-text-stack">
-                        <span className="city-label">{t.townDistrictStateLabel}</span>
-                        <span
-                          className="city-value"
-                          title={`${locality ? `${locality}, ` : ''}${district ? `Dist: ${district}, ` : ''}${state}`}
-                        >
-                          {locality ? (
-                            <>
-                              <strong className="city-locality-bold">{locality}</strong>
-                              {district ? `, Dist: ${district}` : ''}
-                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
-                            </>
-                          ) : district ? (
-                            <>
-                              <strong>{district}</strong>
-                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
-                            </>
-                          ) : (
-                            <>
-                              {city}
-                              {state ? `, ${state}` : stateShort ? `, ${stateShort}` : ''}
-                            </>
-                          )}
-                        </span>
-                      </div>
-                      <div className="city-actions-wrapper">
-                        <span className="city-auto-badge">{t.autoBadge}</span>
-                        <button
-                          type="button"
-                          className="city-manual-edit-btn"
-                          onClick={() => setIsEditingLocationManually(!isEditingLocationManually)}
-                        >
-                          {isEditingLocationManually ? t.saveLocation : t.editLocation}
-                        </button>
+                      <div className="state-cell">
+                        <div className="location-data-pill">
+                          <span className="pill-sub-label">{t.stateLabel}</span>
+                          <span className="pill-main-value state-pill-value">
+                            {state || <span className="pill-placeholder">—</span>}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1193,7 +1187,7 @@ export function GuestReferralPage() {
                           value={locality}
                           onChange={(e) => {
                             setLocality(e.target.value)
-                            setCity(e.target.value || district)
+                            if (!city) setCity(e.target.value)
                           }}
                         />
                       </div>
@@ -1204,10 +1198,10 @@ export function GuestReferralPage() {
                           aria-label={`${t.districtLabel} (${t.cityLabel})`}
                           type="text"
                           className="text-input text-input-sm"
-                          value={district}
+                          value={district || city}
                           onChange={(e) => {
                             setDistrict(e.target.value)
-                            if (!locality) setCity(e.target.value)
+                            setCity(e.target.value)
                           }}
                         />
                       </div>
@@ -1220,7 +1214,6 @@ export function GuestReferralPage() {
                           value={state}
                           onChange={(e) => {
                             setState(e.target.value)
-                            setStateShort(e.target.value.slice(0, 2).toUpperCase())
                           }}
                         />
                       </div>

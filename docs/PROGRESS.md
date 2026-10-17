@@ -17,18 +17,22 @@
     4. **Expected Loan Required Date** (`expected-loan-date`): Added as dedicated subsection following Vehicle & Loan Details.
     5. **Vehicle Condition** (`vehicle-condition`): Positioned immediately above Document Uploads. Starts unselected (`null`), conditional Vehicle Reg No only rendered for Used Car.
     6. **Document Uploads** (`document-uploads`): Guaranteed to be the final section of the form. Never placed above Vehicle Condition.
-- **2. Expected Loan Required Date Implementation & Persistence**:
-  - Responsive HTML5 date picker constrained to `min={today}` and `max={oneYearLater}`.
+- **2. Expected Loan Required Date Implementation & Mandatory Enforcement**:
+  - Starts completely unselected (`''`) with zero default value.
+  - Enforced as strictly mandatory during lead submission: rejects empty submission with bilingual validation error `dateRequiredError` (`Please select an expected loan required date.`).
+  - Constrained via HTML5 date picker bounds to `min={today}` and `max={oneYearLater}`.
   - Persisted in lead record as `expected_loan_required_date` via `/referrals/guest-submit` and synchronized to Cloud Firestore.
   - Rendered in authorized administrator dossier on [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx) within the `Customer & Vehicle Loan Specifications` grid.
-- **3. Resilient PIN-code Location Autofill (Town/Locality, District & State)**:
-  - Upgraded [`pincodeService.ts`](file:///c:/Projects/project_backup/frontend/src/shared/lib/pincodeService.ts) to resolve granular 3-tier geography: **Town / Locality** (PostOffice `Name` / `Block`), **District** (PostOffice `District`), and **State** (PostOffice `State`).
-  - Solved rural and town postal code fallback issues (e.g. PIN `470229` accurately resolves to Town/Locality: **Garhakota**, District: **Sagar**, State: **Madhya Pradesh**, preventing coarse 2-digit fallback to Gwalior).
-  - Integrated 6-second official India Post API lookup timeout, 3-digit regional sub-circle mapping (`470` -> Sagar, MP), direct offline cache for common postal zones, and universal 2-digit state fallbacks.
-  - Added race-condition guard with `AbortController` cancellation for rapid user typing.
-  - Updated location display card with bilingual label `TOWN / LOCALITY, DISTRICT & STATE` (`t.townDistrictStateLabel`), bold town highlight, district, and state.
-  - Updated manual location editing mode with 3 dedicated inputs: **Town / Locality** (`t.townLocalityLabel`), **District** (`t.districtLabel`), and **State** (`t.stateLabel`).
-  - Persisted `locality` and `district` in lead submission payload, API mock store, and admin dossier [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx).
+- **3. Dynamic India Post API Location Autofill (Zero Hardcoding) & 2-Row Layout**:
+  - **Eliminated all static PIN code tables (`KNOWN_PINCODES`)**: Pure dynamic resolution directly querying official India Post API (`https://api.postalpincode.in/pincode/{pincode}`).
+  - Dynamic extraction: Locality/Town (`po.Name` / `po.Block`), District/City (`po.District` / `po.Division`), and State (`po.State`).
+  - Tested and verified with PIN `470229` dynamically returning **Garhakota**, District/City: **Sagar**, State: **Madhya Pradesh**.
+  - Retained fast in-memory session cache to avoid duplicate network fetches during rapid editing, with 2-digit state prefix fallback only when completely offline or API unreachable.
+  - **Re-engineered 2-Row Location UI Layout**:
+    - **Row 1**: PIN Code input (left) | **Locality / Town** (`t.townLocalityLabel`) auto-fill pill (right).
+    - **Row 2**: **City** (`t.cityLabel`) pill (left, below PIN Code) | **State** (`t.stateLabel`) pill (right, next to City).
+    - Compact header controls with `AUTO-FETCHED` badge and accessible manual `Edit Location` toggle.
+    - Clean manual entry fields with dedicated accessibility labels for Town/Locality, District, and State.
 - **4. Complete Hindi (हिन्दी) & English Language Switching**:
   - Created [`translations.ts`](file:///c:/Projects/project_backup/frontend/src/features/referrals/translations.ts) providing 100% localization coverage for headings, labels, buttons, selection pills, validation errors, and confirmation dossier.
   - Added top header language switcher (`English` | `हिन्दी`) with persistent `localStorage` preference.
@@ -39,9 +43,8 @@
   - Deterministic OCR document generation on submission, inspectable in admin case details.
   - Mandatory rules: Aadhaar and PAN are required for all leads; RC Book is mandatory for Used Car and optional/hidden for New Car.
 - **6. Verification & Automated Test Coverage**:
-  - Maintained dedicated acceptance suite [`referral_portal_final_updates.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_portal_final_updates.test.tsx) with 12 tests, including explicit validation for PIN `470229` (Garhakota, Sagar, Madhya Pradesh) and 3-field manual edit inputs.
-  - Entire test suite: 21 test files, 172 passed tests (100% pass rate).
-  - Production build: `npm run build` (`tsc -b && vite build`) passed cleanly with zero errors.
+  - Entire test suite: 21 test files, 173 passed tests (100% pass rate).
+  - Clean production build: `npm run build` (`tsc -b && vite build`) passed with 0 errors.
 
 ### Critical Bug Fix — Synchronize Leads, Customers, Referral Partners, and Status Changes (Completed)
 - **1. Root Cause Analysis**:

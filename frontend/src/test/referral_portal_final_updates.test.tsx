@@ -116,6 +116,32 @@ describe('Referral Portal Final Updates Test Suite', () => {
       expect(dateInput.max).toBe(nextYearStr)
     })
 
+    it('starts with blank date and strictly rejects submission without date selected', async () => {
+      await advanceToScreen2()
+
+      const dateInput = document.getElementById('expected-loan-date') as HTMLInputElement
+      expect(dateInput).toBeInTheDocument()
+      expect(dateInput.value).toBe('')
+
+      // Fill valid customer details
+      fireEvent.change(screen.getByPlaceholderText('Vikramaditya Rathore'), {
+        target: { value: 'Arjun Verma' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('9820145692'), {
+        target: { value: '9820123456' },
+      })
+
+      // Select New Car
+      fireEvent.click(screen.getByRole('radio', { name: /New Car/i }))
+
+      // Attempt submit without selecting a date
+      fireEvent.click(screen.getByRole('button', { name: /Submit Lead/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Please select an expected loan required date/i)).toBeInTheDocument()
+      })
+    })
+
     it('rejects dates in the past with a clear business error', async () => {
       await advanceToScreen2()
 
@@ -376,6 +402,14 @@ describe('Referral Portal Final Updates Test Suite', () => {
       fireEvent.change(screen.getByLabelText(/Vehicle Registration Number/i), {
         target: { value: 'DL 01 AA 1234' },
       })
+
+      // Set valid expected loan required date
+      const dateInput = document.getElementById('expected-loan-date') as HTMLInputElement
+      if (dateInput) {
+        const d = new Date()
+        d.setDate(d.getDate() + 14)
+        fireEvent.change(dateInput, { target: { value: d.toISOString().split('T')[0] } })
+      }
 
       // Submit without uploading Aadhaar -> should fail
       fireEvent.click(screen.getByRole('button', { name: /Submit Lead/i }))

@@ -202,6 +202,13 @@ describe('Referral Flow Automated Acceptance Tests', () => {
       await waitFor(() => {
         expect(screen.getByText('New Lead Submission')).toBeInTheDocument()
       })
+
+      const dateInput = document.getElementById('expected-loan-date') as HTMLInputElement
+      if (dateInput) {
+        const d = new Date()
+        d.setDate(d.getDate() + 14)
+        fireEvent.change(dateInput, { target: { value: d.toISOString().split('T')[0] } })
+      }
     }
 
     it('MANDATORY: starts with NEITHER Used Car nor New Car selected', async () => {

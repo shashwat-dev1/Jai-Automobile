@@ -792,53 +792,127 @@
   font-weight: 700;
 }
 
-/* PIN Code & Auto City/State Row */
-.pincode-city-row {
+/* PIN Code layout — 2-row clean design */
+
+.pincode-header-row {
   display: flex;
-  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
-.pincode-input-col {
-  width: 120px;
-  flex-shrink: 0;
-}
-
-.city-state-card-col {
-  flex: 1;
-  background: #e5ece9;
-  border-radius: 8px;
-  padding: 8px 12px;
+.pincode-actions-group {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.city-icon {
+/* Row 1: Pincode (left) | Locality/Town (right) */
+.pincode-grid-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.pincode-cell {
+  min-width: 0;
+}
+
+.locality-cell {
+  min-width: 0;
+}
+
+.pincode-field-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
 }
 
-.city-text-stack {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.pincode-text-input {
+  width: 100%;
+  letter-spacing: 2px;
+  font-family: 'JetBrains Mono', 'Fira Mono', monospace;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Row 2: City (below pincode) | State (on right of city) */
+.city-state-grid-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.city-cell {
   min-width: 0;
 }
 
-.city-label {
-  font-size: 9.5px;
+.state-cell {
+  min-width: 0;
+}
+
+/* Location data pill styling */
+.location-data-pill {
+  background: #f1f5f3;
+  border: 1px solid #e2e8e5;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pill-sub-label {
+  font-size: 9px;
   font-weight: 700;
   color: #6b7280;
   text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
-.city-value {
+.pill-main-value {
   font-size: 13px;
   font-weight: 700;
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pill-placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* Location summary strip */
+.location-summary-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f8faf9;
+  border-radius: 6px;
+  border: 1px dashed #d1ded8;
+}
+
+.city-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.location-manual-trigger-row {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .city-auto-badge {
@@ -848,6 +922,7 @@
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 /* Documents Cards */
