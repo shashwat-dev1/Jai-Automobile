@@ -58,9 +58,26 @@
 
 ### Real Aadhaar/PAN OCR Extraction, Three-Way Name Matching & Genuine Document Preview (Completed)
 - **1. Root Cause Analysis**:
-  - **Quarantine Workflow Barrier**: Previous code tagged all uploaded documents as `'quarantined'`, displayed "Quarantined / OCR Pending" and "Pending Telecaller Review", and replaced the document viewer with a metadata-only stub box labeled "Secure Quarantine Vault (SHA-256 Validated)".
-  - **Delayed/Missing OCR Trigger**: OCR extraction was not running automatically on upload, leaving extraction pending.
-  - **Decoupled Client-Side Deployment**: The Vercel deployment hosts the SPA frontend, requiring client-side native document persistence (`IndexedDB` + Blob cache) and in-browser PDF stream decompression (`clientOcrService.ts`) to extract text and structured fields from genuine uploaded bytes without external cloud dependencies.
+  - **Chrome Iframe PDF Sandbox Block**: In Google Chrome, loading a `blob:` URL inside an `<iframe>` triggers Chromium's plugin security sandbox (`chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html` blocked in iframe), producing a grey canvas with a broken document / sad face icon. Furthermore, Indian KYC uploads (such as phone-scanned PDFs) are often PDF wrappers around JPEG scans. By extracting the JPEG image stream (`0xFF 0xD8 ... 0xFF 0xD9`) and rendering directly via `<img src={url} className="real-doc-image" />`, genuine high-resolution documents render natively with 0% plugin failure.
+  - **Fabricated Fallback Strings (AGENTS.md Rule 7 Violation)**: `clientOcrService.ts` and `api.ts` contained hardcoded placeholder values (`XXXX XXXX 4819`, `ABCDE****F`, `01/01/1990`, `Vidhani, Jaipur`) when text layers were unreadable or during brief timeouts. These dummy values were displayed in the KYC document comparison table.
+- **2. Implemented Fix**:
+  - **`documentStorage.ts`**:
+    - Added `safeCreateObjectURL` ensuring node/jsdom test environments and browsers behave consistently.
+    - Added robust JPEG stream extractor (`extractEmbeddedImageFromPdf`) targeting `endstream` boundaries and `0xFF 0xD8 ... 0xFF 0xD9` SOI/EOI markers.
+    - Updated `getDocumentPreviewInfo(docId)` to return `{ url: string, isImage: boolean }`.
+  - **`CaseDetailPage.tsx` & `.css`**:
+    - Replaced `modalDocUrl` with `modalDocPreview: { url: string; isImage: boolean }`.
+    - If `isImage` is true: Renders genuine extracted scan via `<img src={preview.url} className="real-doc-image" />`.
+    - If pure PDF: Renders `<object data={preview.url} type="application/pdf" className="real-doc-iframe">` with fallback action buttons `[Open in Fullscreen Viewer ↗]` and `[Download Original File ⬇]`.
+    - Comparison table: If document OCR is unread or awaiting review, displays `'—'` with badge `Unable to compare` (`comp-uncompared`). Never displays fake numbers.
+  - **`clientOcrService.ts` & `api.ts`**:
+    - Removed arbitrary 200ms timeout race on `file.arrayBuffer()` and `extractPdfText()`.
+    - Scans uncompressed text and streams for authentic PAN, Aadhaar, and DOB regex patterns.
+    - Completely eradicated all fake strings (`4819`, `ABCDE****F`, `01/01/1990`). If not detected, returns `'—'` with `status: 'needs_review'`.
+- **3. Verification**:
+    - All 22 vitest test suites (181 tests) passed.
+    - Clean production build: `npm run build` completed in 6.89s.
+    - Committed (`c14af43`) and pushed to `origin main` for Vercel deployment.
 - **2. Architecture & Implementation**:
   - **`documentStorage.ts` (Private Document Persistence)**:
     - Provides secure local storage in browser `IndexedDB` (`dsaos_document_store`) with an in-memory `activeBlobs` / `activeBlobUrls` cache.
