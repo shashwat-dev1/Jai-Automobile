@@ -57,7 +57,6 @@ import {
   syncCustomerFromCase,
   getStoredDocuments,
   saveStoredDocuments,
-  generateDeterministicOcrDocs,
   syncCaseToCloud,
   initCloudSync,
 } from './storeSync'
@@ -65,6 +64,8 @@ import { computeStitchDashboard } from '../../features/dashboard/dashboardDataSe
 import { computeTodayConsoleData } from '../../features/dashboard/todayDataService'
 
 let currentMockSessionUser: any = null
+const quarantinedUploadsMap = new Map<string, { id: string; file_name: string; file_size: number; mime_type: string; doc_type: string; uploaded_at: string }>()
+
 
 export function resetMockSessionUser() {
   currentMockSessionUser = null
@@ -542,6 +543,16 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       fileSize = Number(getBodyField('file_size')) || fileSize
     }
     const docId = `doc-quar-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    quarantinedUploadsMap.set(docId, {
+      id: docId,
+      file_name: fileName,
+      file_size: fileSize,
+      mime_type: (parsedBody instanceof FormData && parsedBody.get('file'))
+        ? ((parsedBody.get('file') as File).type || 'application/pdf')
+        : 'application/pdf',
+      doc_type: docType,
+      uploaded_at: new Date().toISOString(),
+    })
     return {
       success: true,
       document_id: docId,
@@ -708,12 +719,46 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         make: parsedBody?.vehicle_make || 'Hyundai',
         model: parsedBody?.vehicle_model || 'Creta',
         condition: isNew ? 'new' : 'used',
-        registration_no: parsedBody?.vehicle_reg_no || (isNew ? undefined : 'MH-02-CB-8821'),
+        registration_no: parsedBody?.vehicle_reg_no?.trim() || (isNew ? undefined : null),
       },
       status_history: [
         { id: `sh-${Date.now()}`, from_status: null, to_status: 'lead', changed_by: 'system', changer_name: 'Referral Portal', created_at: new Date().toISOString() },
       ],
     }
+
+    // Preserve genuinely uploaded documents in quarantine (zero fabricated OCR)
+    const genuineDocs: any[] = []
+    const docSpecs = [
+      { id: parsedBody?.aadhaar_doc_id, typeId: 'dt-aadhaar', code: 'AADHAAR', label: 'Aadhaar Card' },
+      { id: parsedBody?.pan_doc_id, typeId: 'dt-pan', code: 'PAN', label: 'PAN Card' },
+      { id: parsedBody?.rc_doc_id, typeId: 'dt-rc', code: 'VEHICLE_RC', label: 'RC Book' },
+    ]
+    for (const spec of docSpecs) {
+      if (spec.id) {
+        const cached = quarantinedUploadsMap.get(spec.id)
+        genuineDocs.push({
+          id: spec.id,
+          org_id: '11111111-1111-1111-1111-111111111111',
+          case_id: newCase.id,
+          document_type_id: spec.typeId,
+          file_name: cached?.file_name || `${spec.label.replace(/\s+/g, '_')}_Upload.pdf`,
+          file_size: cached?.file_size || 245000,
+          mime_type: cached?.mime_type || 'application/pdf',
+          version: 1,
+          status: 'quarantined',
+          can_download: false,
+          uploaded_at: cached?.uploaded_at || new Date().toISOString(),
+          scan_result: {
+            ocr_status: 'pending',
+            document_type_code: spec.code,
+            pipeline_stage: 'quarantined',
+            fields: [],
+          },
+        })
+      }
+    }
+    newCase.documents = genuineDocs
+    saveStoredDocuments(newCase.id, genuineDocs)
     addStoredCase(newCase)
 
     // Sync to cloud for cross-device visibility
@@ -722,23 +767,6 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     } catch {
       // Offline fallback
     }
-
-    // Generate and store deterministic OCR documents for this case
-    const ocrDocs = generateDeterministicOcrDocs({
-      id: newCase.id,
-      case_no: newCase.case_no,
-      applicant_name: newCase.applicant_name,
-      mobile: newCase.mobile,
-      vehicle_make: parsedBody?.vehicle_make || 'Hyundai',
-      vehicle_model: parsedBody?.vehicle_model || 'Creta',
-      vehicle_reg_no: parsedBody?.vehicle_reg_no || (isNew ? undefined : 'MH-02-CB-8821'),
-      vehicle_condition: isNew ? 'new' : 'used',
-      city: parsedBody?.city || 'Mumbai',
-      state: parsedBody?.state || 'Maharashtra',
-      pincode: parsedBody?.pincode || '400053',
-      loan_amount: Number(parsedBody?.loan_amount_requested) || 500000,
-    })
-    saveStoredDocuments(newCase.id, ocrDocs)
 
     return {
       success: true,
@@ -1002,30 +1030,17 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         variant: '1.5 SX',
         year_of_manufacture: 2023,
         condition: parsedBody?.vehicle_condition || 'used',
-        registration_no: parsedBody?.vehicle_registration_no || 'MH02EK9988',
+        registration_no: parsedBody?.vehicle_registration_no?.trim() || (parsedBody?.vehicle_condition === 'new' ? undefined : null),
         valuation_amount: 850000,
       },
       status_history: [
         { id: `sh-${Date.now()}`, from_status: null, to_status: 'lead', changed_by: 'u-1', changer_name: 'Aarav Sharma', created_at: new Date().toISOString() },
       ],
+      documents: [],
     }
+    saveStoredDocuments(newCase.id, [])
     addStoredCase(newCase)
     syncCaseToCloud(newCase).catch((e) => console.warn('Case creation cloud sync error:', e))
-
-    // Generate and store deterministic OCR docs
-    const ocrDocs = generateDeterministicOcrDocs({
-      id: newCase.id,
-      case_no: newCase.case_no,
-      applicant_name: newCase.applicant_name,
-      mobile: newCase.mobile,
-      pan: parsedBody?.party_pan,
-      vehicle_make: newCase.vehicle?.make,
-      vehicle_model: newCase.vehicle?.model,
-      vehicle_reg_no: newCase.vehicle?.registration_no,
-      vehicle_condition: 'used',
-      loan_amount: newCase.loan_amount_requested,
-    })
-    saveStoredDocuments(newCase.id, ocrDocs)
 
     return {
       case: newCase,

@@ -1214,3 +1214,185 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Document Status Badges */
+.doc-status-verified {
+  background: #DCFCE7;
+  color: #15803D;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-extracted {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-review {
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-mismatch {
+  background: #FEE2E2;
+  color: #B91C1C;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-pending {
+  background: #FEF3C7;
+  color: #B45309;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-missing {
+  background: #F1F5F9;
+  color: #64748B;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.doc-status-na {
+  background: #F1F5F9;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Document Comparison Table */
+.doc-comparison-drawer {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-top: 1px dashed #E2E8F0;
+  padding-top: 0.75rem;
+}
+
+.doc-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.doc-comparison-table th {
+  background: #F8FAFC;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.doc-comparison-table td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+}
+
+.doc-comparison-table tr:last-child td {
+  border-bottom: none;
+}
+
+.comp-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.6875rem;
+}
+
+.comp-match {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.comp-mismatch {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.comp-review {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.comp-captured {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.comp-uncompared {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+/* Milestone Action Button */
+.milestone-action-btn {
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8125rem;
+  background: #064E3B;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.milestone-action-btn:hover {
+  background: #047857;
+}
+
+/* Timeline Empty Box */
+.timeline-empty-box {
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 8px;
+  padding: 1.75rem 1rem;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.timeline-empty-icon {
+  margin-bottom: 0.5rem;
+}
+
+.timeline-empty-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-empty-desc {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin: 0;
+}

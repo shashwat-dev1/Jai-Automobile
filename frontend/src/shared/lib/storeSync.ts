@@ -748,28 +748,34 @@ export function getStoredDocuments(caseId: string): DocumentItem[] {
     return allDocs[caseId]
   }
 
-  // If no documents exist for this case, find the case and generate tailored deterministic OCR documents
+  // Check if case object itself has genuine documents attached
   const cases = getStoredCases()
-  const targetCase = cases.find((c) => c.id === caseId)
-  if (targetCase) {
-    const generated = generateDeterministicOcrDocs({
-      id: targetCase.id,
-      case_no: targetCase.case_no,
-      applicant_name: targetCase.applicant_name || targetCase.primary_applicant_name || 'Borrower',
-      mobile: targetCase.mobile || targetCase.primary_applicant_mobile || '9820011223',
-      vehicle_make: targetCase.vehicle?.make || 'Hyundai',
-      vehicle_model: targetCase.vehicle?.model || 'Creta',
-      vehicle_reg_no: targetCase.vehicle?.registration_no || 'MH-02-CB-8821',
-      vehicle_condition: targetCase.vehicle?.condition || (targetCase as any).vehicle_condition || (targetCase.product_type === 'new_car' ? 'new' : 'used'),
-      city: targetCase.primary_party?.city || 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001',
-      loan_amount: targetCase.loan_amount_requested,
-    })
-    saveStoredDocuments(caseId, generated)
-    return generated
+  const targetCase = cases.find((c) => c.id === caseId || c.case_no === caseId)
+  if (targetCase && Array.isArray((targetCase as any).documents) && (targetCase as any).documents.length > 0) {
+    saveStoredDocuments(caseId, (targetCase as any).documents)
+    return (targetCase as any).documents
   }
 
+  // Only for static demo test fixtures (case-jai-101 to case-jai-106)
+  if (targetCase && /^case-jai-10[1-6]$/.test(targetCase.id)) {
+    const demoDocs = generateDeterministicOcrDocs({
+      id: targetCase.id,
+      case_no: targetCase.case_no || 'JA-2025-0101',
+      applicant_name: (targetCase as any).primary_applicant_name || (targetCase as any).applicant_name || 'Rajesh Kumar Sharma',
+      mobile: (targetCase as any).primary_applicant_mobile || (targetCase as any).mobile || '9820198201',
+      vehicle_make: targetCase.vehicle?.make || 'Hyundai',
+      vehicle_model: targetCase.vehicle?.model || 'Creta',
+      vehicle_condition: targetCase.vehicle?.condition || targetCase.product_type || 'used',
+      vehicle_reg_no: targetCase.vehicle?.registration_no,
+      pincode: (targetCase as any).pincode || targetCase.primary_party?.pincode || '400053',
+      city: targetCase.primary_party?.city || 'Mumbai',
+      state: targetCase.primary_party?.state || 'Maharashtra',
+    })
+    saveStoredDocuments(caseId, demoDocs)
+    return demoDocs
+  }
+
+  // Never fabricate fake documents for genuine leads (e.g. JA-2025-9086 / case-jai-1792306106473)
   return []
 }
 

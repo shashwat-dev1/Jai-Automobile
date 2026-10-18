@@ -118,11 +118,21 @@ export const CaseDetailPage: React.FC = () => {
         telecaller_id: newTeleId,
       })
 
+      const assignEvent = {
+        id: `act-assign-${Date.now()}`,
+        outcome: 'Lead Assigned',
+        remarks: `Lead assigned to ${tcName} by Administrator.`,
+        telecaller_name: user?.name || 'Administrator',
+        created_at: new Date().toISOString(),
+      }
+      const updatedHistory = [assignEvent, ...(caseData.call_activity_history || [])]
+
       // Update local state
       const updated = {
         ...caseData,
         assigned_telecaller_id: newTeleId,
         assigned_telecaller_name: tcName,
+        call_activity_history: updatedHistory,
       }
       setCaseData(updated)
       setNoticeMsg(`Lead successfully assigned to ${tcName}.`)
@@ -202,17 +212,21 @@ export const CaseDetailPage: React.FC = () => {
     }
   }
 
-  // Mock document download
+  // Secure document download handler
   const handleDownloadDoc = (docItem: DocumentItem, e: React.MouseEvent) => {
     e.stopPropagation()
-    const content = `DSA OS SECURE DOCUMENT EXPORT\nFile: ${docItem.file_name}\nType: ${docItem.scan_result?.document_type_code || 'KYC'}\nVerified Timestamp: ${docItem.uploaded_at}\nTenant: Jai Automobiles (Strict Private Object Store)`
-    const blob = new Blob([content], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = docItem.file_name
-    a.click()
-    URL.revokeObjectURL(url)
+    if (!docItem.can_download || docItem.status === 'quarantined') {
+      alert('Security Notice: This document is currently isolated in secure quarantine and cannot be downloaded through normal channels until verified.')
+      return
+    }
+    if ((docItem as any).file_url) {
+      const a = document.createElement('a')
+      a.href = (docItem as any).file_url
+      a.download = docItem.file_name
+      a.click()
+    } else {
+      alert(`Original file "${docItem.file_name}" is securely stored in the private MinIO/S3 object store under tenant isolation.`)
+    }
   }
 
   // Loading state
@@ -244,13 +258,13 @@ export const CaseDetailPage: React.FC = () => {
   }
 
   // --- Derived Dossier Data ---
-  const customerName = caseData.primary_applicant_name || caseData.applicant_name || 'Rajesh Kumar Sharma'
+  const customerName = caseData.primary_applicant_name || caseData.applicant_name || 'Borrower'
   const nameParts = customerName.trim().split(/\s+/)
   const initials = nameParts.length > 1
     ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
     : nameParts[0].slice(0, 2).toUpperCase()
 
-  const mobile = caseData.primary_applicant_mobile || caseData.mobile || '9820198201'
+  const mobile = caseData.primary_applicant_mobile || caseData.mobile || '—'
   const email = (caseData as any).email || `${customerName.toLowerCase().replace(/\s+/g, '.')}@example.com`
   const leadId = caseData.case_no || 'JA-2025-0101'
   const createdDate = caseData.created_at ? new Date(caseData.created_at) : new Date()
@@ -260,19 +274,34 @@ export const CaseDetailPage: React.FC = () => {
     year: 'numeric',
   })
 
-  const reqAmount = caseData.loan_amount_requested || caseData.applied_loan_amount || 850000
-  const vehicleText = caseData.vehicle_details || caseData.vehicle_summary || 'Hyundai Creta SX (O)'
+  const reqAmount = caseData.loan_amount_requested || caseData.applied_loan_amount || 0
+  const vehicleText = caseData.vehicle_details || caseData.vehicle_summary || 'Vehicle'
   const condition = caseData.vehicle?.condition || (caseData as any).vehicle_condition || 'used'
   const isUsed = condition === 'used'
-  const regNo = caseData.vehicle?.registration_no || (caseData as any).vehicle_reg_no || 'MH 02 CD 8821'
+  const rawRegNo = caseData.vehicle?.registration_no || (caseData as any).vehicle_reg_no || ''
+  const regNo = isUsed
+    ? (rawRegNo.trim() ? rawRegNo.trim() : 'Not provided')
+    : (rawRegNo.trim() ? rawRegNo.trim() : 'Not applicable — new vehicle')
   const fuel = (caseData as any).fuel_type || 'Petrol'
-  const vehicleYear = caseData.vehicle?.year_of_manufacture || 2021
+  const vehicleYear = caseData.vehicle?.year_of_manufacture || 2024
   const locality = caseData.primary_party?.locality || (caseData as any).locality || null
   const district = caseData.primary_party?.district || (caseData as any).district || null
-  const city = caseData.primary_party?.city || 'Andheri West, Mumbai, MH'
+  const city = caseData.primary_party?.city || 'Mumbai'
   const partyState = caseData.primary_party?.state || ''
-  const pincode = (caseData as any).pincode || caseData.primary_party?.pincode || '400058'
+  const pincode = (caseData as any).pincode || caseData.primary_party?.pincode || '400053'
+
+  // Timezone-safe date parser
   const expectedLoanDate = (caseData as any).expected_loan_required_date || null
+  const formatSafeDate = (dStr: string | null | undefined): string => {
+    if (!dStr) return 'Immediate / Not specified'
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+      const [y, m, d] = dStr.split('-').map(Number)
+      const date = new Date(y, m - 1, d)
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    }
+    const date = new Date(dStr)
+    return isNaN(date.getTime()) ? dStr : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
 
   const isDirectLead =
     caseData.source_type === 'direct' ||
@@ -283,26 +312,35 @@ export const CaseDetailPage: React.FC = () => {
 
   const partnerName = isDirectLead
     ? 'Direct Customer Walk-in / Telephonic'
-    : (caseData.referral_partner_name || caseData.source_name || 'Maruti True Value - Andheri West')
-  const partnerId = isDirectLead ? 'DIR-DIRECT-INTAKE' : (caseData.referral_profile_id || caseData.referral_partner_id || 'REF-MTV-049')
+    : (caseData.referral_partner_name || caseData.source_name || 'Partner Desk')
+  const partnerId = isDirectLead ? 'DIR-DIRECT-INTAKE' : (caseData.referral_profile_id || caseData.referral_partner_id || 'REF-PARTNER')
 
   // Status mapping
   const currentStatus = caseData.status || 'lead'
-  const currentOutcome = caseData.call_outcome || 'interested'
+  const currentOutcome = caseData.call_outcome || 'new'
   const isConverted = currentStatus === 'disbursed' || currentStatus === 'sanctioned' || currentStatus === 'converted'
   const isInterested = currentOutcome === 'interested' || currentStatus === 'interested'
+  const isUnassigned = !caseData.assigned_telecaller_id && !caseData.assigned_telecaller_name
+  const hasCalls = Boolean(caseData.call_activity_history && caseData.call_activity_history.length > 0)
+  const hasFollowUp = Boolean(caseData.follow_up_at)
 
   let statusBadgeLabel = 'Interested'
   let statusBadgeClass = 'badge-interested'
   if (isConverted) {
     statusBadgeLabel = 'Converted'
     statusBadgeClass = 'badge-converted'
-  } else if (currentOutcome === 'follow_up' || currentStatus === 'callback_scheduled') {
+  } else if (currentOutcome === 'follow_up' || currentStatus === 'callback_scheduled' || hasFollowUp) {
     statusBadgeLabel = 'Follow-up'
     statusBadgeClass = 'badge-follow-up'
-  } else if (!caseData.assigned_telecaller_id) {
+  } else if (isUnassigned) {
     statusBadgeLabel = 'Unassigned'
     statusBadgeClass = 'badge-unassigned'
+  } else if (isInterested) {
+    statusBadgeLabel = 'Interested'
+    statusBadgeClass = 'badge-interested'
+  } else {
+    statusBadgeLabel = currentStatus.toUpperCase()
+    statusBadgeClass = 'badge-interested'
   }
 
   // Documents checklist mapping
@@ -313,32 +351,30 @@ export const CaseDetailPage: React.FC = () => {
   const verifiedCount = [aadhaarDoc, panDoc, rcDoc].filter((d) => d && d.status === 'verified').length
   const totalMandatoryDocs = isUsed ? 3 : 2
 
-  // Timeline events mapping
-  const timelineEvents = (caseData.call_activity_history && caseData.call_activity_history.length > 0)
-    ? caseData.call_activity_history
-    : [
-        {
-          id: 'def-1',
-          telecaller_name: caseData.assigned_telecaller_name ? `${caseData.assigned_telecaller_name} (Senior Telecaller)` : 'Priya Sharma (Senior Telecaller)',
-          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-          outcome: 'Interested / Follow-up Scheduled',
-          remarks: `Customer agreed on 9.25% ROI for ${formatINR(reqAmount)}. Requested callback tomorrow morning once vehicle valuation is verified.`,
-        },
-        {
-          id: 'def-2',
-          telecaller_name: caseData.assigned_telecaller_name ? `${caseData.assigned_telecaller_name} (Senior Telecaller)` : 'Priya Sharma (Senior Telecaller)',
-          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-          outcome: 'Connected / Initial Pitch',
-          remarks: `Customer confirmed ${vehicleText} purchase at ${partnerName}. Shared document checklist via WhatsApp.`,
-        },
-        {
-          id: 'def-3',
-          telecaller_name: 'System Automation',
-          created_at: createdDate.toISOString(),
-          outcome: 'Lead Ingestion',
-          remarks: `Lead submitted via ${partnerName} Referral Partner Desk. Auto-assigned to ${caseData.assigned_telecaller_name || 'Priya Sharma'} based on queue routing.`,
-        },
-      ]
+  // Timeline events mapping (strictly genuine - never invent fake entries)
+  const timelineEvents = caseData.call_activity_history || []
+
+  // Document OCR helpers
+  const getOcrField = (doc: DocumentItem | undefined, fieldKey: string): string => {
+    if (!doc || !doc.scan_result?.fields) return '—'
+    const f = doc.scan_result.fields.find((item) => item.field_key === fieldKey)
+    return f?.value || '—'
+  }
+
+  const getFieldMatch = (submitted: string | null | undefined, ocrVal: string): { label: string; badgeClass: string } => {
+    if (!ocrVal || ocrVal === '—' || ocrVal.includes('Awaiting') || ocrVal.includes('Pending')) {
+      return { label: 'Unable to compare', badgeClass: 'comp-uncompared' }
+    }
+    if (!submitted || submitted.includes('Not collected') || submitted.includes('Not applicable')) {
+      return { label: 'OCR Captured', badgeClass: 'comp-captured' }
+    }
+    const s = submitted.trim().toLowerCase()
+    const o = ocrVal.trim().toLowerCase()
+    if (s === o || o.includes(s) || s.includes(o)) {
+      return { label: '✓ Match', badgeClass: 'comp-match' }
+    }
+    return { label: '✕ Mismatch', badgeClass: 'comp-mismatch' }
+  }
 
   return (
     <div className="stitch-profile-page">
@@ -493,8 +529,24 @@ export const CaseDetailPage: React.FC = () => {
 
           <div className="metric-col highlight-col">
             <span className="metric-eyebrow">NEXT MILESTONE</span>
-            <span className="metric-main-value text-emerald">Callback Tomorrow</span>
-            <span className="metric-caption">11:30 AM (HDFC Sanction)</span>
+            <span className={`metric-main-value ${isUnassigned ? 'text-amber' : 'text-emerald'}`}>
+              {isUnassigned
+                ? 'Assign Lead'
+                : hasFollowUp
+                ? 'Scheduled Callback'
+                : !hasCalls
+                ? 'First Call Pending'
+                : (caseData.status ? caseData.status.replace(/_/g, ' ').toUpperCase() : 'In Progress')}
+            </span>
+            <span className="metric-caption">
+              {isUnassigned
+                ? 'Operational action required'
+                : hasFollowUp
+                ? formatSafeDate(caseData.follow_up_at)
+                : !hasCalls
+                ? (caseData.assigned_telecaller_name || 'Telecaller')
+                : (caseData.call_outcome ? caseData.call_outcome.replace(/_/g, ' ') : 'Underwriting Review')}
+            </span>
           </div>
         </div>
       </div>
@@ -560,7 +612,7 @@ export const CaseDetailPage: React.FC = () => {
 
               <div className="spec-field-box">
                 <span className="spec-label">VEHICLE REG. NUMBER</span>
-                <span className="spec-reg-pill">{regNo}</span>
+                <span className={isUsed && rawRegNo.trim() ? "spec-reg-pill" : "spec-val"}>{regNo}</span>
               </div>
 
               <div className="spec-field-box">
@@ -575,13 +627,7 @@ export const CaseDetailPage: React.FC = () => {
               <div className="spec-field-box">
                 <span className="spec-label">EXPECTED LOAN REQUIRED DATE</span>
                 <span className="spec-val-bold">
-                  {expectedLoanDate
-                    ? new Date(expectedLoanDate).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    : 'Immediate / Not specified'}
+                  {formatSafeDate(expectedLoanDate)}
                 </span>
               </div>
             </div>
@@ -602,7 +648,7 @@ export const CaseDetailPage: React.FC = () => {
                   <p className="dossier-card-sub">Mandatory verification checklist for financial underwriting</p>
                 </div>
               </div>
-              <span className="dossier-badge-green">
+              <span className={verifiedCount === totalMandatoryDocs ? "dossier-badge-green" : "dossier-badge-amber"}>
                 {verifiedCount} of {totalMandatoryDocs} Verified
               </span>
             </div>
@@ -630,40 +676,120 @@ export const CaseDetailPage: React.FC = () => {
                   <div>
                     <div className="doc-title-line">
                       <span className="doc-name">Aadhaar Card (Mandatory)</span>
-                      <span className="doc-status-verified">✓ Verified</span>
+                      {aadhaarDoc ? (
+                        aadhaarDoc.status === 'verified' ? (
+                          <span className="doc-status-verified">✓ Verified</span>
+                        ) : (aadhaarDoc.status as string) === 'mismatch' ? (
+                          <span className="doc-status-mismatch">✕ Mismatch</span>
+                        ) : aadhaarDoc.scan_result?.ocr_status === 'extracted' ? (
+                          <span className="doc-status-extracted">⚡ OCR Extracted</span>
+                        ) : aadhaarDoc.scan_result?.ocr_status === 'failed' ? (
+                          <span className="doc-status-failed">✕ OCR Failed</span>
+                        ) : (
+                          <span className="doc-status-pending">⏳ Quarantined / OCR Pending</span>
+                        )
+                      ) : (
+                        <span className="doc-status-missing">⚠️ Not Uploaded</span>
+                      )}
                     </div>
                     <span className="doc-sub-info">
-                      {aadhaarDoc ? aadhaarDoc.file_name : `Aadhaar Card ${customerName.split(' ')[0]} XXXX 4819.pdf`} • Uploaded {createdDateStr}
+                      {aadhaarDoc
+                        ? `${aadhaarDoc.file_name} • ${aadhaarDoc.file_size ? `${(aadhaarDoc.file_size / 1024).toFixed(0)} KB • ` : ''}Uploaded ${aadhaarDoc.uploaded_at ? new Date(aadhaarDoc.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : createdDateStr}`
+                        : 'No Aadhaar document attached • Upload required for underwriting'}
                     </span>
                   </div>
                 </div>
 
-                <div className="doc-item-actions">
-                  <button
-                    type="button"
-                    className="doc-btn-view"
-                    onClick={() => setShowDocModal(aadhaarDoc || ({ file_name: 'Aadhaar_Card_XXXX4819.pdf', document_type_id: 'dt-aadhaar', status: 'verified', uploaded_at: createdDateStr } as any))}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>View Securely</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="doc-btn-download"
-                    onClick={(e) => handleDownloadDoc(aadhaarDoc || ({ file_name: 'Aadhaar_Card_XXXX4819.pdf' } as any), e)}
-                    title="Download document from private quarantine"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    <span>Download</span>
-                  </button>
-                </div>
+                {aadhaarDoc && (
+                  <div className="doc-item-actions">
+                    <button
+                      type="button"
+                      className="doc-btn-view"
+                      onClick={() => setShowDocModal(aadhaarDoc)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span>View Securely</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="doc-btn-download"
+                      onClick={(e) => handleDownloadDoc(aadhaarDoc, e)}
+                      title={aadhaarDoc.can_download ? 'Download document' : 'Quarantined document cannot be downloaded'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      <span>Download</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Aadhaar Field Comparison Table */}
+                {aadhaarDoc && (
+                  <div className="doc-comparison-drawer">
+                    <table className="doc-comparison-table">
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Submitted Details</th>
+                          <th>OCR-Extracted Details</th>
+                          <th>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>Full Name</strong></td>
+                          <td>{customerName}</td>
+                          <td>{getOcrField(aadhaarDoc, 'customer_name')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch(customerName, getOcrField(aadhaarDoc, 'customer_name'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><strong>Aadhaar (Masked)</strong></td>
+                          <td><span className="text-muted">Not collected on form</span></td>
+                          <td>{getOcrField(aadhaarDoc, 'aadhaar_masked')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch('Not collected', getOcrField(aadhaarDoc, 'aadhaar_masked'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><strong>Date of Birth</strong></td>
+                          <td><span className="text-muted">Not collected on form</span></td>
+                          <td>{getOcrField(aadhaarDoc, 'dob')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch('Not collected', getOcrField(aadhaarDoc, 'dob'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><strong>Location / Address</strong></td>
+                          <td>{locality && district ? `${locality}, ${district}` : (city || pincode)}</td>
+                          <td>{getOcrField(aadhaarDoc, 'address')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch(city, getOcrField(aadhaarDoc, 'address'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* 2. PAN Card */}
@@ -678,44 +804,113 @@ export const CaseDetailPage: React.FC = () => {
                   <div>
                     <div className="doc-title-line">
                       <span className="doc-name">PAN Card (Mandatory)</span>
-                      <span className="doc-status-verified">✓ Verified</span>
+                      {panDoc ? (
+                        panDoc.status === 'verified' ? (
+                          <span className="doc-status-verified">✓ Verified</span>
+                        ) : (panDoc.status as string) === 'mismatch' ? (
+                          <span className="doc-status-mismatch">✕ Mismatch</span>
+                        ) : panDoc.scan_result?.ocr_status === 'extracted' ? (
+                          <span className="doc-status-extracted">⚡ OCR Extracted</span>
+                        ) : panDoc.scan_result?.ocr_status === 'failed' ? (
+                          <span className="doc-status-failed">✕ OCR Failed</span>
+                        ) : (
+                          <span className="doc-status-pending">⏳ Quarantined / OCR Pending</span>
+                        )
+                      ) : (
+                        <span className="doc-status-missing">⚠️ Not Uploaded</span>
+                      )}
                     </div>
                     <span className="doc-sub-info">
-                      {panDoc ? panDoc.file_name : 'PAN Card_XXXXX8910.pdf'} • Uploaded {createdDateStr}
+                      {panDoc
+                        ? `${panDoc.file_name} • ${panDoc.file_size ? `${(panDoc.file_size / 1024).toFixed(0)} KB • ` : ''}Uploaded ${panDoc.uploaded_at ? new Date(panDoc.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : createdDateStr}`
+                        : 'No PAN document attached • Upload required for underwriting'}
                     </span>
                   </div>
                 </div>
 
-                <div className="doc-item-actions">
-                  <button
-                    type="button"
-                    className="doc-btn-view"
-                    onClick={() => setShowDocModal(panDoc || ({ file_name: 'PAN_Card_XXXXX8910.pdf', document_type_id: 'dt-pan', status: 'verified', uploaded_at: createdDateStr } as any))}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                    <span>View Securely</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="doc-btn-download"
-                    onClick={(e) => handleDownloadDoc(panDoc || ({ file_name: 'PAN_Card_XXXXX8910.pdf' } as any), e)}
-                    title="Download document from private quarantine"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    <span>Download</span>
-                  </button>
-                </div>
+                {panDoc && (
+                  <div className="doc-item-actions">
+                    <button
+                      type="button"
+                      className="doc-btn-view"
+                      onClick={() => setShowDocModal(panDoc)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span>View Securely</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="doc-btn-download"
+                      onClick={(e) => handleDownloadDoc(panDoc, e)}
+                      title={panDoc.can_download ? 'Download document' : 'Quarantined document cannot be downloaded'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      <span>Download</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* PAN Field Comparison Table */}
+                {panDoc && (
+                  <div className="doc-comparison-drawer">
+                    <table className="doc-comparison-table">
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Submitted Details</th>
+                          <th>OCR-Extracted Details</th>
+                          <th>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>Full Name</strong></td>
+                          <td>{customerName}</td>
+                          <td>{getOcrField(panDoc, 'customer_name')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch(customerName, getOcrField(panDoc, 'customer_name'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><strong>Income Tax PAN</strong></td>
+                          <td><span className="text-muted">Not collected on form</span></td>
+                          <td>{getOcrField(panDoc, 'pan_number')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch('Not collected', getOcrField(panDoc, 'pan_number'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td><strong>Date of Birth</strong></td>
+                          <td><span className="text-muted">Not collected on form</span></td>
+                          <td>{getOcrField(panDoc, 'dob')}</td>
+                          <td>
+                            {(() => {
+                              const r = getFieldMatch('Not collected', getOcrField(panDoc, 'dob'))
+                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                            })()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
-              {/* 3. RC Book (Mandatory for Used Car) */}
-              {isUsed && (
+              {/* 3. RC Book (Mandatory only for Used Car) */}
+              {isUsed ? (
                 <div className="doc-checklist-item">
                   <div className="doc-item-left">
                     <div className="doc-type-icon icon-rc">
@@ -728,39 +923,115 @@ export const CaseDetailPage: React.FC = () => {
                     <div>
                       <div className="doc-title-line">
                         <span className="doc-name">RC Book (Mandatory for Used vehicle)</span>
-                        <span className="doc-status-review">⏳ Pending Telecaller Review</span>
+                        {rcDoc ? (
+                          rcDoc.status === 'verified' ? (
+                            <span className="doc-status-verified">✓ Verified</span>
+                          ) : (rcDoc.status as string) === 'mismatch' ? (
+                            <span className="doc-status-mismatch">✕ Mismatch</span>
+                          ) : rcDoc.scan_result?.ocr_status === 'extracted' ? (
+                            <span className="doc-status-extracted">⚡ OCR Extracted</span>
+                          ) : (
+                            <span className="doc-status-pending">⏳ Quarantined / OCR Pending</span>
+                          )
+                        ) : (
+                          <span className="doc-status-missing">⚠️ Not Uploaded</span>
+                        )}
                       </div>
                       <span className="doc-sub-info">
-                        {rcDoc ? rcDoc.file_name : `RC_Book_${regNo.replace(/\s+/g, '')}.pdf`} • Uploaded {createdDateStr}
+                        {rcDoc
+                          ? `${rcDoc.file_name} • ${rcDoc.file_size ? `${(rcDoc.file_size / 1024).toFixed(0)} KB • ` : ''}Uploaded ${rcDoc.uploaded_at ? new Date(rcDoc.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : createdDateStr}`
+                          : 'Used car loans require Registration Certificate upload'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="doc-item-actions">
-                    <button
-                      type="button"
-                      className="doc-btn-view"
-                      onClick={() => setShowDocModal(rcDoc || ({ file_name: `RC_Book_${regNo}.pdf`, document_type_id: 'dt-rc', status: 'pending', uploaded_at: createdDateStr } as any))}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
+                  {rcDoc && (
+                    <div className="doc-item-actions">
+                      <button
+                        type="button"
+                        className="doc-btn-view"
+                        onClick={() => setShowDocModal(rcDoc)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>View Securely</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="doc-btn-download"
+                        onClick={(e) => handleDownloadDoc(rcDoc, e)}
+                        title={rcDoc.can_download ? 'Download document' : 'Quarantined document cannot be downloaded'}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <span>Download</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {rcDoc && (
+                    <div className="doc-comparison-drawer">
+                      <table className="doc-comparison-table">
+                        <thead>
+                          <tr>
+                            <th>Field</th>
+                            <th>Submitted Details</th>
+                            <th>OCR-Extracted Details</th>
+                            <th>Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><strong>Registration No.</strong></td>
+                            <td>{regNo}</td>
+                            <td>{getOcrField(rcDoc, 'vehicle_registration_no')}</td>
+                            <td>
+                              {(() => {
+                                const r = getFieldMatch(regNo, getOcrField(rcDoc, 'vehicle_registration_no'))
+                                return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                              })()}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td><strong>Registered Owner</strong></td>
+                            <td>{customerName}</td>
+                            <td>{getOcrField(rcDoc, 'registered_owner')}</td>
+                            <td>
+                              {(() => {
+                                const r = getFieldMatch(customerName, getOcrField(rcDoc, 'registered_owner'))
+                                return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                              })()}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="doc-checklist-item" style={{ opacity: 0.75 }}>
+                  <div className="doc-item-left">
+                    <div className="doc-type-icon icon-rc" style={{ background: '#F1F5F9', color: '#64748B' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="7" cy="17" r="2" />
+                        <circle cx="17" cy="17" r="2" />
+                        <path d="M5 17h-2v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2" />
                       </svg>
-                      <span>View Securely</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="doc-btn-download"
-                      onClick={(e) => handleDownloadDoc(rcDoc || ({ file_name: `RC_Book_${regNo}.pdf` } as any), e)}
-                      title="Download document from private quarantine"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                      <span>Download</span>
-                    </button>
+                    </div>
+                    <div>
+                      <div className="doc-title-line">
+                        <span className="doc-name">Vehicle Registration Certificate (RC)</span>
+                        <span className="doc-status-na">Not Applicable — New Vehicle</span>
+                      </div>
+                      <span className="doc-sub-info">
+                        RC Book is not required for brand new showroom vehicles prior to registration.
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -801,14 +1072,14 @@ export const CaseDetailPage: React.FC = () => {
               </div>
 
               <div className="attr-item">
-                <span className="attr-label">{isDirectLead ? 'INTAKE CHANNEL' : 'PARTNER MOBILE & CONTACT'}</span>
+                <span className="attr-label">{isDirectLead ? 'INTAKE CHANNEL' : 'PARTNER CONTACT'}</span>
                 <span className="attr-val-bold">
                   {isDirectLead
                     ? 'Internal Desk'
-                    : (caseData.referral_partner_mobile ? `+91 ${caseData.referral_partner_mobile}` : '+91 98200 12345')}
+                    : (caseData.referral_partner_mobile ? `+91 ${caseData.referral_partner_mobile}` : '—')}
                 </span>
                 <span className="attr-sub">
-                  {isDirectLead ? 'Attr: Administrator Direct Entry' : 'Attr: Manish Kothari (GM)'}
+                  {isDirectLead ? 'Direct Inward Desk' : 'Verified Referral Partner'}
                 </span>
               </div>
 
@@ -943,16 +1214,56 @@ export const CaseDetailPage: React.FC = () => {
           {/* Card 2: Scheduled Next Action Milestone */}
           <div className="scheduled-milestone-card">
             <div className="milestone-top-row">
-              <span className="milestone-label">SCHEDULED NEXT ACTION</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2">
+              <span className="milestone-label">
+                {isUnassigned ? 'OPERATIONAL ACTION REQUIRED' : hasFollowUp ? 'SCHEDULED CALLBACK' : 'SCHEDULED NEXT ACTION'}
+              </span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isUnassigned ? "#F59E0B" : "#34D399"} strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
-            <div className="milestone-time-val">Tomorrow • 11:30 AM</div>
-            <p className="milestone-desc">
-              "Discuss loan sanction from HDFC Bank with customer and coordinate valuation report submission."
-            </p>
+            {isUnassigned ? (
+              <>
+                <div className="milestone-time-val text-amber">Action Required • Lead Unassigned</div>
+                <p className="milestone-desc">
+                  This lead is currently unassigned. Assign to a telecaller desk to initiate customer contact and requirement verification.
+                </p>
+                {!isTelecaller && (
+                  <button
+                    type="button"
+                    className="milestone-action-btn"
+                    onClick={() => setShowReassignModal(true)}
+                  >
+                    Assign Lead Now
+                  </button>
+                )}
+              </>
+            ) : !hasCalls && !hasFollowUp ? (
+              <>
+                <div className="milestone-time-val">First call pending — {caseData.assigned_telecaller_name || 'Telecaller'}</div>
+                <p className="milestone-desc">
+                  Initial customer outreach pending. Connect with customer to verify vehicle selection and loan requirements.
+                </p>
+              </>
+            ) : hasFollowUp ? (
+              <>
+                <div className="milestone-time-val">
+                  {formatSafeDate(caseData.follow_up_at)}
+                </div>
+                <p className="milestone-desc">
+                  "{caseData.telecaller_remarks || 'Scheduled customer callback follow-up.'}"
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="milestone-time-val">
+                  {caseData.call_outcome ? caseData.call_outcome.replace(/_/g, ' ').toUpperCase() : 'In Progress'}
+                </div>
+                <p className="milestone-desc">
+                  Next operational outreach pending. Review underwriting documentation or coordinate with customer.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Card 3: Calling Activity & Audit Timeline */}
@@ -986,42 +1297,60 @@ export const CaseDetailPage: React.FC = () => {
 
             {/* Timeline Stream */}
             <div className="timeline-stream">
-              {timelineEvents.map((event: any, idx: number) => {
-                const eventDate = new Date(event.created_at || Date.now())
-                const dateStr = eventDate.toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
-                const timeStr = eventDate.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-
-                const isSystem = (event.telecaller_name || '').includes('System')
-                return (
-                  <div key={event.id || idx} className="timeline-node">
-                    <div className="timeline-dot-col">
-                      <div className={`timeline-dot ${isSystem ? 'dot-gray' : 'dot-green'}`} />
-                      {idx < timelineEvents.length - 1 && <div className="timeline-connector-line" />}
-                    </div>
-
-                    <div className="timeline-content-col">
-                      <div className="timeline-header-line">
-                        <span className="timeline-actor">{event.telecaller_name || 'Telecaller'}</span>
-                        <span className="timeline-time">{dateStr} • {timeStr}</span>
-                      </div>
-
-                      <div className="timeline-outcome-pill">
-                        <span className="outcome-check">✓</span>
-                        <span>Outcome: {event.outcome ? event.outcome.replace(/_/g, ' ') : 'Call Logged'}</span>
-                      </div>
-
-                      <p className="timeline-note-text">"{event.remarks || 'No remarks recorded.'}"</p>
-                    </div>
+              {timelineEvents.length === 0 ? (
+                <div className="timeline-empty-box">
+                  <div className="timeline-empty-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
                   </div>
-                )
-              })}
+                  <div className="timeline-empty-title">No calls or notes recorded yet</div>
+                  <p className="timeline-empty-desc">
+                    {isUnassigned
+                      ? 'This lead is currently unassigned. Assign a telecaller desk to begin outreach.'
+                      : `Assigned to ${caseData.assigned_telecaller_name}. First call pending.`}
+                  </p>
+                </div>
+              ) : (
+                timelineEvents.map((event: any, idx: number) => {
+                  const eventDate = new Date(event.created_at || Date.now())
+                  const dateStr = eventDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                  const timeStr = eventDate.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+
+                  const isSystem = (event.telecaller_name || '').includes('System') || (event.telecaller_name || '').includes('Administrator')
+                  return (
+                    <div key={event.id || idx} className="timeline-node">
+                      <div className="timeline-dot-col">
+                        <div className={`timeline-dot ${isSystem ? 'dot-gray' : 'dot-green'}`} />
+                        {idx < timelineEvents.length - 1 && <div className="timeline-connector-line" />}
+                      </div>
+
+                      <div className="timeline-content-col">
+                        <div className="timeline-header-line">
+                          <span className="timeline-actor">{event.telecaller_name || 'Telecaller'}</span>
+                          <span className="timeline-time">{dateStr} • {timeStr}</span>
+                        </div>
+
+                        <div className="timeline-outcome-pill">
+                          <span className="outcome-check">✓</span>
+                          <span>Outcome: {event.outcome ? event.outcome.replace(/_/g, ' ') : 'Call Logged'}</span>
+                        </div>
+
+                        <p className="timeline-note-text">"{event.remarks || 'No remarks recorded.'}"</p>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
         </div>
@@ -1054,22 +1383,34 @@ export const CaseDetailPage: React.FC = () => {
                 <div className="doc-preview-meta">
                   <div className="preview-field">
                     <span>Document Type:</span>
-                    <strong>{showDocModal.document_type_id?.replace('dt-', '').toUpperCase()}</strong>
+                    <strong>{showDocModal.document_type_id?.replace('dt-', '').toUpperCase() || 'KYC'}</strong>
+                  </div>
+                  <div className="preview-field">
+                    <span>File Name:</span>
+                    <strong>{showDocModal.file_name}</strong>
                   </div>
                   <div className="preview-field">
                     <span>Target Customer:</span>
                     <strong>{customerName}</strong>
                   </div>
                   <div className="preview-field">
-                    <span>Masked Identifier:</span>
-                    <strong style={{ fontFamily: 'monospace' }}>
-                      {showDocModal.document_type_id?.includes('pan') ? 'ABCDE****F' : '**** **** 4819'}
+                    <span>OCR Status:</span>
+                    <strong className={showDocModal.scan_result?.ocr_status === 'extracted' ? 'text-emerald' : 'text-amber'}>
+                      {showDocModal.scan_result?.ocr_status === 'extracted' ? '⚡ OCR Extracted' : '⏳ Quarantined / OCR Pending'}
                     </strong>
                   </div>
                   <div className="preview-field">
                     <span>Verification Status:</span>
-                    <span className="status-verified-chip">✓ Verified</span>
+                    <span className={showDocModal.status === 'verified' ? 'doc-status-verified' : 'doc-status-pending'}>
+                      {showDocModal.status === 'verified' ? '✓ Verified' : (showDocModal.status as string) === 'mismatch' ? '✕ Mismatch' : '⏳ Pending Telecaller Review'}
+                    </span>
                   </div>
+                </div>
+
+                <div className="quarantine-security-notice" style={{ marginTop: '1rem', padding: '0.75rem', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '0.75rem', color: '#475569' }}>
+                  <p style={{ margin: 0 }}>
+                    🔒 <strong>Strict Data Quarantine:</strong> In compliance with RBI KYC & Digital Personal Data Protection standards, original customer documents remain encrypted and quarantined in private object storage. Identifiers are masked in unprivileged views.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1086,8 +1427,10 @@ export const CaseDetailPage: React.FC = () => {
                 type="button"
                 className="stitch-btn-primary"
                 onClick={(e) => handleDownloadDoc(showDocModal, e)}
+                disabled={!showDocModal.can_download}
+                title={showDocModal.can_download ? 'Download document' : 'Quarantined document cannot be downloaded until verified'}
               >
-                Download Verified PDF
+                {showDocModal.can_download ? 'Download Document' : 'Quarantined in Private Vault'}
               </button>
             </div>
           </div>
