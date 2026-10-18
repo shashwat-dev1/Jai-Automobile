@@ -648,7 +648,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const masked = `+91 ${rawMobile.slice(0, 2)}****${rawMobile.slice(-4)}`
     return {
       success: true,
-      message: `Verification code sent to ${masked} via Airtel SIM.`,
+      message: 'OTP sent',
       masked_mobile: masked,
       expires_in_seconds: 300,
       resend_cooldown_seconds: 60,
@@ -715,7 +715,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         converted_leads: 0,
         approved_commissions: 0,
         paid_commissions: 0,
-        notes: 'Registered and verified via TextBee mobile OTP (Airtel SIM).',
+        notes: 'Registered and verified via mobile OTP.',
         created_at: new Date().toISOString(),
       }
     } else {

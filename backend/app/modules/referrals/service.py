@@ -152,10 +152,12 @@ class ReferralService:
         except ValueError as rate_err:
             raise BusinessRuleViolationError(str(rate_err))
 
-        # 3. Format SMS message
+        # 3. Format curated SMS message
         sms_text = (
-            f"Your Jai Automobiles referral verification code is {gen_result.otp_code}. "
-            f"Valid for {gen_result.expires_in_seconds // 60} minutes. Do not share this code with anyone."
+            f"Jai Automobiles: Your verification code is {gen_result.otp_code}. "
+            f"Valid for {gen_result.expires_in_seconds // 60} minutes. "
+            f"Enter this OTP to complete your referral partner verification. "
+            f"Do not share this code with anyone."
         )
 
         # 4. Dispatch SMS via TextBee Android gateway (Airtel SIM subscription ID 1)
@@ -169,13 +171,13 @@ class ReferralService:
             # Never mark verified or show success if gateway fails
             error_detail = send_result.error_message or "Failed to deliver SMS through TextBee Gateway."
             raise BusinessRuleViolationError(
-                f"SMS Gateway Error: {error_detail}. Ensure your Android device is online with the Airtel SIM."
+                f"SMS Gateway Error: {error_detail}. Ensure your Android device is online with TextBee."
             )
 
         masked = f"+91 {clean_mobile[:2]}****{clean_mobile[-4:]}"
         return ReferralOtpSendResponse(
             success=True,
-            message=f"Verification code sent to {masked} via Airtel SIM.",
+            message="OTP sent",
             masked_mobile=masked,
             expires_in_seconds=gen_result.expires_in_seconds,
             resend_cooldown_seconds=gen_result.resend_cooldown_seconds,

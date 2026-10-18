@@ -69,7 +69,7 @@ def main() -> None:
     payload = {
         "deviceId": args.device_id,
         "recipients": [formatted_recipient],
-        "message": "Jai Automobiles: Your referral verification OTP is 749215. Valid for 5 minutes.",
+        "message": "Jai Automobiles: Your verification code is 749215. Valid for 5 minutes. Enter this OTP to complete your referral partner verification. Do not share this code with anyone.",
         "simSubscriptionId": args.sim_id,
     }
 

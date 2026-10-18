@@ -196,7 +196,7 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
 
     verifyMobileViaOtp: 'Verify Mobile via OTP',
     otpVerificationHeading: 'Mobile OTP Verification',
-    otpSentSubtext: 'We have sent a 6-digit verification code via Airtel SMS to',
+    otpSentSubtext: 'We have sent a 6-digit verification code to',
     enterOtpLabel: 'Enter 6-Digit OTP',
     otpPlaceholder: '••••••',
     verifyAndContinue: 'Verify & Continue',
@@ -206,9 +206,9 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     otpExpired: 'OTP has expired. Please request a new code.',
     otpInvalid: 'Invalid OTP. Please check the code and try again.',
     changeMobileNumber: 'Change Number',
-    sendingOtp: 'Sending OTP via SMS...',
-    otpSentSuccess: 'OTP sent successfully to your mobile number.',
-    smsGatewayBadge: 'Secured via Jai Automobiles SMS Gateway (Airtel SIM)',
+    sendingOtp: 'Sending OTP...',
+    otpSentSuccess: 'OTP sent',
+    smsGatewayBadge: 'Secured via Jai Automobiles SMS Gateway',
 
     back: 'Back',
     partner: 'Partner: ',
@@ -333,7 +333,7 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
 
     verifyMobileViaOtp: 'ओटीपी द्वारा मोबाइल सत्यापित करें',
     otpVerificationHeading: 'मोबाइल ओटीपी सत्यापन',
-    otpSentSubtext: 'हमने एयरटेल एसएमएस द्वारा 6-अंकों का सत्यापन कोड भेजा है:',
+    otpSentSubtext: 'हमने 6-अंकों का सत्यापन कोड भेजा है:',
     enterOtpLabel: '6-अंकों का ओटीपी दर्ज करें',
     otpPlaceholder: '••••••',
     verifyAndContinue: 'सत्यापित करें और आगे बढ़ें',
@@ -343,9 +343,9 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     otpExpired: 'ओटीपी समाप्त हो गया है। कृपया नया कोड मांगें।',
     otpInvalid: 'अमान्य ओटीपी। कृपया कोड जांचें और पुनः प्रयास करें।',
     changeMobileNumber: 'नंबर बदलें',
-    sendingOtp: 'एसएमएस द्वारा ओटीपी भेजा जा रहा है...',
-    otpSentSuccess: 'आपके मोबाइल नंबर पर ओटीपी सफलतापूर्वक भेजा गया।',
-    smsGatewayBadge: 'जय ऑटोमोबाइल्स एसएमएस गेटवे द्वारा सुरक्षित (एयरटेल सिम)',
+    sendingOtp: 'ओटीपी भेजा जा रहा है...',
+    otpSentSuccess: 'ओटीपी भेजा गया',
+    smsGatewayBadge: 'जय ऑटोमोबाइल्स एसएमएस गेटवे द्वारा सुरक्षित',
 
     back: 'वापस',
     partner: 'पार्टनर: ',
