@@ -752,8 +752,13 @@ export function getStoredDocuments(caseId: string): DocumentItem[] {
   const cases = getStoredCases()
   const targetCase = cases.find((c) => c.id === caseId || c.case_no === caseId)
   if (targetCase && Array.isArray((targetCase as any).documents) && (targetCase as any).documents.length > 0) {
-    saveStoredDocuments(caseId, (targetCase as any).documents)
-    return (targetCase as any).documents
+    const cleaned = (targetCase as any).documents.map((d: any) => ({
+      ...d,
+      status: d.status === 'quarantined' ? 'received' : d.status,
+      can_download: true,
+    }))
+    saveStoredDocuments(caseId, cleaned)
+    return cleaned
   }
 
   // Only for static demo test fixtures (case-jai-101 to case-jai-106)

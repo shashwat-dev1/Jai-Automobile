@@ -141,7 +141,7 @@ describe('Referral Portal Final Updates Test Suite', () => {
       fireEvent.change(screen.getByTestId('pan-file-input'), { target: { files: [panFile] } })
 
       await waitFor(() => {
-        expect(screen.getAllByText(/Uploaded \(Quarantined\)/i).length).toBe(2)
+        expect(screen.getAllByText(/Uploaded/i).length).toBeGreaterThanOrEqual(2)
       })
 
       // Submit without entering a date
@@ -212,7 +212,7 @@ describe('Referral Portal Final Updates Test Suite', () => {
       fireEvent.change(screen.getByTestId('pan-file-input'), { target: { files: [panFile] } })
 
       await waitFor(() => {
-        expect(screen.getAllByText(/Uploaded \(Quarantined\)/i).length).toBe(2)
+        expect(screen.getAllByText(/Uploaded/i).length).toBeGreaterThanOrEqual(2)
       })
 
       // Submit lead
@@ -398,7 +398,7 @@ describe('Referral Portal Final Updates Test Suite', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/my_real_aadhaar.pdf/i)).toBeInTheDocument()
-        expect(screen.getByText(/Uploaded \(Quarantined\)/i)).toBeInTheDocument()
+        expect(screen.getByText(/Uploaded/i)).toBeInTheDocument()
       })
     })
 

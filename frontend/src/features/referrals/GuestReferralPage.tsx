@@ -7,6 +7,8 @@ import {
   formatIndianMobileDisplay,
 } from '../../shared/lib/validators'
 import { lookupIndianPincode, isValidIndianPincode } from '../../shared/lib/pincodeService'
+import { saveUploadedFile } from '../../shared/lib/documentStorage'
+import { runClientOcr, ClientOcrResult } from '../../shared/lib/clientOcrService'
 import { Language, REFERRAL_TRANSLATIONS } from './translations'
 import './GuestReferralPage.css'
 
@@ -128,6 +130,11 @@ export function GuestReferralPage() {
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+
+  // Automatic OCR results
+  const [aadhaarOcrResult, setAadhaarOcrResult] = useState<ClientOcrResult | null>(null)
+  const [panOcrResult, setPanOcrResult] = useState<ClientOcrResult | null>(null)
+  const [rcOcrResult, setRcOcrResult] = useState<ClientOcrResult | null>(null)
 
   // ---------------------------------------------------------------------------
   // Screen 3: Submission Confirmation State
@@ -467,6 +474,28 @@ export function GuestReferralPage() {
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
       const displayName = `${file.name} (${sizeMb} MB)`
 
+      // 1. Persist genuine uploaded file bytes for authentic viewing and downloading
+      try {
+        await saveUploadedFile(assignedId, file, {
+          doc_type: docType,
+          file_name: file.name,
+        })
+      } catch (storageErr) {
+        console.warn('Document storage notice:', storageErr)
+      }
+
+      // 2. Automatically trigger real OCR pipeline against uploaded document bytes
+      runClientOcr(file, docType as any, { customer_name: applicantName })
+        .then((ocrRes) => {
+          if (docType === 'aadhaar') setAadhaarOcrResult(ocrRes)
+          else if (docType === 'pan') setPanOcrResult(ocrRes)
+          else if (docType === 'rc') setRcOcrResult(ocrRes)
+          try {
+            sessionStorage.setItem(`ocr_result_${assignedId}`, JSON.stringify(ocrRes))
+          } catch {}
+        })
+        .catch((ocrErr) => console.warn('Automatic OCR processing notice:', ocrErr))
+
       if (docType === 'aadhaar') {
         setAadhaarFile(file)
         setAadhaarDocId(assignedId)
@@ -582,6 +611,8 @@ export function GuestReferralPage() {
         vehicle_condition: vehicleCondition,
         aadhaar_doc_id: aadhaarDocId,
         pan_doc_id: panDocId,
+        aadhaar_ocr: aadhaarOcrResult,
+        pan_ocr: panOcrResult,
       }
 
       // Strictly include registration and RC ONLY when vehicleCondition is 'used'
@@ -1439,8 +1470,8 @@ export function GuestReferralPage() {
                       <div className="doc-title-row">
                         <span className="doc-title">{t.aadhaarCard} <span className="req-star">*</span></span>
                         {aadhaarDocId && (
-                          <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
-                            🛡️ {t.uploadedQuarantined}
+                          <span className="doc-ready-status-tag" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            ✓ {t.uploadedQuarantined} {aadhaarOcrResult?.ocr_status === 'extracted' ? '• ⚡ OCR Ready' : ''}
                           </span>
                         )}
                       </div>
@@ -1476,8 +1507,8 @@ export function GuestReferralPage() {
                       <div className="doc-title-row">
                         <span className="doc-title">{t.panCard} <span className="req-star">*</span></span>
                         {panDocId && (
-                          <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
-                            🛡️ {t.uploadedQuarantined}
+                          <span className="doc-ready-status-tag" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            ✓ {t.uploadedQuarantined} {panOcrResult?.ocr_status === 'extracted' ? '• ⚡ OCR Ready' : ''}
                           </span>
                         )}
                       </div>
@@ -1546,8 +1577,8 @@ export function GuestReferralPage() {
                           <div className="doc-info-stack">
                             <div className="doc-title-row">
                               <span className="doc-title">{t.rcBook}</span>
-                              <span className="quarantine-status-tag" title={t.uploadedQuarantined}>
-                                🛡️ {t.uploadedQuarantined}
+                              <span className="doc-ready-status-tag" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                ✓ {t.uploadedQuarantined} {rcOcrResult?.ocr_status === 'extracted' ? '• ⚡ OCR Ready' : ''}
                               </span>
                             </div>
                             <span className="doc-filename-text">{rcFileName}</span>

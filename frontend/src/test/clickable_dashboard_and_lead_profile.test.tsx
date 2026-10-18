@@ -323,7 +323,7 @@ describe('DSA OS — Clickable Dashboard & Lead Management Journey', () => {
     expect(screen.getByText(/Identity document numbers are masked for data protection/i)).toBeInTheDocument()
     expect(screen.getByText('Aadhaar Card (Mandatory)')).toBeInTheDocument()
     expect(screen.getByText('PAN Card (Mandatory)')).toBeInTheDocument()
-    expect(screen.getAllByText('View Securely').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/View Document|View Securely/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Download').length).toBeGreaterThan(0)
 
     // Referral Partner Attribution

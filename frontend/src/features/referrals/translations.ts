@@ -242,8 +242,8 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     rcPromptSub: 'Supports PDF, JPG, PNG up to 10MB',
     upload: 'Upload',
     replace: 'Replace',
-    uploadedQuarantined: 'Uploaded (Quarantined)',
-    uploadingToQuarantine: 'Uploading to secure quarantine...',
+    uploadedQuarantined: 'Uploaded',
+    uploadingToQuarantine: 'Uploading & Processing...',
     uploadSizeError: 'File size exceeds 10MB limit.',
     uploadTypeError: 'Only PDF, JPEG, or PNG files are supported.',
 
@@ -364,8 +364,8 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     rcPromptSub: 'PDF, JPG, PNG (10MB तक समर्थित)',
     upload: 'अपलोड करें',
     replace: 'बदलें',
-    uploadedQuarantined: 'अपलोड हो गया (सुरक्षित)',
-    uploadingToQuarantine: 'सुरक्षित रूप से अपलोड हो रहा है...',
+    uploadedQuarantined: 'अपलोड हो गया',
+    uploadingToQuarantine: 'अपलोड एवं प्रोसेसिंग हो रही है...',
     uploadSizeError: 'फ़ाइल का आकार 10MB की सीमा से अधिक है।',
     uploadTypeError: 'केवल PDF, JPEG, या PNG फ़ाइलें समर्थित हैं।',
 

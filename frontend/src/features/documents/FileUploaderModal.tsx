@@ -192,7 +192,7 @@ export function FileUploaderModal({ caseId, item, isOpen, onClose, onSuccess }: 
                 Drag and drop your document here, or <span className="browse-link">browse</span>
               </p>
               <p className="type-mono-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                Uploaded files enter quarantine for ClamAV inspection & EXIF stripping before promotion.
+                Uploaded files are securely validated and processed with automated format verification.
               </p>
             </div>
           )}
@@ -220,7 +220,7 @@ export function FileUploaderModal({ caseId, item, isOpen, onClose, onSuccess }: 
             disabled={!selectedFile || isProcessing}
             loading={isProcessing}
           >
-            Upload to Quarantine
+            Upload Document
           </Button>
         </div>
       </div>

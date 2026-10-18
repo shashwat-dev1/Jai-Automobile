@@ -62,6 +62,7 @@ import {
 } from './storeSync'
 import { computeStitchDashboard } from '../../features/dashboard/dashboardDataService'
 import { computeTodayConsoleData } from '../../features/dashboard/todayDataService'
+import type { DocumentItem } from '../../features/documents/types'
 
 let currentMockSessionUser: any = null
 const quarantinedUploadsMap = new Map<string, { id: string; file_name: string; file_size: number; mime_type: string; doc_type: string; uploaded_at: string }>()
@@ -527,10 +528,58 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Phase 1: Referral Document Upload (Quarantine)
+  // Phase 1 / Section 5: Admin-Only Customer Name Correction
+  const correctNameMatch = clean.match(/\/cases\/([^\/\?]+)\/correct-name/)
+  if (correctNameMatch && method === 'POST') {
+    const caseId = correctNameMatch[1]
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Only authorized administrators can correct customer name to resolve document discrepancies.', 403, 'FORBIDDEN')
+    }
+    const { new_name, reason } = parsedBody || {}
+    if (!new_name || !new_name.trim()) {
+      throw new ApiError('New customer name is required.', 422, 'VALIDATION_ERROR')
+    }
+    const cleanName = new_name.trim()
+    const cases = getStoredCases()
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId.toLowerCase())
+    if (!foundCase) {
+      throw new ApiError('Case not found', 404, 'NOT_FOUND')
+    }
+    const prevName = foundCase.primary_applicant_name || foundCase.applicant_name
+    foundCase.primary_applicant_name = cleanName
+    foundCase.applicant_name = cleanName
+    if (foundCase.primary_party) {
+      foundCase.primary_party.name = cleanName
+    }
+    foundCase.updated_at = new Date().toISOString()
+    if (!Array.isArray(foundCase.call_activity_history)) {
+      foundCase.call_activity_history = []
+    }
+    foundCase.call_activity_history.unshift({
+      id: `act-${Date.now()}`,
+      outcome: 'name_corrected',
+      remarks: `Corrected customer name from "${prevName}" to "${cleanName}". Reason: ${reason || 'Aadhaar & PAN matched'}.`,
+      telecaller_name: active?.name || 'Administrator',
+      created_at: new Date().toISOString(),
+    })
+    saveStoredCases(cases)
+    syncCaseToCloud(foundCase).catch((e) => console.warn('Name correction cloud sync error:', e))
+    return {
+      success: true,
+      case_id: foundCase.id,
+      case_no: foundCase.case_no,
+      primary_applicant_name: cleanName,
+      previous_name: prevName,
+      corrected_at: foundCase.updated_at,
+      case: foundCase,
+    }
+  }
+
+  // Document Upload
   if ((clean.includes('/referrals/upload-document') || clean.includes('/upload-document')) && method === 'POST') {
     const docType = getBodyField('doc_type') || getBodyField('document_type_id') || 'aadhaar'
-    let fileName = `quarantined_${docType}.pdf`
+    let fileName = `upload_${docType}.pdf`
     let fileSize = 245000
     if (parsedBody instanceof FormData) {
       const fileEntry = parsedBody.get('file')
@@ -542,7 +591,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       fileName = getBodyField('file_name') || getBodyField('file') || fileName
       fileSize = Number(getBodyField('file_size')) || fileSize
     }
-    const docId = `doc-quar-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     quarantinedUploadsMap.set(docId, {
       id: docId,
       file_name: fileName,
@@ -559,8 +608,8 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       doc_type: docType,
       file_name: fileName,
       file_size: fileSize,
-      status: 'quarantined',
-      message: 'Document successfully uploaded to private quarantine.',
+      status: 'received',
+      message: 'Document successfully uploaded and ready for review.',
     }
   }
 
@@ -736,6 +785,19 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     for (const spec of docSpecs) {
       if (spec.id) {
         const cached = quarantinedUploadsMap.get(spec.id)
+        let ocrPayload = spec.typeId === 'dt-aadhaar'
+          ? parsedBody?.aadhaar_ocr
+          : spec.typeId === 'dt-pan'
+          ? parsedBody?.pan_ocr
+          : parsedBody?.rc_ocr
+
+        if (!ocrPayload && typeof window !== 'undefined') {
+          try {
+            const raw = sessionStorage.getItem(`ocr_result_${spec.id}`)
+            if (raw) ocrPayload = JSON.parse(raw)
+          } catch {}
+        }
+
         genuineDocs.push({
           id: spec.id,
           org_id: '11111111-1111-1111-1111-111111111111',
@@ -745,13 +807,13 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           file_size: cached?.file_size || 245000,
           mime_type: cached?.mime_type || 'application/pdf',
           version: 1,
-          status: 'quarantined',
-          can_download: false,
+          status: 'received',
+          can_download: true,
           uploaded_at: cached?.uploaded_at || new Date().toISOString(),
-          scan_result: {
+          scan_result: ocrPayload || {
             ocr_status: 'pending',
             document_type_code: spec.code,
-            pipeline_stage: 'quarantined',
+            pipeline_stage: 'extraction_pending',
             fields: [],
           },
         })
@@ -945,6 +1007,34 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     return { success: true }
   }
 
+  // Admin Customer Name Correction (POST /cases/:id/correct-name)
+  // Update Document OCR Results (POST /cases/:id/documents/ocr)
+  if (clean.includes('/documents/ocr') && method === 'POST') {
+    const caseId = clean.match(/\/cases\/([^\/\?]+)/)?.[1]
+    const docId = parsedBody?.document_id
+    const scanResult = parsedBody?.scan_result
+    const storedDocs = getStoredDocuments(caseId!)
+    const updatedDocs: DocumentItem[] = storedDocs.map((d) => {
+      if (d.id === docId || (docId && d.id.includes(docId))) {
+        return {
+          ...d,
+          status: 'received' as const,
+          can_download: true,
+          scan_result: scanResult || d.scan_result,
+        }
+      }
+      return d
+    })
+    saveStoredDocuments(caseId!, updatedDocs)
+    const storedCases = getStoredCases()
+    const targetCase = storedCases.find((c) => c.id === caseId || c.case_no === caseId)
+    if (targetCase) {
+      (targetCase as any).documents = updatedDocs
+      syncCaseToCloud(targetCase).catch(() => {})
+    }
+    return { success: true, documents: updatedDocs }
+  }
+
   // Single Case Dossier (GET /cases/:id) with Server-Side Assignment Authorization
   const singleCaseMatch = clean.match(/\/cases\/([^\/\?]+)$/)
   if (singleCaseMatch && method === 'GET') {
@@ -961,6 +1051,16 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           throw new ApiError('Access denied: You are not authorized to view this lead record.', 403, 'FORBIDDEN')
         }
       }
+
+      // Automatically normalize any legacy quarantined documents to received state
+      if (Array.isArray((foundCase as any).documents)) {
+        (foundCase as any).documents = (foundCase as any).documents.map((d: any) => ({
+          ...d,
+          status: d.status === 'quarantined' ? 'received' : d.status,
+          can_download: true,
+        }))
+      }
+
       return foundCase
     }
   }
