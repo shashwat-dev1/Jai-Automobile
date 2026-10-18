@@ -74,10 +74,14 @@
     - Removed arbitrary 200ms timeout race on `file.arrayBuffer()` and `extractPdfText()`.
     - Scans uncompressed text and streams for authentic PAN, Aadhaar, and DOB regex patterns.
     - Completely eradicated all fake strings (`4819`, `ABCDE****F`, `01/01/1990`). If not detected, returns `'—'` with `status: 'needs_review'`.
-- **3. Verification**:
+- **3. PDF.js HTML5 Canvas Viewer & CSP Fix (Completed)**:
+  - **CSP Root Cause**: `frontend/index.html` lacked `blob:` in `img-src`, causing browsers to block blob URLs with a broken image icon.
+  - **Resolution with PDF.js**: Installed `pdfjs-dist@3.11.174` and created [`PdfDocumentViewer.tsx`](file:///c:/Projects/project_backup/frontend/src/shared/components/PdfDocumentViewer.tsx). Renders all PDF pages directly onto an HTML5 `<canvas>`, providing razor-sharp, zero-plugin, zero-sandbox document viewing with multi-page navigation.
+  - **Scanned Photo vs Digital Text**: Integrated PDF.js text layer extraction in `clientOcrService.ts`. For digital PDFs (e-Aadhaar, digital PAN), extracts authentic numbers. For phone camera photo scans without a digital text layer, marks fields honestly as `Scanned Document (Manual Verification Required)` with badge `Visual Review Required`, enabling side-by-side inspection in the viewer.
+- **4. Verification**:
     - All 22 vitest test suites (181 tests) passed.
-    - Clean production build: `npm run build` completed in 6.89s.
-    - Committed (`c14af43`) and pushed to `origin main` for Vercel deployment.
+    - Clean production build: `npm run build` completed in 7.58s.
+    - Commits `c14af43`, `6639096`, and `882d935` pushed to `origin main` for Vercel deployment.
 - **2. Architecture & Implementation**:
   - **`documentStorage.ts` (Private Document Persistence)**:
     - Provides secure local storage in browser `IndexedDB` (`dsaos_document_store`) with an in-memory `activeBlobs` / `activeBlobUrls` cache.
