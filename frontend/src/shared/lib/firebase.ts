@@ -8,12 +8,12 @@ import { getStorage, type FirebaseStorage } from 'firebase/storage'
  * Values are injected via Vite environment variables (.env / Vercel Environment Variables)
  */
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyB5CGen801Nox6LRgrDASig5qktJUJ3Y_c',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'jai-automobile.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'jai-automobile',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'jai-automobile.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '25306628005',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:25306628005:web:75ad69c0098f40abcd724c',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 }
 
 export const isFirebaseConfigured = (): boolean => {
