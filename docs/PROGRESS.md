@@ -8,6 +8,43 @@
 
 **PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
 
+### TextBee SMS Gateway & Referral Partner OTP Verification (Completed)
+- **1. Genuine Mobile OTP Verification for First-Time Referral Guests**:
+  - Implemented end-to-end phone verification for new referral guests arriving at `/referral`.
+  - Number normalization: automatically prefixes `+91` to standard 10-digit Indian mobile numbers.
+  - Zero duplication: existing registered partners (e.g. Rajesh Sharma) are identified and proceed directly to lead submission without OTP friction or duplicate accounts.
+  - Unregistered guests enter their full name, triggering real OTP generation and dispatch via TextBee SMS Gateway.
+  - Verification Screen 1.5 displays masked phone (`+91 98•••• 7654`), a 6-digit OTP code input, a 5-minute countdown expiry timer, a 60s resend cooldown, an option to change the number, and verified gateway trust badge.
+  - Only upon valid server-side verification is the partner profile marked `verification_status: 'verified'` and allowed to advance to Screen 2 (Lead Submission). A user is never marked verified simply because the SMS API returned success.
+- **2. TextBee Android SMS Gateway Integration (Motorola Edge 60 Pro + Airtel SIM)**:
+  - **Gateway Client** ([`backend/app/modules/referrals/textbee_gateway.py`](file:///c:/Projects/project_backup/backend/app/modules/referrals/textbee_gateway.py)):
+    - Target endpoint: `https://api.textbee.dev/api/v1/gateway/send-sms`
+    - Device ID: `6ad35c2110b63ade602300fd`
+    - API Key: Server-side environment variable `TEXTBEE_API_KEY` (never exposed to client).
+    - SIM selection parameter: `simSubscriptionId: 1` (confirmed integer representation matching TextBee API documentation for Airtel SIM Subscription ID `1`, strictly distinguished from physical slot index).
+    - Fail-safe enforcement: Does not fall back silently to default SIM; validates credentials and device availability.
+  - **Diagnostic Utility** ([`backend/scripts/test_real_textbee_sms.py`](file:///c:/Projects/project_backup/backend/scripts/test_real_textbee_sms.py)):
+    - Standalone verification script checking gateway connectivity, device status, and sending live test SMS with `simSubscriptionId: 1`.
+- **3. Cryptographic OTP Security Engine**:
+  - **Service** ([`backend/app/modules/referrals/otp_service.py`](file:///c:/Projects/project_backup/backend/app/modules/referrals/otp_service.py)):
+    - Generates cryptographically secure 6-digit random numeric OTPs using Python's `secrets` module.
+    - Stores salted SHA-256 hash (never plaintext).
+    - Configurable 5-minute expiry (`otp_expiry_seconds: 300`).
+    - Enforces 60-second cooldown on resends (`otp_resend_cooldown_seconds: 60`).
+    - Throttling: Max 3 OTP sends per phone per 10-minute window (`otp_max_sends_per_window: 3`).
+    - Lockout: Max 5 failed verification attempts before permanent OTP invalidation (`otp_max_attempts: 5`).
+    - Replay prevention: OTP record is immediately deleted/invalidated upon successful verification.
+    - Pluggable storage architecture: `InMemoryOtpStore` with automatic expired token cleanup and Redis-ready interface.
+- **4. Backend API Endpoints & FastAPI Monolith**:
+  - `POST /referrals/otp/send`: Generates OTP, dispatches via TextBee Airtel SIM, records salted hash.
+  - `POST /referrals/otp/verify`: Verifies submitted code, increments attempt counter, invalidates token upon success, returns verification token.
+  - Unit test suite ([`backend/tests/test_referrals_otp.py`](file:///c:/Projects/project_backup/backend/tests/test_referrals_otp.py)): 8/8 pytest tests passing (normalization, payload schema, invalidation, replay prevention, lockout, cooldown).
+- **5. Frontend UI/UX, Bilingual Translations & Test Coverage**:
+  - Full bilingual localization in English & Hindi for all OTP states ([`translations.ts`](file:///c:/Projects/project_backup/frontend/src/features/referrals/translations.ts)).
+  - Integration tests ([`frontend/src/test/referral_partner_otp_verification.test.tsx`](file:///c:/Projects/project_backup/frontend/src/test/referral_partner_otp_verification.test.tsx)): 3/3 vitest tests passing.
+  - Full frontend suite: 22 test files, 176 passed tests (100% pass rate).
+  - Production build: `tsc -b && vite build` clean build in 7.05s.
+
 ### Public Referral Portal / New Lead Submission Updates (Completed)
 - **1. Exact Form Section Reordering**:
   - Arranged all referral lead intake sections in the strict required sequence:

@@ -113,6 +113,36 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
+    # TextBee SMS Gateway (Motorola Edge 60 Pro + Airtel SIM)
+    # -------------------------------------------------------------------------
+    textbee_api_key: str | None = Field(
+        default=None,
+        description="TextBee SMS Gateway API Key (Loaded from TEXTBEE_API_KEY env var)",
+    )
+    textbee_device_id: str = Field(
+        default="6ad35c2110b63ade602300fd",
+        description="TextBee registered Android Gateway Device ID",
+    )
+    textbee_sim_subscription_id: int = Field(
+        default=1,
+        description="Airtel SIM subscription ID confirmed in TextBee dashboard",
+    )
+    textbee_api_url: str = Field(
+        default="https://api.textbee.dev/api/v1/gateway/send-sms",
+        description="TextBee Gateway send-sms REST endpoint",
+    )
+
+    # -------------------------------------------------------------------------
+    # Referral Partner OTP Security Settings
+    # -------------------------------------------------------------------------
+    otp_length: int = Field(default=6, description="Length of verification OTP in digits")
+    otp_expiry_seconds: int = Field(default=300, description="OTP lifetime in seconds (5 minutes)")
+    otp_resend_cooldown_seconds: int = Field(default=60, description="Minimum seconds between OTP resends")
+    otp_max_attempts: int = Field(default=5, description="Max invalid verification attempts before invalidation")
+    otp_rate_limit_max_sends: int = Field(default=3, description="Max OTP requests allowed per time window")
+    otp_rate_limit_window_seconds: int = Field(default=600, description="Rate limit tracking window (10 minutes)")
+
+    # -------------------------------------------------------------------------
     # Logging
     # -------------------------------------------------------------------------
     log_level: str = "INFO"

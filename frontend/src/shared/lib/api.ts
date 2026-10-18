@@ -584,6 +584,155 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
+  // Phase 1: Referral Partner OTP Dispatch (TextBee SMS Gateway)
+  if (clean.includes('/referrals/otp/send') && method === 'POST') {
+    let cleanMobile = (parsedBody?.mobile || '').replace(/\D/g, '')
+    if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) {
+      cleanMobile = cleanMobile.slice(2)
+    } else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) {
+      cleanMobile = cleanMobile.slice(1)
+    }
+    const rawMobile = cleanMobile.slice(0, 10)
+    if (rawMobile.length !== 10 || !['6', '7', '8', '9'].includes(rawMobile.charAt(0))) {
+      throw new ApiError('Invalid mobile number. Must be a 10-digit Indian number starting with 6, 7, 8, or 9.', 422, 'VALIDATION_ERROR')
+    }
+
+    const partnerName = (parsedBody?.name || '').trim()
+    if (!partnerName) {
+      throw new ApiError('Partner name is required to dispatch verification code.', 422, 'VALIDATION_ERROR')
+    }
+
+    // Check if existing partner is already verified
+    const allProfiles = [...getStoredReferralProfiles(), ...JAI_MOCK_REFERRAL_PROFILES]
+    const match = allProfiles.find((p) => p.mobile_primary?.includes(rawMobile))
+    if (match && match.verification_status === 'verified') {
+      const masked = `+91 ${rawMobile.slice(0, 2)}****${rawMobile.slice(-4)}`
+      return {
+        success: true,
+        message: `Mobile number ${masked} is already verified. You may proceed directly to submit referrals.`,
+        masked_mobile: masked,
+        expires_in_seconds: 0,
+        resend_cooldown_seconds: 0,
+        delivery_accepted: true,
+        sim_subscription_id: 1,
+      }
+    }
+
+    // Rate limiting: cooldown check (60s)
+    const now = Date.now()
+    const existing = (window as any).__MOCK_OTP_STORE__?.[rawMobile]
+    if (existing && existing.last_send_at && (now - existing.last_send_at) < 60000) {
+      const waitSec = Math.ceil((60000 - (now - existing.last_send_at)) / 1000)
+      throw new ApiError(`Please wait ${waitSec} seconds before requesting a new verification code.`, 429, 'RATE_LIMIT_EXCEEDED')
+    }
+
+    // Generate secure 6-digit OTP
+    const otpCode = String(Math.floor(100000 + Math.random() * 900000))
+    if (!(window as any).__MOCK_OTP_STORE__) {
+      ;(window as any).__MOCK_OTP_STORE__ = {}
+    }
+    ;(window as any).__MOCK_OTP_STORE__[rawMobile] = {
+      code: otpCode,
+      name: partnerName,
+      created_at: now,
+      last_send_at: now,
+      expires_at: now + 300000, // 5 minutes
+      attempts: 0,
+    }
+
+    // Expose in test mode for automated test assertion
+    if (typeof window !== 'undefined') {
+      ;(window as any).__LAST_GENERATED_OTP__ = otpCode
+    }
+
+    const masked = `+91 ${rawMobile.slice(0, 2)}****${rawMobile.slice(-4)}`
+    return {
+      success: true,
+      message: `Verification code sent to ${masked} via Airtel SIM.`,
+      masked_mobile: masked,
+      expires_in_seconds: 300,
+      resend_cooldown_seconds: 60,
+      delivery_accepted: true,
+      sim_subscription_id: 1,
+    }
+  }
+
+  // Phase 1: Referral Partner OTP Verification
+  if (clean.includes('/referrals/otp/verify') && method === 'POST') {
+    let cleanMobile = (parsedBody?.mobile || '').replace(/\D/g, '')
+    if (cleanMobile.length === 12 && cleanMobile.startsWith('91')) {
+      cleanMobile = cleanMobile.slice(2)
+    } else if (cleanMobile.length === 11 && cleanMobile.startsWith('0')) {
+      cleanMobile = cleanMobile.slice(1)
+    }
+    const rawMobile = cleanMobile.slice(0, 10)
+    const submittedOtp = (parsedBody?.otp || '').trim()
+    const partnerName = (parsedBody?.name || '').trim()
+
+    if (!submittedOtp || submittedOtp.length < 4) {
+      throw new ApiError('Please enter a valid verification code.', 422, 'VALIDATION_ERROR')
+    }
+
+    const record = (window as any).__MOCK_OTP_STORE__?.[rawMobile]
+    if (!record) {
+      throw new ApiError('Verification code has expired or does not exist. Please request a new code.', 400, 'EXPIRED_OR_NOT_FOUND')
+    }
+
+    if (Date.now() > record.expires_at) {
+      delete (window as any).__MOCK_OTP_STORE__[rawMobile]
+      throw new ApiError('Verification code has expired. Please request a new code.', 400, 'EXPIRED')
+    }
+
+    record.attempts = (record.attempts || 0) + 1
+    if (record.attempts > 5) {
+      delete (window as any).__MOCK_OTP_STORE__[rawMobile]
+      throw new ApiError('Maximum verification attempts exceeded. Please request a new code.', 429, 'MAX_ATTEMPTS_EXCEEDED')
+    }
+
+    if (record.code !== submittedOtp) {
+      const remaining = Math.max(0, 5 - record.attempts)
+      throw new ApiError(`Incorrect verification code. ${remaining} attempt(s) remaining.`, 400, 'INCORRECT_CODE')
+    }
+
+    // Success: immediately invalidate OTP to prevent replay
+    delete (window as any).__MOCK_OTP_STORE__[rawMobile]
+
+    // Create or activate verified partner profile
+    const profiles = getStoredReferralProfiles()
+    let partner = profiles.find((p: any) => p.mobile_primary?.includes(rawMobile))
+    const finalName = partnerName || record.name || 'Verified Referral Partner'
+
+    if (!partner) {
+      partner = {
+        id: `ref-p-${Date.now()}`,
+        org_id: '11111111-1111-1111-1111-111111111111',
+        name: finalName,
+        mobile_primary: rawMobile,
+        masked_mobile: `${rawMobile.slice(0, 2)}****${rawMobile.slice(-4)}`,
+        verification_status: 'verified',
+        total_leads: 0,
+        interested_leads: 0,
+        converted_leads: 0,
+        approved_commissions: 0,
+        paid_commissions: 0,
+        notes: 'Registered and verified via TextBee mobile OTP (Airtel SIM).',
+        created_at: new Date().toISOString(),
+      }
+    } else {
+      partner.name = finalName
+      partner.verification_status = 'verified'
+    }
+
+    addOrUpdateReferralProfile(partner)
+
+    return {
+      success: true,
+      verified: true,
+      message: `Referral partner ${partner.name} verified successfully.`,
+      profile: partner,
+    }
+  }
+
   // Phase 1: Guest Referral Lead Submission with Mandatory Document Rules
   if ((clean.includes('/referrals/submit') || clean.includes('/referrals/guest-submit')) && method === 'POST') {
     const rawMobile = (parsedBody?.partner_mobile || '').replace(/\D/g, '').slice(-10)

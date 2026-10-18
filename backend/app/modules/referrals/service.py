@@ -14,12 +14,14 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.modules.cases.models import Case, CaseParty, CaseStatusHistory, Vehicle
 from app.modules.cases.service import CASE_STATUS_LEAD, CaseService
 from app.modules.documents.models import Document, DocumentType
 from app.modules.parties.models import Party
 from app.modules.parties.service import PartyService
 from app.modules.referrals.models import ReferralCommission, ReferralProfile
+from app.modules.referrals.otp_service import OtpSecurityService
 from app.modules.referrals.schemas import (
     CommissionCreateRequest,
     CommissionStatusUpdateRequest,
@@ -27,9 +29,12 @@ from app.modules.referrals.schemas import (
     GuestLeadSubmissionRequest,
     GuestLeadSubmissionResponse,
     ReferralLookupResponse,
+    ReferralOtpSendResponse,
+    ReferralOtpVerifyResponse,
     ReferralPartnerDossierResponse,
     ReferralProfileResponse,
 )
+from app.modules.referrals.textbee_gateway import TextBeeGateway
 from app.modules.sources.models import Source
 from app.modules.tenancy.models import Organization
 from app.shared.exceptions import BusinessRuleViolationError, NotFoundError, ValidationError
@@ -100,6 +105,147 @@ class ReferralService:
             )
 
         return ReferralLookupResponse(exists=False, profile_id=None, name=None, verification_status=None)
+
+    async def send_partner_otp(
+        self,
+        mobile: str,
+        name: str,
+        org_slug: str | None = None,
+        redis_client: Any = None,
+        gateway: TextBeeGateway | None = None,
+    ) -> ReferralOtpSendResponse:
+        """
+        Generate and dispatch a cryptographically secure 6-digit OTP via TextBee
+        using the user's Motorola Edge 60 Pro and designated Airtel SIM (subscription ID 1).
+        """
+        clean_mobile = _normalize_mobile(mobile)
+        resolved_org_id = await self._resolve_org_id(None, org_slug)
+        settings = get_settings()
+
+        # 1. Check if mobile already belongs to an existing verified referral partner
+        stmt = select(ReferralProfile).where(
+            ReferralProfile.org_id == resolved_org_id,
+            ReferralProfile.mobile_primary == clean_mobile,
+            ReferralProfile.deleted_at.is_(None),
+        )
+        res = await self.session.execute(stmt)
+        existing_profile = res.scalar_one_or_none()
+        if existing_profile and existing_profile.verification_status == "verified":
+            masked = f"+91 {clean_mobile[:2]}****{clean_mobile[-4:]}"
+            return ReferralOtpSendResponse(
+                success=True,
+                message=f"Mobile number {masked} is already registered and verified. You may proceed directly to submit referrals.",
+                masked_mobile=masked,
+                expires_in_seconds=0,
+                resend_cooldown_seconds=0,
+                delivery_accepted=True,
+                sim_subscription_id=settings.textbee_sim_subscription_id,
+            )
+
+        # 2. Generate secure random OTP and store hash with salt and TTL
+        otp_service = OtpSecurityService(redis_client=redis_client)
+        try:
+            gen_result = await otp_service.generate_otp(
+                normalized_mobile=clean_mobile,
+                partner_name=name.strip(),
+            )
+        except ValueError as rate_err:
+            raise BusinessRuleViolationError(str(rate_err))
+
+        # 3. Format SMS message
+        sms_text = (
+            f"Your Jai Automobiles referral verification code is {gen_result.otp_code}. "
+            f"Valid for {gen_result.expires_in_seconds // 60} minutes. Do not share this code with anyone."
+        )
+
+        # 4. Dispatch SMS via TextBee Android gateway (Airtel SIM subscription ID 1)
+        tb_gateway = gateway or TextBeeGateway()
+        send_result = await tb_gateway.send_sms(
+            to_mobile=clean_mobile,
+            message=sms_text,
+        )
+
+        if not send_result.success:
+            # Never mark verified or show success if gateway fails
+            error_detail = send_result.error_message or "Failed to deliver SMS through TextBee Gateway."
+            raise BusinessRuleViolationError(
+                f"SMS Gateway Error: {error_detail}. Ensure your Android device is online with the Airtel SIM."
+            )
+
+        masked = f"+91 {clean_mobile[:2]}****{clean_mobile[-4:]}"
+        return ReferralOtpSendResponse(
+            success=True,
+            message=f"Verification code sent to {masked} via Airtel SIM.",
+            masked_mobile=masked,
+            expires_in_seconds=gen_result.expires_in_seconds,
+            resend_cooldown_seconds=gen_result.resend_cooldown_seconds,
+            delivery_accepted=True,
+            sim_subscription_id=settings.textbee_sim_subscription_id,
+        )
+
+    async def verify_partner_otp(
+        self,
+        mobile: str,
+        otp: str,
+        name: str,
+        org_slug: str | None = None,
+        redis_client: Any = None,
+    ) -> ReferralOtpVerifyResponse:
+        """
+        Validate submitted OTP.
+        Upon successful validation, activate or create the referral partner profile
+        with verification_status='verified'.
+        """
+        clean_mobile = _normalize_mobile(mobile)
+        resolved_org_id = await self._resolve_org_id(None, org_slug)
+
+        # 1. Validate OTP cryptographically
+        otp_service = OtpSecurityService(redis_client=redis_client)
+        verify_result = await otp_service.verify_otp(
+            normalized_mobile=clean_mobile,
+            submitted_otp=otp,
+        )
+
+        if not verify_result.success:
+            raise ValidationError(verify_result.message)
+
+        # 2. Get or create referral partner profile
+        stmt = select(ReferralProfile).where(
+            ReferralProfile.org_id == resolved_org_id,
+            ReferralProfile.mobile_primary == clean_mobile,
+            ReferralProfile.deleted_at.is_(None),
+        )
+        res = await self.session.execute(stmt)
+        profile = res.scalar_one_or_none()
+
+        final_name = (verify_result.partner_name or name or "").strip()
+        if not final_name and profile:
+            final_name = profile.name
+
+        if not profile:
+            profile = ReferralProfile(
+                id=uuid.uuid4(),
+                org_id=resolved_org_id,
+                name=final_name or "Verified Referral Partner",
+                mobile_primary=clean_mobile,
+                verification_status="verified",
+                notes="Self-registered and verified via TextBee mobile OTP.",
+                version=1,
+            )
+            self.session.add(profile)
+        else:
+            profile.name = final_name
+            profile.verification_status = "verified"
+            profile.version = (profile.version or 1) + 1
+
+        await self.session.flush()
+
+        return ReferralOtpVerifyResponse(
+            success=True,
+            verified=True,
+            message=f"Referral partner {profile.name} verified successfully.",
+            profile=ReferralProfileResponse.model_validate(profile),
+        )
 
     async def get_or_create_profile(
         self,

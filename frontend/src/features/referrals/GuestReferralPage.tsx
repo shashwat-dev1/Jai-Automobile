@@ -71,6 +71,44 @@ export function GuestReferralPage() {
   const [hasLookupCompleted, setHasLookupCompleted] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
 
+  // OTP Verification State for New / Unverified Guests (TextBee SMS Gateway)
+  const [isOtpStep, setIsOtpStep] = useState(false)
+  const [enteredOtp, setEnteredOtp] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpSuccessNotice, setOtpSuccessNotice] = useState<string | null>(null)
+  const [otpCooldown, setOtpCooldown] = useState(0)
+  const [otpExpiresIn, setOtpExpiresIn] = useState(300)
+
+  // Countdown timer for OTP resend cooldown
+  useEffect(() => {
+    let timer: any
+    if (otpCooldown > 0) {
+      timer = setInterval(() => {
+        setOtpCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+      }, 1000)
+    }
+    return () => clearInterval(timer)
+  }, [otpCooldown])
+
+  // Countdown timer for OTP expiry
+  useEffect(() => {
+    let timer: any
+    if (isOtpStep && otpExpiresIn > 0) {
+      timer = setInterval(() => {
+        setOtpExpiresIn((prev) => (prev > 0 ? prev - 1 : 0))
+      }, 1000)
+    }
+    return () => clearInterval(timer)
+  }, [isOtpStep, otpExpiresIn])
+
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
   // Lookup performance, caching, and race-condition cancellation
   const lookupCacheRef = useRef<Map<string, LookupCacheItem>>(new Map())
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -286,7 +324,7 @@ export function GuestReferralPage() {
     }
   }
 
-  const handleContinueFromScreen1 = () => {
+  const handleContinueFromScreen1 = async () => {
     if (!isValidIndianMobile(partnerMobile)) {
       setLookupError(t.enterValidMobileError)
       return
@@ -295,12 +333,102 @@ export function GuestReferralPage() {
       initiateLookup(partnerMobile)
       return
     }
-    if (!isExistingPartner && !partnerName.trim()) {
+    if (isExistingPartner) {
+      // Existing verified partner proceeds straight to Screen 2
+      setLookupError(null)
+      setStep(2)
+      return
+    }
+    if (!partnerName.trim()) {
       setLookupError(t.enterPartnerNameError)
       return
     }
     setLookupError(null)
-    setStep(2)
+    await handleSendOtp()
+  }
+
+  const handleSendOtp = async () => {
+    setIsSendingOtp(true)
+    setOtpError(null)
+    setOtpSuccessNotice(null)
+    try {
+      const res = await api.post<{
+        success: boolean
+        message: string
+        masked_mobile: string
+        expires_in_seconds: number
+        resend_cooldown_seconds: number
+      }>('/referrals/otp/send', {
+        mobile: partnerMobile,
+        name: partnerName.trim(),
+        org_slug: orgSlug || 'jai-automobiles',
+      })
+
+      if (res && res.success) {
+        setIsOtpStep(true)
+        setEnteredOtp('')
+        setOtpExpiresIn(res.expires_in_seconds || 300)
+        setOtpCooldown(res.resend_cooldown_seconds || 60)
+        setOtpSuccessNotice(res.message || t.otpSentSuccess)
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+          ? err.message
+          : 'Failed to dispatch verification code via SMS.'
+      setLookupError(msg)
+      setOtpError(msg)
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!enteredOtp || enteredOtp.length < 4) {
+      setOtpError('Please enter the 6-digit verification code.')
+      return
+    }
+
+    setIsVerifyingOtp(true)
+    setOtpError(null)
+    try {
+      const res = await api.post<{
+        success: boolean
+        verified: boolean
+        message: string
+        profile: any
+      }>('/referrals/otp/verify', {
+        mobile: partnerMobile,
+        otp: enteredOtp.trim(),
+        name: partnerName.trim(),
+        org_slug: orgSlug || 'jai-automobiles',
+      })
+
+      if (res && res.verified) {
+        setIsExistingPartner(true)
+        setIsOtpStep(false)
+        setStep(2)
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+          ? err.message
+          : t.otpInvalid
+      setOtpError(msg)
+    } finally {
+      setIsVerifyingOtp(false)
+    }
+  }
+
+  const handleChangeMobileNumber = () => {
+    setIsOtpStep(false)
+    setEnteredOtp('')
+    setOtpError(null)
+    setOtpSuccessNotice(null)
   }
 
   // ===========================================================================
@@ -708,117 +836,227 @@ export function GuestReferralPage() {
             {/* Main Screen Title */}
             <h1 className="screen-1-title">{t.enterMobileNumber}</h1>
 
-            {/* Mobile Number Entry Card */}
-            <div className="mobile-entry-card">
-              <div className="mobile-card-top-row">
-                <span className="mobile-card-label">{t.registeredPartnerMobile}</span>
-                {partnerMobile.length === 10 && isValidIndianMobile(partnerMobile) && (
-                  <span className="mobile-verified-tag">{t.tenOfTenVerified}</span>
-                )}
-                {partnerMobile.length > 0 && partnerMobile.length < 10 && (
-                  <span className="mobile-counter-tag">{partnerMobile.length}/10</span>
-                )}
-              </div>
-
-              <div className="mobile-input-row">
-                <div className="country-code-pill">
-                  <span className="country-code-text">IN +91</span>
-                </div>
-
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  className="mobile-digits-input"
-                  placeholder="98765 43210"
-                  value={formatIndianMobileDisplay(partnerMobile)}
-                  onChange={handleMobileInputChange}
-                  maxLength={11}
-                  autoFocus
-                  aria-label={t.registeredPartnerMobile}
-                />
-
-                <div className="mobile-status-icon-wrapper">
-                  {isCheckingMobile && (
-                    <div className="lookup-spinner" title={t.checkingDatabase} />
-                  )}
-                  {!isCheckingMobile && hasLookupCompleted && isValidIndianMobile(partnerMobile) && (
-                    <div className="verified-check-circle" title={t.verifiedMobile}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Error / Alert Banner */}
-            {lookupError && (
-              <div className="lookup-error-banner" role="alert">
-                <span className="error-icon">⚠️</span>
-                <span className="error-text">{lookupError}</span>
-                {lookupError.includes('Database') && (
+            {isOtpStep ? (
+              /* OTP Verification Card (Screen 1.5) */
+              <div className="otp-verification-card">
+                <div className="otp-header-row">
+                  <div className="otp-icon-circle">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                      <line x1="12" y1="18" x2="12.01" y2="18" />
+                    </svg>
+                  </div>
+                  <div className="otp-title-group">
+                    <h2 className="otp-heading">{t.otpVerificationHeading}</h2>
+                    <p className="otp-subtext">
+                      {t.otpSentSubtext} <strong>+91 {partnerMobile.slice(0, 2)}•••• {partnerMobile.slice(-4)}</strong>
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    className="retry-lookup-btn"
-                    onClick={() => initiateLookup(partnerMobile)}
+                    className="change-mobile-btn"
+                    onClick={handleChangeMobileNumber}
                   >
-                    {t.retry}
+                    {t.changeMobileNumber}
                   </button>
-                )}
-              </div>
-            )}
-
-            {/* Registered Partner Card */}
-            {hasLookupCompleted && isExistingPartner && partnerName && (
-              <div className="partner-verified-card">
-                <div className="partner-badge-circle">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <path d="M9 12l2 2 4-4" />
-                  </svg>
                 </div>
-                <span className="partner-identified-name">{partnerName}</span>
-              </div>
-            )}
 
-            {/* Unregistered Partner Name Input */}
-            {hasLookupCompleted && !isExistingPartner && !isCheckingMobile && (
-              <div className="new-partner-name-card">
-                <label className="new-partner-label" htmlFor="new-partner-input">
-                  {t.yourFullNameNewPartner}
-                </label>
-                <input
-                  id="new-partner-input"
-                  type="text"
-                  className="new-partner-input"
-                  placeholder={t.newPartnerPlaceholder}
-                  value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                  autoFocus
-                />
-                <span className="new-partner-hint">
-                  {t.newPartnerHint}
-                </span>
-              </div>
-            )}
+                {otpSuccessNotice && (
+                  <div className="otp-success-banner" role="status">
+                    <span>✓</span>
+                    <span>{otpSuccessNotice}</span>
+                  </div>
+                )}
 
-            {/* Continue Button */}
-            <div className="screen-1-action-wrapper">
-              <button
-                type="button"
-                className="continue-pill-button"
-                disabled={
-                  isCheckingMobile ||
-                  !isValidIndianMobile(partnerMobile) ||
-                  (!isExistingPartner && partnerName.trim().length < 2)
-                }
-                onClick={handleContinueFromScreen1}
-              >
-                <span>{isCheckingMobile ? t.verifying : t.continue}</span>
-                <span className="btn-arrow-icon">→</span>
-              </button>
-            </div>
+                {otpError && (
+                  <div className="lookup-error-banner" role="alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{otpError}</span>
+                  </div>
+                )}
+
+                <div className="otp-input-group">
+                  <label htmlFor="partner-otp-input" className="otp-input-label">
+                    {t.enterOtpLabel}
+                  </label>
+                  <input
+                    id="partner-otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    className="otp-code-input"
+                    placeholder={t.otpPlaceholder}
+                    value={enteredOtp}
+                    onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="otp-timer-action-row">
+                  <div className="otp-timer-badge">
+                    <span className="timer-icon">⏱️</span>
+                    <span>{otpExpiresIn > 0 ? `Expires in ${formatTimer(otpExpiresIn)}` : t.otpExpired}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="resend-otp-btn"
+                    disabled={otpCooldown > 0 || isSendingOtp}
+                    onClick={handleSendOtp}
+                  >
+                    {isSendingOtp
+                      ? t.sendingOtp
+                      : otpCooldown > 0
+                      ? `${t.resendIn} ${otpCooldown}s`
+                      : t.resendOtp}
+                  </button>
+                </div>
+
+                <div className="screen-1-action-wrapper" style={{ marginTop: '18px' }}>
+                  <button
+                    id="verify-otp-submit-btn"
+                    type="button"
+                    className="continue-pill-button"
+                    disabled={isVerifyingOtp || enteredOtp.length < 4}
+                    onClick={handleVerifyOtp}
+                  >
+                    <span>{isVerifyingOtp ? t.verifyingOtp : t.verifyAndContinue}</span>
+                    <span className="btn-arrow-icon">→</span>
+                  </button>
+                </div>
+
+                <div className="sms-gateway-trust-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                  <span>{t.smsGatewayBadge}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Number Entry Card */}
+                <div className="mobile-entry-card">
+                  <div className="mobile-card-top-row">
+                    <span className="mobile-card-label">{t.registeredPartnerMobile}</span>
+                    {partnerMobile.length === 10 && isValidIndianMobile(partnerMobile) && (
+                      <span className="mobile-verified-tag">{t.tenOfTenVerified}</span>
+                    )}
+                    {partnerMobile.length > 0 && partnerMobile.length < 10 && (
+                      <span className="mobile-counter-tag">{partnerMobile.length}/10</span>
+                    )}
+                  </div>
+
+                  <div className="mobile-input-row">
+                    <div className="country-code-pill">
+                      <span className="country-code-text">IN +91</span>
+                    </div>
+
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      className="mobile-digits-input"
+                      placeholder="98765 43210"
+                      value={formatIndianMobileDisplay(partnerMobile)}
+                      onChange={handleMobileInputChange}
+                      maxLength={11}
+                      autoFocus
+                      aria-label={t.registeredPartnerMobile}
+                    />
+
+                    <div className="mobile-status-icon-wrapper">
+                      {isCheckingMobile && (
+                        <div className="lookup-spinner" title={t.checkingDatabase} />
+                      )}
+                      {!isCheckingMobile && hasLookupCompleted && isValidIndianMobile(partnerMobile) && (
+                        <div className="verified-check-circle" title={t.verifiedMobile}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error / Alert Banner */}
+                {lookupError && (
+                  <div className="lookup-error-banner" role="alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{lookupError}</span>
+                    {lookupError.includes('Database') && (
+                      <button
+                        type="button"
+                        className="retry-lookup-btn"
+                        onClick={() => initiateLookup(partnerMobile)}
+                      >
+                        {t.retry}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Registered Partner Card */}
+                {hasLookupCompleted && isExistingPartner && partnerName && (
+                  <div className="partner-verified-card">
+                    <div className="partner-badge-circle">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <span className="partner-identified-name">{partnerName}</span>
+                  </div>
+                )}
+
+                {/* Unregistered Partner Name Input */}
+                {hasLookupCompleted && !isExistingPartner && !isCheckingMobile && (
+                  <div className="new-partner-name-card">
+                    <label className="new-partner-label" htmlFor="new-partner-input">
+                      {t.yourFullNameNewPartner}
+                    </label>
+                    <input
+                      id="new-partner-input"
+                      type="text"
+                      className="new-partner-input"
+                      placeholder={t.newPartnerPlaceholder}
+                      value={partnerName}
+                      onChange={(e) => setPartnerName(e.target.value)}
+                      autoFocus
+                    />
+                    <span className="new-partner-hint">
+                      {t.newPartnerHint}
+                    </span>
+                  </div>
+                )}
+
+                {/* Continue / Verify OTP Button */}
+                <div className="screen-1-action-wrapper">
+                  <button
+                    type="button"
+                    className="continue-pill-button"
+                    disabled={
+                      isCheckingMobile ||
+                      isSendingOtp ||
+                      !isValidIndianMobile(partnerMobile) ||
+                      (!isExistingPartner && partnerName.trim().length < 2)
+                    }
+                    onClick={handleContinueFromScreen1}
+                  >
+                    <span>
+                      {isCheckingMobile
+                        ? t.verifying
+                        : isSendingOtp
+                        ? t.sendingOtp
+                        : hasLookupCompleted && !isExistingPartner
+                        ? `${t.continue} — ${t.verifyMobileViaOtp}`
+                        : t.continue}
+                    </span>
+                    <span className="btn-arrow-icon">→</span>
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Footer Trust Bar */}
             <footer className="screen-1-footer">
