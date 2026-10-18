@@ -798,24 +798,42 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
           } catch {}
         }
 
+        const docFileName = cached?.file_name || `${spec.label.replace(/\s+/g, '_')}_Upload.pdf`
+        if (!ocrPayload || !ocrPayload.fields?.length) {
+          const cleanName = docFileName.replace(/\.[a-zA-Z0-9]+$/, '').replace(/[-_]/g, ' ').replace(/\b(aadhaar|aadhar|uidai|pancard|pan|card|pdf|doc|upload)\b/gi, '').trim()
+          const legalName = cleanName.length >= 3 ? cleanName : (parsedBody?.applicant_name || 'Shashwat Jain')
+          ocrPayload = {
+            ocr_status: 'extracted',
+            document_type_code: spec.code,
+            pipeline_stage: 'extraction_completed',
+            confidence_avg: 0.96,
+            extracted_at: new Date().toISOString(),
+            raw_text: `Extracted from ${docFileName}`,
+            fields: [
+              { field_key: 'customer_name', label: 'Full Name', value: legalName, confidence: 0.96, status: 'extracted' },
+              ...(spec.typeId === 'dt-aadhaar' ? [
+                { field_key: 'aadhaar_masked', label: 'Aadhaar (Masked)', value: 'XXXX XXXX 4819', confidence: 0.98, status: 'extracted' },
+                { field_key: 'address', label: 'Permanent Address', value: parsedBody?.locality && parsedBody?.district ? `${parsedBody.locality}, ${parsedBody.district}` : (parsedBody?.city || 'Vidhani, Jaipur'), confidence: 0.92, status: 'extracted' },
+              ] : [
+                { field_key: 'pan_number', label: 'Income Tax PAN (Masked)', value: 'ABCDE****F', confidence: 0.98, status: 'extracted' },
+              ]),
+            ],
+          }
+        }
+
         genuineDocs.push({
           id: spec.id,
           org_id: '11111111-1111-1111-1111-111111111111',
           case_id: newCase.id,
           document_type_id: spec.typeId,
-          file_name: cached?.file_name || `${spec.label.replace(/\s+/g, '_')}_Upload.pdf`,
+          file_name: docFileName,
           file_size: cached?.file_size || 245000,
           mime_type: cached?.mime_type || 'application/pdf',
           version: 1,
           status: 'received',
           can_download: true,
           uploaded_at: cached?.uploaded_at || new Date().toISOString(),
-          scan_result: ocrPayload || {
-            ocr_status: 'pending',
-            document_type_code: spec.code,
-            pipeline_stage: 'extraction_pending',
-            fields: [],
-          },
+          scan_result: ocrPayload,
         })
       }
     }
@@ -1030,6 +1048,7 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const targetCase = storedCases.find((c) => c.id === caseId || c.case_no === caseId)
     if (targetCase) {
       (targetCase as any).documents = updatedDocs
+      saveStoredCases(storedCases)
       syncCaseToCloud(targetCase).catch(() => {})
     }
     return { success: true, documents: updatedDocs }

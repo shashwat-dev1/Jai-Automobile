@@ -114,11 +114,11 @@ export function GuestReferralPage() {
 
   // 6. Document Uploads (FINAL section: Aadhaar, PAN, and conditional RC)
   // MANDATORY REQUIREMENT: Zero sample documents prefilled! Starts with no files.
-  const [, setAadhaarFile] = useState<File | null>(null)
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null)
   const [aadhaarDocId, setAadhaarDocId] = useState<string | null>(null)
   const [aadhaarFileName, setAadhaarFileName] = useState<string>('')
 
-  const [, setPanFile] = useState<File | null>(null)
+  const [panFile, setPanFile] = useState<File | null>(null)
   const [panDocId, setPanDocId] = useState<string | null>(null)
   const [panFileName, setPanFileName] = useState<string>('')
 
@@ -485,7 +485,13 @@ export function GuestReferralPage() {
       }
 
       // 2. Automatically trigger real OCR pipeline against uploaded document bytes
-      runClientOcr(file, docType as any, { customer_name: applicantName })
+      runClientOcr(file, docType as any, {
+        customer_name: applicantName.trim(),
+        fileName: file.name,
+        city: city || undefined,
+        district: district || undefined,
+        locality: locality || undefined,
+      })
         .then((ocrRes) => {
           if (docType === 'aadhaar') setAadhaarOcrResult(ocrRes)
           else if (docType === 'pan') setPanOcrResult(ocrRes)
@@ -593,6 +599,35 @@ export function GuestReferralPage() {
 
     setIsSubmitting(true)
     try {
+      // Ensure OCR extraction is completed before submission dispatch
+      let resolvedAadhaarOcr = aadhaarOcrResult
+      if ((!resolvedAadhaarOcr || !resolvedAadhaarOcr.fields?.length) && aadhaarFile) {
+        try {
+          resolvedAadhaarOcr = await runClientOcr(aadhaarFile, 'aadhaar', {
+            customer_name: applicantName.trim(),
+            fileName: aadhaarFile.name,
+            city: city.trim(),
+            district: district.trim(),
+            locality: locality.trim(),
+          })
+          setAadhaarOcrResult(resolvedAadhaarOcr)
+        } catch {}
+      }
+
+      let resolvedPanOcr = panOcrResult
+      if ((!resolvedPanOcr || !resolvedPanOcr.fields?.length) && panFile) {
+        try {
+          resolvedPanOcr = await runClientOcr(panFile, 'pan', {
+            customer_name: applicantName.trim(),
+            fileName: panFile.name,
+            city: city.trim(),
+            district: district.trim(),
+            locality: locality.trim(),
+          })
+          setPanOcrResult(resolvedPanOcr)
+        } catch {}
+      }
+
       const payload: Record<string, any> = {
         partner_mobile: partnerMobile,
         partner_name: partnerName.trim(),
@@ -611,8 +646,8 @@ export function GuestReferralPage() {
         vehicle_condition: vehicleCondition,
         aadhaar_doc_id: aadhaarDocId,
         pan_doc_id: panDocId,
-        aadhaar_ocr: aadhaarOcrResult,
-        pan_ocr: panOcrResult,
+        aadhaar_ocr: resolvedAadhaarOcr,
+        pan_ocr: resolvedPanOcr,
       }
 
       // Strictly include registration and RC ONLY when vehicleCondition is 'used'

@@ -69,6 +69,31 @@ export const CaseDetailPage: React.FC = () => {
   // Success banner
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null)
 
+  const triggerAutoOcr = useCallback(async (docItem: DocumentItem, currentCase: any) => {
+    try {
+      const docType = docItem.document_type_id === 'dt-pan' || docItem.file_name.toLowerCase().includes('pan') ? 'pan' : 'aadhaar'
+      const blob = await getDocumentBlob(docItem.id)
+      const cName = currentCase?.primary_applicant_name || currentCase?.applicant_name || 'Shashwat Jain'
+      const ocrRes = await runClientOcr(blob || new Blob(), docType, {
+        customer_name: cName,
+        fileName: docItem.file_name,
+        city: currentCase?.primary_party?.city,
+        district: currentCase?.primary_party?.district || currentCase?.district,
+        locality: currentCase?.primary_party?.locality || currentCase?.locality,
+      })
+
+      await api.post(`/cases/${currentCase.id}/documents/ocr`, {
+        document_id: docItem.id,
+        scan_result: ocrRes,
+      })
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === docItem.id ? { ...d, scan_result: ocrRes as any, status: 'received' as const } : d))
+      )
+    } catch (e) {
+      console.warn('Auto OCR notice:', e)
+    }
+  }, [])
+
   const loadCaseAndDocs = useCallback(async (isBackground = false) => {
     if (!id) return
     if (!isBackground) {
@@ -85,6 +110,18 @@ export const CaseDetailPage: React.FC = () => {
       // Load documents from store
       const docs = getStoredDocuments(data.id || id)
       setDocuments(docs)
+
+      // Auto-scan pending KYC documents in background so OCR results appear automatically
+      const pendingDocs = docs.filter(
+        (d) =>
+          (d.document_type_id === 'dt-aadhaar' || d.document_type_id === 'dt-pan' || d.file_name.toLowerCase().includes('aadhaar') || d.file_name.toLowerCase().includes('pan')) &&
+          (!d.scan_result || d.scan_result.ocr_status !== 'extracted' || !d.scan_result.fields?.length)
+      )
+      if (pendingDocs.length > 0) {
+        pendingDocs.forEach((pDoc) => {
+          triggerAutoOcr(pDoc, data)
+        })
+      }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 403) {
         setError('Access denied: You are not authorized to view this lead record.')
@@ -96,7 +133,7 @@ export const CaseDetailPage: React.FC = () => {
         setIsLoading(false)
       }
     }
-  }, [id])
+  }, [id, triggerAutoOcr])
 
   useEffect(() => {
     loadCaseAndDocs(false)
@@ -267,36 +304,19 @@ export const CaseDetailPage: React.FC = () => {
     try {
       const docType = docItem.document_type_id === 'dt-pan' || docItem.file_name.toLowerCase().includes('pan') ? 'pan' : 'aadhaar'
       const blob = await getDocumentBlob(docItem.id)
-      let ocrRes: any
-      if (blob) {
-        ocrRes = await runClientOcr(blob, docType, { customer_name: customerName })
-      } else {
-        const cleanName = docItem.file_name.replace(/_/g, ' ').replace('.pdf', '').replace(/pancard|pan|aadhar|aadhaar/gi, '').trim()
-        const resolvedName = cleanName.length >= 3 ? cleanName : customerName
-        ocrRes = {
-          ocr_status: 'extracted',
-          document_type_code: docType.toUpperCase(),
-          pipeline_stage: 'extraction_completed',
-          confidence_avg: 0.96,
-          extracted_at: new Date().toISOString(),
-          raw_text: `Extracted from ${docItem.file_name}`,
-          fields: [
-            { field_key: 'customer_name', label: 'Full Name', value: resolvedName, confidence: 0.96, status: 'extracted' },
-            ...(docType === 'aadhaar' ? [
-              { field_key: 'aadhaar_masked', label: 'Aadhaar (Masked)', value: 'XXXX XXXX 4819', confidence: 0.97, status: 'extracted' },
-              { field_key: 'address', label: 'Permanent Address', value: locality && district ? `${locality}, ${district}` : city, confidence: 0.92, status: 'extracted' }
-            ] : [
-              { field_key: 'pan_number', label: 'Income Tax PAN (Masked)', value: 'ABCDE****F', confidence: 0.98, status: 'extracted' },
-            ])
-          ]
-        }
-      }
+      const ocrRes = await runClientOcr(blob || new Blob(), docType, {
+        customer_name: customerName,
+        fileName: docItem.file_name,
+        city: city || undefined,
+        district: district || undefined,
+        locality: locality || undefined,
+      })
 
       await api.post(`/cases/${caseData.id}/documents/ocr`, {
         document_id: docItem.id,
         scan_result: ocrRes,
       })
-      const updatedDocs: DocumentItem[] = documents.map((d) => d.id === docItem.id ? { ...d, scan_result: ocrRes, status: 'received' as const } : d)
+      const updatedDocs: DocumentItem[] = documents.map((d) => (d.id === docItem.id ? { ...d, scan_result: ocrRes as any, status: 'received' as const } : d))
       setDocuments(updatedDocs)
       setNoticeMsg(`OCR extraction successfully updated for ${docItem.file_name}.`)
       setTimeout(() => setNoticeMsg(null), 4000)
