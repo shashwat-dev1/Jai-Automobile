@@ -46,22 +46,6 @@ export interface ReferralTranslations {
   newPartnerHint: string
   newPartnerPlaceholder: string
 
-  // Screen 1.5: OTP Verification
-  verifyMobileViaOtp: string
-  otpVerificationHeading: string
-  otpSentSubtext: string
-  enterOtpLabel: string
-  otpPlaceholder: string
-  verifyAndContinue: string
-  verifyingOtp: string
-  resendOtp: string
-  resendIn: string
-  otpExpired: string
-  otpInvalid: string
-  changeMobileNumber: string
-  sendingOtp: string
-  otpSentSuccess: string
-  smsGatewayBadge: string
 
   // Screen 2: Navigation & Submitter Banner
   back: string
@@ -194,21 +178,6 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     newPartnerHint: 'Enter your name to register as a partner. Profile will be created upon Continue.',
     newPartnerPlaceholder: 'e.g. Vikram Sharma',
 
-    verifyMobileViaOtp: 'Verify Mobile via OTP',
-    otpVerificationHeading: 'Mobile OTP Verification',
-    otpSentSubtext: 'We have sent a 6-digit verification code to',
-    enterOtpLabel: 'Enter 6-Digit OTP',
-    otpPlaceholder: '••••••',
-    verifyAndContinue: 'Verify & Continue',
-    verifyingOtp: 'Verifying OTP...',
-    resendOtp: 'Resend OTP',
-    resendIn: 'Resend in',
-    otpExpired: 'OTP has expired. Please request a new code.',
-    otpInvalid: 'Invalid OTP. Please check the code and try again.',
-    changeMobileNumber: 'Change Number',
-    sendingOtp: 'Sending OTP...',
-    otpSentSuccess: 'OTP sent',
-    smsGatewayBadge: 'Secured via Jai Automobiles SMS Gateway',
 
     back: 'Back',
     partner: 'Partner: ',
@@ -331,21 +300,6 @@ export const REFERRAL_TRANSLATIONS: Record<Language, ReferralTranslations> = {
     newPartnerHint: 'पार्टनर के रूप में पंजीकरण के लिए अपना नाम दर्ज करें। आगे बढ़ने पर प्रोफ़ाइल बन जाएगी।',
     newPartnerPlaceholder: 'उदा. विक्रम शर्मा',
 
-    verifyMobileViaOtp: 'ओटीपी द्वारा मोबाइल सत्यापित करें',
-    otpVerificationHeading: 'मोबाइल ओटीपी सत्यापन',
-    otpSentSubtext: 'हमने 6-अंकों का सत्यापन कोड भेजा है:',
-    enterOtpLabel: '6-अंकों का ओटीपी दर्ज करें',
-    otpPlaceholder: '••••••',
-    verifyAndContinue: 'सत्यापित करें और आगे बढ़ें',
-    verifyingOtp: 'ओटीपी सत्यापित हो रहा है...',
-    resendOtp: 'ओटीपी पुनः भेजें',
-    resendIn: 'पुनः भेजें',
-    otpExpired: 'ओटीपी समाप्त हो गया है। कृपया नया कोड मांगें।',
-    otpInvalid: 'अमान्य ओटीपी। कृपया कोड जांचें और पुनः प्रयास करें।',
-    changeMobileNumber: 'नंबर बदलें',
-    sendingOtp: 'ओटीपी भेजा जा रहा है...',
-    otpSentSuccess: 'ओटीपी भेजा गया',
-    smsGatewayBadge: 'जय ऑटोमोबाइल्स एसएमएस गेटवे द्वारा सुरक्षित',
 
     back: 'वापस',
     partner: 'पार्टनर: ',

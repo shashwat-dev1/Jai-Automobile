@@ -96,3 +96,6 @@ backend/keys/
 uploads/
 tmp/
 temp/
+
+# --- Local Feature Archives ---
+archive/

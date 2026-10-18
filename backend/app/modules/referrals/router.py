@@ -25,10 +25,6 @@ from app.modules.referrals.schemas import (
     ReferralCommissionResponse,
     ReferralLookupRequest,
     ReferralLookupResponse,
-    ReferralOtpSendRequest,
-    ReferralOtpSendResponse,
-    ReferralOtpVerifyRequest,
-    ReferralOtpVerifyResponse,
     ReferralPartnerDossierResponse,
     ReferralProfileResponse,
     ReferralProfileUpdateVerification,
@@ -56,42 +52,6 @@ async def lookup_partner(
     result = await service.lookup_partner(mobile=payload.mobile, org_slug=payload.org_slug)
     return ApiResponse(data=result)
 
-
-@router.post("/otp/send", response_model=ApiResponse[ReferralOtpSendResponse])
-async def send_referral_otp(
-    payload: ReferralOtpSendRequest,
-    session: AsyncSession = Depends(get_db),
-) -> ApiResponse[ReferralOtpSendResponse]:
-    """
-    Send OTP via TextBee SMS Gateway using the Motorola Edge 60 Pro and Airtel SIM.
-    Applies cryptographic hashing, rate limits, and 5-minute expiry.
-    """
-    service = ReferralService(session=session)
-    result = await service.send_partner_otp(
-        mobile=payload.mobile,
-        name=payload.name,
-        org_slug=payload.org_slug,
-    )
-    return ApiResponse(data=result)
-
-
-@router.post("/otp/verify", response_model=ApiResponse[ReferralOtpVerifyResponse])
-async def verify_referral_otp(
-    payload: ReferralOtpVerifyRequest,
-    session: AsyncSession = Depends(get_db),
-) -> ApiResponse[ReferralOtpVerifyResponse]:
-    """
-    Verify submitted OTP and register/activate referral partner profile.
-    Single-use: invalidates OTP immediately upon successful verification.
-    """
-    service = ReferralService(session=session)
-    result = await service.verify_partner_otp(
-        mobile=payload.mobile,
-        otp=payload.otp,
-        name=payload.name,
-        org_slug=payload.org_slug,
-    )
-    return ApiResponse(data=result)
 
 
 @router.post(

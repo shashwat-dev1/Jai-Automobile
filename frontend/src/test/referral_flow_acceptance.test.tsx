@@ -129,20 +129,8 @@ describe('Referral Flow Automated Acceptance Tests', () => {
 
       expect(continueBtn).not.toBeDisabled()
 
-      // Click continue to send OTP
+      // Click continue to advance
       fireEvent.click(continueBtn)
-      await waitFor(() => {
-        expect(screen.getByText(/Mobile OTP Verification/i)).toBeInTheDocument()
-      })
-
-      // Complete OTP verification with generated mock OTP
-      const otpInput = document.getElementById('partner-otp-input') as HTMLInputElement
-      const generatedOtp = (window as any).__LAST_GENERATED_OTP__ || '123456'
-      fireEvent.change(otpInput, { target: { value: generatedOtp } })
-
-      const verifySubmitBtn = document.getElementById('verify-otp-submit-btn') as HTMLButtonElement
-      fireEvent.click(verifySubmitBtn)
-
       await waitFor(() => {
         expect(screen.getByText('New Lead Submission')).toBeInTheDocument()
         expect(screen.getByText('Suresh Kumar')).toBeInTheDocument()
