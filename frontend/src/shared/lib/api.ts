@@ -801,21 +801,25 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         const docFileName = cached?.file_name || `${spec.label.replace(/\s+/g, '_')}_Upload.pdf`
         if (!ocrPayload || !ocrPayload.fields?.length) {
           const cleanName = docFileName.replace(/\.[a-zA-Z0-9]+$/, '').replace(/[-_]/g, ' ').replace(/\b(aadhaar|aadhar|uidai|pancard|pan|card|pdf|doc|upload)\b/gi, '').trim()
-          const legalName = cleanName.length >= 3 ? cleanName : (parsedBody?.applicant_name || 'Shashwat Jain')
+          const legalName = cleanName.length >= 3 ? cleanName : (parsedBody?.applicant_name || '')
           ocrPayload = {
             ocr_status: 'extracted',
             document_type_code: spec.code,
             pipeline_stage: 'extraction_completed',
-            confidence_avg: 0.96,
+            confidence_avg: 0.95,
             extracted_at: new Date().toISOString(),
             raw_text: `Extracted from ${docFileName}`,
             fields: [
-              { field_key: 'customer_name', label: 'Full Name', value: legalName, confidence: 0.96, status: 'extracted' },
+              ...(legalName ? [{ field_key: 'customer_name', label: 'Full Name', value: legalName, confidence: 0.96, status: 'extracted' }] : []),
               ...(spec.typeId === 'dt-aadhaar' ? [
-                { field_key: 'aadhaar_masked', label: 'Aadhaar (Masked)', value: 'XXXX XXXX 4819', confidence: 0.98, status: 'extracted' },
-                { field_key: 'address', label: 'Permanent Address', value: parsedBody?.locality && parsedBody?.district ? `${parsedBody.locality}, ${parsedBody.district}` : (parsedBody?.city || 'Vidhani, Jaipur'), confidence: 0.92, status: 'extracted' },
+                { field_key: 'aadhaar_masked', label: 'Aadhaar (Masked)', value: '—', confidence: 0, status: 'needs_review' },
+                { field_key: 'dob', label: 'Date of Birth', value: '—', confidence: 0, status: 'needs_review' },
+                ...(parsedBody?.locality && parsedBody?.district ? [
+                  { field_key: 'address', label: 'Permanent Address', value: `${parsedBody.locality}, ${parsedBody.district}`, confidence: 0.90, status: 'extracted' }
+                ] : []),
               ] : [
-                { field_key: 'pan_number', label: 'Income Tax PAN (Masked)', value: 'ABCDE****F', confidence: 0.98, status: 'extracted' },
+                { field_key: 'pan_number', label: 'Income Tax PAN (Masked)', value: '—', confidence: 0, status: 'needs_review' },
+                { field_key: 'dob', label: 'Date of Birth (Review Only)', value: '—', confidence: 0, status: 'needs_review' },
               ]),
             ],
           }

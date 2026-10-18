@@ -1601,3 +1601,19 @@
   flex-direction: column;
 }
 
+.pdf-embed-fallback-card {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: #F8FAFC;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-icon-badge {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+

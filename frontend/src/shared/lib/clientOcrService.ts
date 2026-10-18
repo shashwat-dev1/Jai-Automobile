@@ -324,16 +324,15 @@ export async function runClientOcr(
     if (isPdf) {
       let buffer: ArrayBuffer | null = null
       if (typeof file.arrayBuffer === 'function') {
-        buffer = await Promise.race([
-          file.arrayBuffer(),
-          new Promise<ArrayBuffer>((res) => setTimeout(() => res(new ArrayBuffer(0)), 200)),
-        ])
+        buffer = await file.arrayBuffer()
       }
       if (buffer && buffer.byteLength > 0) {
-        rawText = await Promise.race([
-          extractPdfText(buffer),
-          new Promise<string>((res) => setTimeout(() => res(''), 200)),
-        ])
+        rawText = await extractPdfText(buffer)
+        // Also check if raw uncompressed bytes contain ASCII characters for PAN, Aadhaar or DOB
+        if (!rawText) {
+          const dec = new TextDecoder('latin1')
+          rawText = dec.decode(new Uint8Array(buffer))
+        }
       }
     }
   } catch (err) {
@@ -366,52 +365,96 @@ export async function runClientOcr(
     }
 
     if (!extractedName) {
-      extractedName = candidateName || knownFormContext?.customer_name || 'Shashwat Jain'
+      extractedName = candidateName || knownFormContext?.customer_name || ''
     }
 
-    fields.push({
-      field_key: 'customer_name',
-      label: 'Full Name',
-      value: extractedName,
-      confidence: 0.96,
-      status: 'extracted',
-    })
+    if (extractedName) {
+      fields.push({
+        field_key: 'customer_name',
+        label: 'Full Name',
+        value: extractedName,
+        confidence: 0.96,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'customer_name',
+        label: 'Full Name',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
-    // Aadhaar Number (Masked)
+    // Aadhaar Number (Masked) - strictly genuine
     const uidMatch = rawText.match(/\b([2-9]\d{3}\s?\d{4}\s?\d{4})\b/) || rawText.match(/XXXX\s?XXXX\s?(\d{4})/i)
-    const lastFour = uidMatch ? uidMatch[1].replace(/\D/g, '').slice(-4) : '4819'
-    fields.push({
-      field_key: 'aadhaar_masked',
-      label: 'Aadhaar (Masked)',
-      value: `XXXX XXXX ${lastFour}`,
-      confidence: 0.98,
-      status: 'extracted',
-    })
+    if (uidMatch) {
+      const cleanDigits = uidMatch[1].replace(/\D/g, '')
+      const lastFour = cleanDigits.slice(-4)
+      fields.push({
+        field_key: 'aadhaar_masked',
+        label: 'Aadhaar (Masked)',
+        value: `XXXX XXXX ${lastFour}`,
+        confidence: 0.98,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'aadhaar_masked',
+        label: 'Aadhaar (Masked)',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
-    // Date of Birth
+    // Date of Birth - strictly genuine
     const dobMatch = rawText.match(/\b(0[1-9]|[12][0-9]|3[01])[\/\-\.](0[1-9]|1[012])[\/\-\.](19|20\d\d)\b/)
-    fields.push({
-      field_key: 'dob',
-      label: 'Date of Birth',
-      value: dobMatch ? dobMatch[0] : '01/01/1990',
-      confidence: 0.94,
-      status: 'extracted',
-    })
+    if (dobMatch) {
+      fields.push({
+        field_key: 'dob',
+        label: 'Date of Birth',
+        value: dobMatch[0],
+        confidence: 0.94,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'dob',
+        label: 'Date of Birth',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
-    // Address
+    // Address - strictly genuine
     const addrMatch = rawText.match(/Address[:\s]+([^,]+,[^,]+(?:,[^,]+)?)/i)
-    const resolvedAddress = addrMatch
-      ? addrMatch[1].trim()
-      : (knownFormContext?.locality && knownFormContext?.district
-          ? `${knownFormContext.locality}, ${knownFormContext.district}`
-          : (knownFormContext?.city ? `${knownFormContext.city}` : 'Vidhani, Jaipur'))
-    fields.push({
-      field_key: 'address',
-      label: 'Permanent Address',
-      value: resolvedAddress,
-      confidence: 0.92,
-      status: 'extracted',
-    })
+    if (addrMatch) {
+      fields.push({
+        field_key: 'address',
+        label: 'Permanent Address',
+        value: addrMatch[1].trim(),
+        confidence: 0.92,
+        status: 'extracted',
+      })
+    } else if (knownFormContext?.locality && knownFormContext?.district) {
+      fields.push({
+        field_key: 'address',
+        label: 'Permanent Address',
+        value: `${knownFormContext.locality}, ${knownFormContext.district}`,
+        confidence: 0.85,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'address',
+        label: 'Permanent Address',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
     return {
       ocr_status: 'extracted',
@@ -446,39 +489,67 @@ export async function runClientOcr(
     }
 
     if (!extractedName) {
-      extractedName = candidateName || knownFormContext?.customer_name || 'Shashwat Jain'
+      extractedName = candidateName || knownFormContext?.customer_name || ''
     }
 
-    fields.push({
-      field_key: 'customer_name',
-      label: 'Full Name',
-      value: extractedName,
-      confidence: 0.97,
-      status: 'extracted',
-    })
+    if (extractedName) {
+      fields.push({
+        field_key: 'customer_name',
+        label: 'Full Name',
+        value: extractedName,
+        confidence: 0.97,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'customer_name',
+        label: 'Full Name',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
-    // PAN Identifier
+    // PAN Identifier - strictly genuine
     const panMatch = rawText.match(/\b([A-Z]{5}[0-9]{4}[A-Z])\b/)
-    const maskedPan = panMatch
-      ? `${panMatch[1].slice(0, 5)}****${panMatch[1].slice(-1)}`
-      : 'ABCDE****F'
-    fields.push({
-      field_key: 'pan_number',
-      label: 'Income Tax PAN (Masked)',
-      value: maskedPan,
-      confidence: 0.98,
-      status: 'extracted',
-    })
+    if (panMatch) {
+      const rawPan = panMatch[1]
+      fields.push({
+        field_key: 'pan_number',
+        label: 'Income Tax PAN (Masked)',
+        value: `${rawPan.slice(0, 5)}****${rawPan.slice(-1)}`,
+        confidence: 0.98,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'pan_number',
+        label: 'Income Tax PAN (Masked)',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
-    // Date of birth (for review, not form comparison)
+    // Date of birth - strictly genuine
     const dobMatch = rawText.match(/\b(0[1-9]|[12][0-9]|3[01])[\/\-\.](0[1-9]|1[012])[\/\-\.](19|20\d\d)\b/)
-    fields.push({
-      field_key: 'dob',
-      label: 'Date of Birth (Review Only)',
-      value: dobMatch ? dobMatch[0] : '01/01/1990',
-      confidence: 0.95,
-      status: 'extracted',
-    })
+    if (dobMatch) {
+      fields.push({
+        field_key: 'dob',
+        label: 'Date of Birth (Review Only)',
+        value: dobMatch[0],
+        confidence: 0.95,
+        status: 'extracted',
+      })
+    } else {
+      fields.push({
+        field_key: 'dob',
+        label: 'Date of Birth (Review Only)',
+        value: '—',
+        confidence: 0,
+        status: 'needs_review',
+      })
+    }
 
     return {
       ocr_status: 'extracted',

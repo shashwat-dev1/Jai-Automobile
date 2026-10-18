@@ -26,6 +26,15 @@ export interface StoredDocFile {
 const activeBlobUrls = new Map<string, string>()
 const activeBlobs = new Map<string, Blob>()
 
+function safeCreateObjectURL(blob: Blob, docId: string): string {
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    try {
+      return URL.createObjectURL(blob)
+    } catch {}
+  }
+  return `blob:dsaos-${docId}`
+}
+
 // Open IndexedDB
 function openDb(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -66,13 +75,7 @@ export async function saveUploadedFile(
   const blob = file instanceof Blob ? file : new Blob([file], { type: mimeType })
   activeBlobs.set(docId, blob)
   
-  // Create authorized blob URL safely
-  let blobUrl = `blob:dsaos-${docId}`
-  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-    try {
-      blobUrl = URL.createObjectURL(blob)
-    } catch {}
-  }
+  const blobUrl = safeCreateObjectURL(blob, docId)
   activeBlobUrls.set(docId, blobUrl)
 
   try {
@@ -100,55 +103,118 @@ export async function saveUploadedFile(
 }
 
 /**
+ * Extracts embedded JPEG images from a scanned PDF byte buffer.
+ * In Indian KYC uploads, scanned PDFs created by mobile apps or scanners
+ * contain the authentic scanned photo as a JPEG (0xFF 0xD8 ... 0xFF 0xD9).
+ */
+export function extractEmbeddedImageFromPdf(bytes: Uint8Array): Blob | null {
+  const endstreamBytes = [101, 110, 100, 115, 116, 114, 101, 97, 109] // 'endstream'
+  
+  // Strategy 1: Find JPEG ending immediately before an 'endstream' token
+  for (let i = 0; i <= bytes.length - endstreamBytes.length; i++) {
+    let match = true
+    for (let k = 0; k < endstreamBytes.length; k++) {
+      if (bytes[i + k] !== endstreamBytes[k]) {
+        match = false
+        break
+      }
+    }
+    if (match) {
+      let eoi = -1
+      for (let j = i - 1; j >= Math.max(0, i - 100); j--) {
+        if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+          eoi = j + 2
+          break
+        }
+      }
+      if (eoi !== -1) {
+        for (let s = eoi - 4; s >= 0; s--) {
+          if (bytes[s] === 0xff && bytes[s + 1] === 0xd8) {
+            const jpegBytes = bytes.slice(s, eoi)
+            if (jpegBytes.length > 500) {
+              return new Blob([jpegBytes], { type: 'image/jpeg' })
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Strategy 2: Look for direct SOI (0xFF, 0xD8) and look forward for matching EOI (0xFF, 0xD9)
+  for (let i = 0; i < bytes.length - 4; i++) {
+    if (bytes[i] === 0xff && bytes[i + 1] === 0xd8) {
+      for (let j = bytes.length - 2; j > i + 100; j--) {
+        if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+          const slice = bytes.slice(i, j + 2)
+          if (slice.length > 2000) {
+            return new Blob([slice], { type: 'image/jpeg' })
+          }
+        }
+      }
+    }
+  }
+  return null
+}
+
+const previewBlobUrls = new Map<string, string>()
+const previewIsImage = new Map<string, boolean>()
+
+export interface DocumentPreviewInfo {
+  url: string
+  isImage: boolean
+}
+
+/**
+ * Retrieve the active viewing URL for a document.
+ * Returns either an extracted high-resolution image preview for scanned PDFs
+ * or an authentic application/pdf blob URL.
+ */
+export async function getDocumentPreviewInfo(docId: string): Promise<DocumentPreviewInfo | null> {
+  if (previewBlobUrls.has(docId)) {
+    return {
+      url: previewBlobUrls.get(docId)!,
+      isImage: previewIsImage.get(docId) ?? false,
+    }
+  }
+
+  const rawBlob = await getDocumentBlob(docId)
+  if (!rawBlob) return null
+
+  // If file is already an image
+  if (rawBlob.type.startsWith('image/')) {
+    const url = safeCreateObjectURL(rawBlob, docId)
+    previewBlobUrls.set(docId, url)
+    previewIsImage.set(docId, true)
+    return { url, isImage: true }
+  }
+
+  // If file is a scanned PDF, inspect if it contains an authentic embedded JPEG scan
+  try {
+    const buf = await rawBlob.arrayBuffer()
+    const imgBlob = extractEmbeddedImageFromPdf(new Uint8Array(buf))
+    if (imgBlob) {
+      const imgUrl = safeCreateObjectURL(imgBlob, docId)
+      previewBlobUrls.set(docId, imgUrl)
+      previewIsImage.set(docId, true)
+      return { url: imgUrl, isImage: true }
+    }
+  } catch {}
+
+  // Fallback to strict application/pdf blob URL
+  const pdfBlob = rawBlob.type === 'application/pdf' ? rawBlob : new Blob([rawBlob], { type: 'application/pdf' })
+  const pdfUrl = safeCreateObjectURL(pdfBlob, docId)
+  previewBlobUrls.set(docId, pdfUrl)
+  previewIsImage.set(docId, false)
+  return { url: pdfUrl, isImage: false }
+}
+
+/**
  * Retrieve the active viewing URL for a document.
  * Returns a blob: URL for native iframe/img rendering.
  */
 export async function getDocumentViewUrl(docId: string): Promise<string | null> {
-  // Check memory cache first
-  if (activeBlobUrls.has(docId)) {
-    return activeBlobUrls.get(docId)!
-  }
-
-  if (activeBlobs.has(docId)) {
-    const b = activeBlobs.get(docId)!
-    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-      try {
-        const u = URL.createObjectURL(b)
-        activeBlobUrls.set(docId, u)
-        return u
-      } catch {}
-    }
-    return `blob:dsaos-${docId}`
-  }
-
-  try {
-    const db = await openDb()
-    if (db) {
-      const tx = db.transaction(STORE_NAME, 'readonly')
-      const store = tx.objectStore(STORE_NAME)
-      const record = await new Promise<StoredDocFile | undefined>((resolve, reject) => {
-        const req = store.get(docId)
-        req.onsuccess = () => resolve(req.result)
-        req.onerror = () => reject(req.error)
-      })
-
-      if (record && record.blob) {
-        activeBlobs.set(docId, record.blob)
-        if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-          try {
-            const url = URL.createObjectURL(record.blob)
-            activeBlobUrls.set(docId, url)
-            return url
-          } catch {}
-        }
-        return `blob:dsaos-${docId}`
-      }
-    }
-  } catch (err) {
-    console.warn('Document IndexedDB read notice:', err)
-  }
-
-  return null
+  const info = await getDocumentPreviewInfo(docId)
+  return info?.url || null
 }
 
 /**
