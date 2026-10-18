@@ -13,6 +13,14 @@ import os
 import sys
 import requests
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    # also try backend/.env
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+except ImportError:
+    pass
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Test real SMS delivery via TextBee gateway.")
@@ -56,7 +64,7 @@ def main() -> None:
         dev_res = requests.get(device_url, headers={"x-api-key": api_key}, timeout=10)
         if dev_res.status_code == 200:
             dev_data = dev_res.json()
-            print("✓ Device Status Response:")
+            print("[INFO] Device Status Response:")
             print(dev_data)
         else:
             print(f"! Device info warning (HTTP {dev_res.status_code}): {dev_res.text}")
@@ -92,14 +100,14 @@ def main() -> None:
             print(res.text)
 
         if res.status_code in (200, 201):
-            print("\n✓ Live SMS accepted by TextBee gateway!")
+            print("\n[SUCCESS] Live SMS accepted by TextBee gateway!")
         else:
-            print(f"\n✗ Gateway rejected SMS (HTTP {res.status_code})")
+            print(f"\n[FAILED] Gateway rejected SMS (HTTP {res.status_code})")
 
     except requests.exceptions.Timeout:
-        print("\n✗ Request timed out. Ensure the Motorola Edge 60 Pro is connected to Wi-Fi/cellular.")
+        print("\n[TIMEOUT] Request timed out. Ensure the Motorola Edge 60 Pro is connected to Wi-Fi/cellular.")
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
 
 
 if __name__ == "__main__":
