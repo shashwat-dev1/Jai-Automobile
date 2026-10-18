@@ -512,21 +512,19 @@ export function GuestReferralPage() {
       return
     }
 
-    // 4. Validate Expected Loan Required Date
-    if (!expectedLoanRequiredDate) {
-      setFormError(t.dateRequiredError)
-      return
-    }
-    const chosenDate = new Date(expectedLoanRequiredDate)
-    const todayMidnight = new Date()
-    todayMidnight.setHours(0, 0, 0, 0)
-    if (chosenDate < todayMidnight) {
-      setFormError(t.datePastError)
-      return
-    }
-    if (chosenDate > oneYearFutureObj) {
-      setFormError(t.dateFutureLimitError)
-      return
+    // 4. Validate Expected Loan Required Date (Optional: only validate bounds if entered)
+    if (expectedLoanRequiredDate) {
+      const chosenDate = new Date(expectedLoanRequiredDate)
+      const todayMidnight = new Date()
+      todayMidnight.setHours(0, 0, 0, 0)
+      if (chosenDate < todayMidnight) {
+        setFormError(t.datePastError)
+        return
+      }
+      if (chosenDate > oneYearFutureObj) {
+        setFormError(t.dateFutureLimitError)
+        return
+      }
     }
 
     // 5. MANDATORY VALIDATION: Vehicle Condition must be explicitly selected
@@ -573,7 +571,7 @@ export function GuestReferralPage() {
         district: district.trim(),
         city: city.trim(),
         state: state.trim(),
-        expected_loan_required_date: expectedLoanRequiredDate,
+        expected_loan_required_date: expectedLoanRequiredDate || null,
         vehicle_condition: vehicleCondition,
         aadhaar_doc_id: aadhaarDocId,
         pan_doc_id: panDocId,
@@ -1277,7 +1275,7 @@ export function GuestReferralPage() {
 
                 <div className="field-group">
                   <label className="field-label" htmlFor="expected-loan-date">
-                    {t.expectedLoanRequiredDateLabel} <span className="req-star">*</span>
+                    {t.expectedLoanRequiredDateLabel} <span className="optional-tag" style={{ color: '#64748b', fontSize: '0.82em', fontWeight: 500 }}>({language === 'hi' ? 'वैकल्पिक' : 'Optional'})</span>
                   </label>
                   <div className="field-input-wrapper date-picker-wrapper">
                     <input
@@ -1288,7 +1286,6 @@ export function GuestReferralPage() {
                       max={maxDateStr}
                       value={expectedLoanRequiredDate}
                       onChange={(e) => setExpectedLoanRequiredDate(e.target.value)}
-                      required
                     />
                   </div>
                   <span className="field-help-hint">

@@ -17,10 +17,10 @@
     4. **Expected Loan Required Date** (`expected-loan-date`): Added as dedicated subsection following Vehicle & Loan Details.
     5. **Vehicle Condition** (`vehicle-condition`): Positioned immediately above Document Uploads. Starts unselected (`null`), conditional Vehicle Reg No only rendered for Used Car.
     6. **Document Uploads** (`document-uploads`): Guaranteed to be the final section of the form. Never placed above Vehicle Condition.
-- **2. Expected Loan Required Date Implementation & Mandatory Enforcement**:
+- **2. Expected Loan Required Date (Optional Field)**:
   - Starts completely unselected (`''`) with zero default value.
-  - Enforced as strictly mandatory during lead submission: rejects empty submission with bilingual validation error `dateRequiredError` (`Please select an expected loan required date.`).
-  - Constrained via HTML5 date picker bounds to `min={today}` and `max={oneYearLater}`.
+  - Configured as **optional**: leads can be submitted without a date, in which case `expected_loan_required_date` is saved as `null`.
+  - When provided, input is validated against bounds `min={today}` and `max={oneYearLater}` (rejecting past dates).
   - Persisted in lead record as `expected_loan_required_date` via `/referrals/guest-submit` and synchronized to Cloud Firestore.
   - Rendered in authorized administrator dossier on [`CaseDetailPage.tsx`](file:///c:/Projects/project_backup/frontend/src/features/cases/CaseDetailPage.tsx) within the `Customer & Vehicle Loan Specifications` grid.
 - **3. Dynamic India Post API Location Autofill (Zero Hardcoding & Official Postal API)**:

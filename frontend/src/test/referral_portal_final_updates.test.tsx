@@ -116,7 +116,7 @@ describe('Referral Portal Final Updates Test Suite', () => {
       expect(dateInput.max).toBe(nextYearStr)
     })
 
-    it('starts with blank date and strictly rejects submission without date selected', async () => {
+    it('starts with blank date and is optional during submission (submits successfully without date)', async () => {
       await advanceToScreen2()
 
       const dateInput = document.getElementById('expected-loan-date') as HTMLInputElement
@@ -134,12 +134,28 @@ describe('Referral Portal Final Updates Test Suite', () => {
       // Select New Car
       fireEvent.click(screen.getByRole('radio', { name: /New Car/i }))
 
-      // Attempt submit without selecting a date
+      // Upload genuine files for mandatory Aadhaar and PAN
+      const aadhaarFile = new File(['dummy aadhaar'], 'arjun_aadhaar.pdf', { type: 'application/pdf' })
+      const panFile = new File(['dummy pan'], 'arjun_pan.jpg', { type: 'image/jpeg' })
+      fireEvent.change(screen.getByTestId('aadhaar-file-input'), { target: { files: [aadhaarFile] } })
+      fireEvent.change(screen.getByTestId('pan-file-input'), { target: { files: [panFile] } })
+
+      await waitFor(() => {
+        expect(screen.getAllByText(/Uploaded \(Quarantined\)/i).length).toBe(2)
+      })
+
+      // Submit without entering a date
       fireEvent.click(screen.getByRole('button', { name: /Submit Lead/i }))
 
       await waitFor(() => {
-        expect(screen.getByText(/Please select an expected loan required date/i)).toBeInTheDocument()
+        expect(screen.getByText('Lead Successfully Submitted!')).toBeInTheDocument()
       })
+
+      // Verify the persisted record has null / empty date
+      const stored = getStoredCases()
+      const savedCase = stored.find((c) => c.applicant_name === 'Arjun Verma')
+      expect(savedCase).toBeDefined()
+      expect(savedCase?.expected_loan_required_date).toBeNull()
     })
 
     it('rejects dates in the past with a clear business error', async () => {
