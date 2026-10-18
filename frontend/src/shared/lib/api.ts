@@ -1036,8 +1036,10 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     const docId = parsedBody?.document_id
     const scanResult = parsedBody?.scan_result
     const storedDocs = getStoredDocuments(caseId!)
+    let docFound = false
     const updatedDocs: DocumentItem[] = storedDocs.map((d) => {
       if (d.id === docId || (docId && d.id.includes(docId))) {
+        docFound = true
         return {
           ...d,
           status: 'received' as const,
@@ -1047,6 +1049,22 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       }
       return d
     })
+    if (!docFound && docId) {
+      updatedDocs.push({
+        id: docId,
+        org_id: 'org-jai-auto',
+        case_id: caseId!,
+        document_type_id: docId.includes('pan') ? 'dt-pan' : 'dt-aadhaar',
+        file_name: `${docId}.pdf`,
+        file_size: 1024,
+        mime_type: 'application/pdf',
+        version: 1,
+        status: 'received',
+        can_download: true,
+        scan_result: scanResult,
+        uploaded_at: new Date().toISOString(),
+      })
+    }
     saveStoredDocuments(caseId!, updatedDocs)
     const storedCases = getStoredCases()
     const targetCase = storedCases.find((c) => c.id === caseId || c.case_no === caseId)

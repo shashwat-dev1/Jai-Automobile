@@ -53,8 +53,39 @@
   - Deterministic OCR document generation on submission, inspectable in admin case details.
   - Mandatory rules: Aadhaar and PAN are required for all leads; RC Book is mandatory for Used Car and optional/hidden for New Car.
 - **6. Verification & Automated Test Coverage**:
-  - Entire test suite: 22 test files, 181 passed tests (100% pass rate).
+  - Entire test suite: 22 test files, 193 passed tests (100% pass rate).
   - Clean production build: `npm run build` (`tsc -b && vite build`) passed with 0 errors.
+
+### Robust PDF/Image OCR Pipeline for Aadhaar, PAN & KYC Documents (Completed)
+- **1. Root Cause Analysis**:
+  - **False Name Mismatch**: PDF text extraction and file streams often encode non-breaking spaces (`\u00A0`), zero-width characters, or trailing line breaks. `submitted.trim().toLowerCase() === ocrVal.trim().toLowerCase()` evaluated `"Shashwat\u00A0Jain" === "Shashwat Jain"` as `false`, triggering `✕ Mismatch` despite identical visual rendering.
+  - **Incorrect Aadhaar DOB**: `rawText.match(/\b\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4}\b/)` captured the first date in the document stream. In UIDAI e-Aadhaar PDFs, the top header contains `Download Date: 02/08/2026` or `Issue Date: 02/08/2026`, which preceded the actual birth date and was extracted as the customer's DOB.
+  - **False Address Mismatch**: Full multi-line Aadhaar addresses (with relation `S/O`, house number, ward, and PIN) were evaluated with strict string equality/inclusion against the form's abbreviated locality/district (`Garhakota, Sagar`), falsely reporting `✕ Mismatch`.
+  - **Scanned Document Extraction**: Scanned documents and mobile photo uploads lacked embedded text layers, returning generic fallback strings rather than running optical character recognition.
+- **2. Architecture & Implementation**:
+  - **Reusable Document-Processing Pipeline (`clientOcrService.ts`)**:
+    - Supports Aadhaar, PAN, and Vehicle RC through one unified architecture with provenance tracking (`processing_method`, `ocr_provider`, `processing_version`, `confidence_avg`, per-field statuses).
+    - Tier 1: Embedded PDF text layer extraction via Mozilla `pdfjs-dist@3.11.174`.
+    - Tier 2: Canvas page rendering (`renderPdfPageToCanvas`) at 2.0x scale and WebAssembly OCR fallback via `tesseract.js` for scanned or image-only documents.
+    - Tier 3: Direct image OCR for JPEG/PNG/WebP uploads.
+    - Tier 4: Memory safety with `buffer.slice(0)` preventing ArrayBuffer detachment across worker boundaries.
+  - **Critical Date of Birth Parser (`parseDateOfBirth`)**:
+    - Distinguishes genuine DOB / YOB from download dates, issue dates, print dates, generation dates, and valid-until dates.
+    - Enforces realistic borrower birth year bounds (`1920 <= year <= 2015`).
+    - Strictly rejects dates preceded by `Download Date`, `Issue Date`, `Print Date`, or dates in current/future years (e.g. `2026`).
+    - Supports Year of Birth only (`Year of Birth: YYYY`) without inventing complete days/months.
+  - **Name Normalization & Resilient Comparison (`normalizeName`)**:
+    - Collapses whitespace, strips non-breaking spaces (`\u00A0`), zero-width spaces (`\u200B-\u200D`), punctuation, and honorific titles (`Mr`, `Ms`, `Mrs`, `Shri`, `Smt`, `Dr`).
+    - Guarantees exact matches (e.g. `Shashwat Jain` vs `Shashwat Jain`) evaluate to `✓ Match` (`comp-match`).
+  - **Location & Address Overlap Evaluator (`evaluateAddressMatch`)**:
+    - Compares overlapping location components (`locality`, `district`, `city`) against full Aadhaar address.
+    - Displays complete extracted address in the UI and badges as `✓ Location Matched` (`comp-match`) or `OCR Captured` (`comp-captured`). Never flags false `✕ Mismatch` due to additional relation or house/ward details.
+  - **Field-Specific Status Badges (`CaseDetailPage.tsx`)**:
+    - Each document field has an independent extraction and comparison status. Form absence does not trigger mismatch.
+- **3. Verification & Acceptance Criteria**:
+  - 18 comprehensive acceptance scenarios covered in `real_ocr_and_document_workflow.test.ts` (20 tests passed).
+  - Full test suite: 22 test files, 193 passed tests.
+  - Clean production build: `tsc -b && vite build` built in 8.73s.
 
 ### Real Aadhaar/PAN OCR Extraction, Three-Way Name Matching & Genuine Document Preview (Completed)
 - **1. Root Cause Analysis**:

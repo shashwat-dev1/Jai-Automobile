@@ -27,7 +27,7 @@ import { formatINR } from '../../shared/lib/formatters'
 import { useAuthStore } from '../auth/useAuth'
 import { getStoredDocuments } from '../../shared/lib/storeSync'
 import { getDocumentPreviewInfo, downloadStoredDocument, getDocumentBlob, type DocumentPreviewInfo } from '../../shared/lib/documentStorage'
-import { evaluateThreeWayNameComparison, runClientOcr } from '../../shared/lib/clientOcrService'
+import { evaluateThreeWayNameComparison, runClientOcr, evaluateAddressMatch, normalizeName } from '../../shared/lib/clientOcrService'
 import { PdfDocumentViewer } from '../../shared/components/PdfDocumentViewer'
 import type { DocumentItem } from '../documents/types'
 import './CaseDetailPage.css'
@@ -75,7 +75,7 @@ export const CaseDetailPage: React.FC = () => {
     try {
       const docType = docItem.document_type_id === 'dt-pan' || docItem.file_name.toLowerCase().includes('pan') ? 'pan' : 'aadhaar'
       const blob = await getDocumentBlob(docItem.id)
-      const cName = currentCase?.primary_applicant_name || currentCase?.applicant_name || 'Shashwat Jain'
+      const cName = currentCase?.primary_applicant_name || currentCase?.applicant_name || ''
       const ocrRes = await runClientOcr(blob || new Blob(), docType, {
         customer_name: cName,
         fileName: docItem.file_name,
@@ -492,8 +492,12 @@ export const CaseDetailPage: React.FC = () => {
     return f?.value || '—'
   }
 
-  const getFieldMatch = (submitted: string | null | undefined, ocrVal: string): { label: string; badgeClass: string } => {
-    if (!ocrVal || ocrVal === '—' || ocrVal.includes('Pending')) {
+  const getFieldMatch = (
+    submitted: string | null | undefined,
+    ocrVal: string,
+    fieldType?: 'customer_name' | 'address' | 'dob' | 'general'
+  ): { label: string; badgeClass: string } => {
+    if (!ocrVal || ocrVal === '—' || ocrVal.includes('Pending') || ocrVal.includes('Not extracted')) {
       return { label: 'Unable to compare', badgeClass: 'comp-uncompared' }
     }
     if (ocrVal.includes('Scanned') || ocrVal.includes('Manual Verification') || ocrVal.includes('Visual')) {
@@ -502,8 +506,18 @@ export const CaseDetailPage: React.FC = () => {
     if (!submitted || submitted.includes('Not collected') || submitted.includes('Not applicable')) {
       return { label: 'OCR Captured', badgeClass: 'comp-captured' }
     }
-    const s = submitted.trim().toLowerCase()
-    const o = ocrVal.trim().toLowerCase()
+
+    if (fieldType === 'customer_name') {
+      const sNorm = normalizeName(submitted)
+      const oNorm = normalizeName(ocrVal)
+      if (sNorm && oNorm && (sNorm === oNorm || sNorm.includes(oNorm) || oNorm.includes(sNorm))) {
+        return { label: '✓ Match', badgeClass: 'comp-match' }
+      }
+      return { label: '✕ Mismatch', badgeClass: 'comp-mismatch' }
+    }
+
+    const s = submitted.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+    const o = ocrVal.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
     if (s === o || o.includes(s) || s.includes(o)) {
       return { label: '✓ Match', badgeClass: 'comp-match' }
     }
@@ -996,7 +1010,7 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(aadhaarDoc, 'customer_name')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch(customerName, getOcrField(aadhaarDoc, 'customer_name'))
+                              const r = getFieldMatch(customerName, getOcrField(aadhaarDoc, 'customer_name'), 'customer_name')
                               return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
                             })()}
                           </td>
@@ -1007,8 +1021,11 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(aadhaarDoc, 'aadhaar_masked')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch('Not collected', getOcrField(aadhaarDoc, 'aadhaar_masked'))
-                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                              const val = getOcrField(aadhaarDoc, 'aadhaar_masked')
+                              if (!val || val === '—' || val.includes('Manual Verification') || val.includes('Scanned') || val.includes('Unable')) {
+                                return <span className="comp-badge comp-review">Visual Review Required</span>
+                              }
+                              return <span className="comp-badge comp-captured">OCR Captured</span>
                             })()}
                           </td>
                         </tr>
@@ -1018,8 +1035,11 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(aadhaarDoc, 'dob')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch('Not collected', getOcrField(aadhaarDoc, 'dob'))
-                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                              const dobVal = getOcrField(aadhaarDoc, 'dob')
+                              if (!dobVal || dobVal === '—' || dobVal.includes('Not extracted') || dobVal.includes('Pending')) {
+                                return <span className="comp-badge comp-uncompared">Not extracted</span>
+                              }
+                              return <span className="comp-badge comp-captured">OCR Captured</span>
                             })()}
                           </td>
                         </tr>
@@ -1029,7 +1049,7 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(aadhaarDoc, 'address')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch(city, getOcrField(aadhaarDoc, 'address'))
+                              const r = evaluateAddressMatch(locality, district, city, getOcrField(aadhaarDoc, 'address'))
                               return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
                             })()}
                           </td>
@@ -1134,7 +1154,7 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(panDoc, 'customer_name')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch(customerName, getOcrField(panDoc, 'customer_name'))
+                              const r = getFieldMatch(customerName, getOcrField(panDoc, 'customer_name'), 'customer_name')
                               return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
                             })()}
                           </td>
@@ -1145,8 +1165,11 @@ export const CaseDetailPage: React.FC = () => {
                           <td>{getOcrField(panDoc, 'pan_number')}</td>
                           <td>
                             {(() => {
-                              const r = getFieldMatch('Not collected', getOcrField(panDoc, 'pan_number'))
-                              return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
+                              const val = getOcrField(panDoc, 'pan_number')
+                              if (!val || val === '—' || val.includes('Manual Verification') || val.includes('Scanned') || val.includes('Unable')) {
+                                return <span className="comp-badge comp-review">Visual Review Required</span>
+                              }
+                              return <span className="comp-badge comp-captured">OCR Captured</span>
                             })()}
                           </td>
                         </tr>
@@ -1155,9 +1178,13 @@ export const CaseDetailPage: React.FC = () => {
                           <td><span className="text-muted">Not collected on form</span></td>
                           <td>{getOcrField(panDoc, 'dob')}</td>
                           <td>
-                            <span className={`comp-badge ${getOcrField(panDoc, 'dob') !== '—' ? 'comp-captured' : 'comp-uncompared'}`}>
-                              {getOcrField(panDoc, 'dob') !== '—' ? 'Extracted for Review' : 'Unable to compare'}
-                            </span>
+                            {(() => {
+                              const dobVal = getOcrField(panDoc, 'dob')
+                              if (!dobVal || dobVal === '—' || dobVal.includes('Not extracted') || dobVal.includes('Manual Verification') || dobVal.includes('Scanned') || dobVal.includes('Pending')) {
+                                return <span className="comp-badge comp-uncompared">Unable to compare</span>
+                              }
+                              return <span className="comp-badge comp-captured">OCR Captured</span>
+                            })()}
                           </td>
                         </tr>
                       </tbody>
@@ -1260,7 +1287,7 @@ export const CaseDetailPage: React.FC = () => {
                             <td>{getOcrField(rcDoc, 'registered_owner')}</td>
                             <td>
                               {(() => {
-                                const r = getFieldMatch(customerName, getOcrField(rcDoc, 'registered_owner'))
+                                const r = getFieldMatch(customerName, getOcrField(rcDoc, 'registered_owner'), 'customer_name')
                                 return <span className={`comp-badge ${r.badgeClass}`}>{r.label}</span>
                               })()}
                             </td>
