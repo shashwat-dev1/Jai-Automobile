@@ -6,6 +6,8 @@
  * Never fabricates or seeds fake customer numbers or verification badges.
  */
 
+import * as pdfjsLib from 'pdfjs-dist'
+
 export interface ExtractedField {
   field_key: string
   label: string
@@ -71,6 +73,29 @@ export function extractNameFromFileName(fileName: string | undefined): string | 
  * Extracts raw textual content from PDF byte streams using deflate decompression.
  */
 export async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
+  // 1. First attempt robust PDF.js text layer extraction (decodes font encodings, CMaps, FlateDecode)
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+    })
+    const pdf = await loadingTask.promise
+    let fullText = ''
+    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 5); pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items
+        .map((item: any) => ('str' in item ? item.str : ''))
+        .join(' ')
+      fullText += pageText + '\n'
+    }
+    if (fullText.trim().length > 5) {
+      return fullText.trim()
+    }
+  } catch (err) {
+    console.warn('PDF.js text extraction notice (falling back to raw stream scan):', err)
+  }
+
   const bytes = new Uint8Array(buffer)
   const decoder = new TextDecoder('latin1')
   const content = decoder.decode(bytes)
@@ -402,7 +427,7 @@ export async function runClientOcr(
       fields.push({
         field_key: 'aadhaar_masked',
         label: 'Aadhaar (Masked)',
-        value: '—',
+        value: 'Scanned Document (Manual Verification Required)',
         confidence: 0,
         status: 'needs_review',
       })
@@ -525,7 +550,7 @@ export async function runClientOcr(
       fields.push({
         field_key: 'pan_number',
         label: 'Income Tax PAN (Masked)',
-        value: '—',
+        value: 'Scanned Document (Manual Verification Required)',
         confidence: 0,
         status: 'needs_review',
       })

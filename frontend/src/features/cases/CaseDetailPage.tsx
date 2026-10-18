@@ -26,8 +26,9 @@ import { api, ApiError } from '../../shared/lib/api'
 import { formatINR } from '../../shared/lib/formatters'
 import { useAuthStore } from '../auth/useAuth'
 import { getStoredDocuments } from '../../shared/lib/storeSync'
-import { getDocumentPreviewInfo, downloadStoredDocument, getDocumentBlob } from '../../shared/lib/documentStorage'
+import { getDocumentPreviewInfo, downloadStoredDocument, getDocumentBlob, type DocumentPreviewInfo } from '../../shared/lib/documentStorage'
 import { evaluateThreeWayNameComparison, runClientOcr } from '../../shared/lib/clientOcrService'
+import { PdfDocumentViewer } from '../../shared/components/PdfDocumentViewer'
 import type { DocumentItem } from '../documents/types'
 import './CaseDetailPage.css'
 
@@ -45,7 +46,7 @@ export const CaseDetailPage: React.FC = () => {
   // Modals state
   const [showDocModal, setShowDocModal] = useState<DocumentItem | null>(null)
   const [modalDocUrl, setModalDocUrl] = useState<string | null>(null)
-  const [modalDocPreview, setModalDocPreview] = useState<{ url: string; isImage: boolean } | null>(null)
+  const [modalDocPreview, setModalDocPreview] = useState<DocumentPreviewInfo | null>(null)
   const [isScanningDoc, setIsScanningDoc] = useState<string | null>(null)
   const [isCorrectingName, setIsCorrectingName] = useState(false)
   const [showCallModal, setShowCallModal] = useState(false)
@@ -267,7 +268,7 @@ export const CaseDetailPage: React.FC = () => {
         } else if ((showDocModal as any).file_url) {
           const url = (showDocModal as any).file_url
           const isImg = url.match(/\.(jpeg|jpg|png|webp)/i) !== null
-          setModalDocPreview({ url, isImage: isImg })
+          setModalDocPreview({ url, isImage: isImg, isPdf: !isImg, blob: null })
           setModalDocUrl(url)
         } else {
           setModalDocPreview(null)
@@ -492,8 +493,11 @@ export const CaseDetailPage: React.FC = () => {
   }
 
   const getFieldMatch = (submitted: string | null | undefined, ocrVal: string): { label: string; badgeClass: string } => {
-    if (!ocrVal || ocrVal === '—' || ocrVal.includes('Awaiting') || ocrVal.includes('Pending')) {
+    if (!ocrVal || ocrVal === '—' || ocrVal.includes('Pending')) {
       return { label: 'Unable to compare', badgeClass: 'comp-uncompared' }
+    }
+    if (ocrVal.includes('Scanned') || ocrVal.includes('Manual Verification') || ocrVal.includes('Visual')) {
+      return { label: 'Visual Review Required', badgeClass: 'comp-review' }
     }
     if (!submitted || submitted.includes('Not collected') || submitted.includes('Not applicable')) {
       return { label: 'OCR Captured', badgeClass: 'comp-captured' }
@@ -1648,51 +1652,14 @@ export const CaseDetailPage: React.FC = () => {
 
             <div className="modal-body-content" style={{ padding: '0.5rem 0' }}>
               {modalDocPreview ? (
-                <div className="real-doc-viewer-container">
-                  {modalDocPreview.isImage ? (
-                    <img
-                      src={modalDocPreview.url}
-                      alt={showDocModal.file_name}
-                      className="real-doc-image"
-                    />
-                  ) : (
-                    <object
-                      data={modalDocPreview.url}
-                      type="application/pdf"
-                      className="real-doc-iframe"
-                    >
-                      <div className="pdf-embed-fallback-card">
-                        <div className="pdf-icon-badge">📄</div>
-                        <h4 style={{ margin: '0.5rem 0', color: '#0F172A', fontSize: '1.1rem' }}>
-                          {showDocModal.file_name}
-                        </h4>
-                        <p style={{ color: '#64748B', fontSize: '0.875rem', margin: '0 0 1.25rem 0', maxWidth: 420 }}>
-                          Original PDF is encrypted and held in private storage. Click below to inspect in high-resolution viewer.
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                          <a
-                            href={modalDocPreview.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="stitch-btn-primary"
-                            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.5rem 1rem' }}
-                          >
-                            <span>Open in Fullscreen Viewer</span>
-                            <span>↗</span>
-                          </a>
-                          <button
-                            type="button"
-                            className="stitch-btn-secondary"
-                            onClick={(e) => handleDownloadDoc(showDocModal, e)}
-                            style={{ padding: '0.5rem 1rem' }}
-                          >
-                            <span>Download Original File</span>
-                            <span>⬇</span>
-                          </button>
-                        </div>
-                      </div>
-                    </object>
-                  )}
+                <div className="real-doc-viewer-container" style={{ background: '#0F172A', minHeight: '420px', padding: '0.5rem' }}>
+                  <PdfDocumentViewer
+                    blob={modalDocPreview.blob}
+                    previewUrl={modalDocPreview.url}
+                    fileName={showDocModal.file_name}
+                    isImage={modalDocPreview.isImage}
+                    onDownload={() => handleDownloadDoc(showDocModal)}
+                  />
                 </div>
               ) : (
                 <div className="doc-viewer-fallback">

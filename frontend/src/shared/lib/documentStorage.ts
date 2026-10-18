@@ -157,55 +157,37 @@ export function extractEmbeddedImageFromPdf(bytes: Uint8Array): Blob | null {
 }
 
 const previewBlobUrls = new Map<string, string>()
-const previewIsImage = new Map<string, boolean>()
 
 export interface DocumentPreviewInfo {
   url: string
   isImage: boolean
+  isPdf: boolean
+  blob: Blob | null
 }
 
 /**
  * Retrieve the active viewing URL for a document.
- * Returns either an extracted high-resolution image preview for scanned PDFs
- * or an authentic application/pdf blob URL.
+ * Returns either an image preview info or authentic application/pdf blob info.
  */
 export async function getDocumentPreviewInfo(docId: string): Promise<DocumentPreviewInfo | null> {
-  if (previewBlobUrls.has(docId)) {
-    return {
-      url: previewBlobUrls.get(docId)!,
-      isImage: previewIsImage.get(docId) ?? false,
-    }
-  }
-
   const rawBlob = await getDocumentBlob(docId)
   if (!rawBlob) return null
 
-  // If file is already an image
-  if (rawBlob.type.startsWith('image/')) {
-    const url = safeCreateObjectURL(rawBlob, docId)
+  const isImage = rawBlob.type.startsWith('image/')
+  const isPdf = !isImage && (rawBlob.type === 'application/pdf' || rawBlob.type.includes('pdf'))
+  
+  let url = previewBlobUrls.get(docId)
+  if (!url) {
+    url = safeCreateObjectURL(rawBlob, docId)
     previewBlobUrls.set(docId, url)
-    previewIsImage.set(docId, true)
-    return { url, isImage: true }
   }
 
-  // If file is a scanned PDF, inspect if it contains an authentic embedded JPEG scan
-  try {
-    const buf = await rawBlob.arrayBuffer()
-    const imgBlob = extractEmbeddedImageFromPdf(new Uint8Array(buf))
-    if (imgBlob) {
-      const imgUrl = safeCreateObjectURL(imgBlob, docId)
-      previewBlobUrls.set(docId, imgUrl)
-      previewIsImage.set(docId, true)
-      return { url: imgUrl, isImage: true }
-    }
-  } catch {}
-
-  // Fallback to strict application/pdf blob URL
-  const pdfBlob = rawBlob.type === 'application/pdf' ? rawBlob : new Blob([rawBlob], { type: 'application/pdf' })
-  const pdfUrl = safeCreateObjectURL(pdfBlob, docId)
-  previewBlobUrls.set(docId, pdfUrl)
-  previewIsImage.set(docId, false)
-  return { url: pdfUrl, isImage: false }
+  return {
+    url,
+    isImage,
+    isPdf,
+    blob: rawBlob,
+  }
 }
 
 /**
