@@ -59,7 +59,28 @@ import {
   saveStoredDocuments,
   syncCaseToCloud,
   initCloudSync,
+  getStoredFinancingPartners,
+  addOrUpdateStoredFinancingPartner,
+  getStoredPartnerAllocations,
+  saveStoredPartnerAllocations,
+  addOrUpdateStoredPartnerAllocation,
+  getAllocationsForLead,
+  getStoredPayoutPolicies,
+  addOrUpdateStoredPayoutPolicy,
+  getStoredPayoutReceipts,
+  addStoredPayoutReceipt,
 } from './storeSync'
+import {
+  deriveLeadStageFromAllocations,
+  getISTDateParts,
+  type FinancingPartnerAllocation,
+  type FinancingPartnerMaster,
+} from './leadQueues'
+import {
+  calculatePartnerPayout,
+  type PayoutPolicy,
+  type PayoutReceipt,
+} from './payoutCalculator'
 import { computeStitchDashboard } from '../../features/dashboard/dashboardDataService'
 import { computeTodayConsoleData } from '../../features/dashboard/todayDataService'
 import type { DocumentItem } from '../../features/documents/types'
@@ -438,44 +459,89 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
     }
   }
 
-  // Phase 1: Lead Assignment (Bulk / Single)
+  // Phase 1: Lead Assignment (Bulk / Single) with Atomic Conflict Check
   if (clean.includes('/cases/assign') && method === 'POST') {
     const active = getActiveMockUser()
     if (active && active.role === 'telecaller') {
       throw new ApiError('Access denied: Telecallers cannot assign or reassign leads.', 403, 'FORBIDDEN')
     }
-    const { case_ids, telecaller_id } = parsedBody || {}
+    const { case_ids, telecaller_id, abort_if_assigned, check_unassigned } = parsedBody || {}
     const tcUser = JAI_MOCK_USERS.find((u: any) => u.id === telecaller_id)
     const tcName = tcUser?.name || (telecaller_id === 'usr-telecaller-2' ? 'Rahul Verma' : 'Priya Sharma')
-    let count = 0
+    
     const cases = getStoredCases()
+    const results: Array<{ case_id: string; success: boolean; message: string }> = []
+    let assignedCount = 0
+
     if (Array.isArray(case_ids)) {
       case_ids.forEach((cid: string) => {
-        const found = cases.find((c: any) => c.id === cid)
-        if (found) {
-          found.assigned_telecaller_id = telecaller_id
-          found.assigned_telecaller_name = tcName
-          found.updated_at = new Date().toISOString()
-          count++
-          syncCaseToCloud(found).catch((e) => console.warn('Assign sync error:', e))
+        const found = cases.find((c: any) => c.id === cid || c.case_no?.toLowerCase() === cid.toLowerCase())
+        if (!found) {
+          results.push({ case_id: cid, success: false, message: 'Lead not found.' })
+          return
         }
+
+        // Transaction check: If abort_if_assigned is requested and lead is already assigned to someone else, abort
+        if ((abort_if_assigned || check_unassigned) && found.assigned_telecaller_id && found.assigned_telecaller_id !== telecaller_id) {
+          results.push({
+            case_id: cid,
+            success: false,
+            message: `Already assigned to ${found.assigned_telecaller_name || found.assigned_telecaller_id}.`,
+          })
+          return
+        }
+
+        found.assigned_telecaller_id = telecaller_id
+        found.assigned_telecaller_name = tcName
+        found.updated_at = new Date().toISOString()
+        found.version = (found.version || 1) + 1
+
+        if (!Array.isArray(found.status_history)) {
+          found.status_history = []
+        }
+        found.status_history.unshift({
+          id: `sh-${Date.now()}-${cid}`,
+          from_status: found.status,
+          to_status: found.status,
+          reason: `Assigned to telecaller ${tcName}`,
+          changed_by: active?.id || 'admin',
+          changer_name: active?.name || 'Administrator',
+          created_at: new Date().toISOString(),
+        })
+
+        if (!Array.isArray(found.call_activity_history)) {
+          found.call_activity_history = []
+        }
+        found.call_activity_history.unshift({
+          id: `act-assign-${Date.now()}-${cid}`,
+          outcome: 'assigned',
+          remarks: `Assigned lead to ${tcName}`,
+          telecaller_name: active?.name || 'Administrator',
+          created_at: new Date().toISOString(),
+        })
+
+        assignedCount++
+        results.push({ case_id: cid, success: true, message: `Successfully assigned to ${tcName}.` })
+        syncCaseToCloud(found).catch((e) => console.warn('Assign sync error:', e))
       })
       saveStoredCases(cases)
     }
+
     return {
-      assigned_count: count || (case_ids?.length || 1),
+      assigned_count: assignedCount,
       telecaller_id,
       telecaller_name: tcName,
+      results,
     }
   }
 
-  // Phase 1: Call Activity Logging (Strict Server-Side RBAC)
+  // Phase 1: Call Activity Logging (Strict Server-Side RBAC & Validation)
   const callActivityMatch = clean.match(/\/cases\/([^\/\?]+)\/call-activity/)
   if (callActivityMatch && method === 'POST') {
     const caseId = callActivityMatch[1]
     const active = getActiveMockUser()
     const cases = getStoredCases()
-    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId)
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId.toLowerCase())
     if (!foundCase) {
       throw new ApiError('Case not found', 404, 'NOT_FOUND')
     }
@@ -484,26 +550,79 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
         throw new ApiError('Access denied: Cannot record call activity on unassigned lead.', 403, 'FORBIDDEN')
       }
     }
-    const outcome = parsedBody?.call_outcome || parsedBody?.outcome
-    const remarks = parsedBody?.telecaller_remarks || parsedBody?.remarks || parsedBody?.notes
-    foundCase.call_outcome = outcome || foundCase.call_outcome
-    foundCase.telecaller_remarks = remarks || foundCase.telecaller_remarks
-    foundCase.follow_up_at = parsedBody?.follow_up_at || foundCase.follow_up_at
+
+    const outcome = (parsedBody?.call_outcome || parsedBody?.outcome || '').toLowerCase().trim()
+    const remarks = (parsedBody?.telecaller_remarks || parsedBody?.remarks || parsedBody?.notes || '').trim()
+
+    // Required remarks validation (minimum 3 characters)
+    if (!remarks || remarks.length < 3) {
+      throw new ApiError('Remarks are required and must be at least 3 characters.', 422, 'VALIDATION_ERROR')
+    }
+
+    // Follow-up validation: must be a valid future ISO datetime
+    let followUpIso: string | null = null
+    if (outcome === 'follow_up') {
+      const rawFollowUp = parsedBody?.follow_up_at
+      if (!rawFollowUp) {
+        throw new ApiError('Follow-up scheduled date/time is required when outcome is Follow-up.', 422, 'VALIDATION_ERROR')
+      }
+      const followUpDate = new Date(rawFollowUp)
+      if (isNaN(followUpDate.getTime())) {
+        throw new ApiError('Invalid follow-up date/time provided.', 422, 'VALIDATION_ERROR')
+      }
+      if (followUpDate.getTime() <= Date.now()) {
+        throw new ApiError('Follow-up date/time must be in the future.', 422, 'VALIDATION_ERROR')
+      }
+      followUpIso = followUpDate.toISOString()
+    }
+
+    // Update case fields
+    const prevStatus = foundCase.status
+    foundCase.call_outcome = outcome
+    foundCase.telecaller_remarks = remarks
+    foundCase.follow_up_at = followUpIso || undefined
     foundCase.call_attempts_count = (foundCase.call_attempts_count || 0) + 1
     foundCase.updated_at = new Date().toISOString()
+    foundCase.version = (foundCase.version || 1) + 1
+
+    // Lifecycle status updates based on outcome
+    if (outcome === 'interested') {
+      foundCase.status = 'interested'
+      foundCase.current_stage = 'interested'
+    } else if (outcome === 'not_interested') {
+      foundCase.status = 'not_interested'
+      foundCase.current_stage = 'not_interested'
+    } else if (outcome === 'follow_up') {
+      foundCase.status = 'follow_up'
+      foundCase.current_stage = 'follow_up'
+    }
+
     if (!Array.isArray(foundCase.call_activity_history)) {
       foundCase.call_activity_history = []
     }
     foundCase.call_activity_history.unshift({
       id: `act-${Date.now()}`,
-      outcome: outcome || 'follow_up',
-      remarks: remarks || '',
-      follow_up_at: parsedBody?.follow_up_at,
-      telecaller_name: active?.name || 'Priya Sharma',
+      outcome,
+      remarks,
+      follow_up_at: followUpIso || undefined,
+      telecaller_name: active?.name || 'Telecaller Desk',
       created_at: new Date().toISOString(),
     })
 
-    // If associated with a referral partner, update partner profile
+    if (!Array.isArray(foundCase.status_history)) {
+      foundCase.status_history = []
+    }
+    foundCase.status_history.unshift({
+      id: `sh-${Date.now()}`,
+      from_status: prevStatus,
+      to_status: foundCase.status,
+      reason: `Outreach outcome: ${outcome} - ${remarks}`,
+      changed_by: active?.id || 'telecaller',
+      changer_name: active?.name || 'Telecaller Desk',
+      created_at: new Date().toISOString(),
+    })
+
+    // If associated with a referral partner, update partner profile metrics
     if (foundCase.referral_profile_id || foundCase.referral_partner_id) {
       const partnerId = foundCase.referral_profile_id || foundCase.referral_partner_id
       const profiles = getStoredReferralProfiles()
@@ -524,7 +643,387 @@ function getMockFallback(endpoint: string, method = 'GET', body?: any): any {
       telecaller_remarks: foundCase.telecaller_remarks,
       follow_up_at: foundCase.follow_up_at,
       call_attempts_count: foundCase.call_attempts_count,
+      status: foundCase.status,
+      current_stage: foundCase.current_stage,
       updated_at: foundCase.updated_at,
+    }
+  }
+
+  // Phase 2: Allocate to Partner (Multi-Partner Distribution with Deterministic IDs)
+  const allocatePartnerMatch = clean.match(/\/cases\/([^\/\?]+)\/allocate-partner/)
+  if (allocatePartnerMatch && method === 'POST') {
+    const caseId = allocatePartnerMatch[1]
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Only administrators can allocate leads to financing partners.', 403, 'FORBIDDEN')
+    }
+
+    const { partner_ids } = parsedBody || {}
+    if (!Array.isArray(partner_ids) || partner_ids.length === 0) {
+      throw new ApiError('Please select at least one financing partner for allocation.', 422, 'VALIDATION_ERROR')
+    }
+
+    const cases = getStoredCases()
+    const foundCase = cases.find((c: any) => c.id === caseId || c.case_no?.toLowerCase() === caseId.toLowerCase())
+    if (!foundCase) {
+      throw new ApiError('Lead not found.', 404, 'NOT_FOUND')
+    }
+
+    // Must be in Interested stage
+    const currentNorm = (foundCase.current_stage || foundCase.status || foundCase.call_outcome || '').toLowerCase()
+    if (!['interested', 'partner_allocated'].includes(currentNorm)) {
+      throw new ApiError(`Lead must be marked "Interested" before partner allocation (current: ${foundCase.status}).`, 422, 'INVALID_STAGE')
+    }
+
+    const masterPartners = getStoredFinancingPartners()
+    const existingAllocs = getAllocationsForLead(foundCase.id)
+    const existingPartnerIds = new Set(existingAllocs.map((a) => a.financingPartnerId))
+
+    const newAllocs: FinancingPartnerAllocation[] = []
+    const nowIso = new Date().toISOString()
+    const reqAmount = foundCase.loan_amount_requested || foundCase.applied_loan_amount || 0
+
+    for (const pid of partner_ids) {
+      let partnerDoc = masterPartners.find((p) => p.id === pid)
+      if (!partnerDoc && pid === 'other-partner') {
+        partnerDoc = masterPartners.find((p) => p.id === 'other-partner') || {
+          id: 'other-partner',
+          name: 'Other NBFC',
+          type: 'nbfc',
+          active: true,
+          createdAt: nowIso,
+          createdBy: active?.id || 'admin',
+        }
+      }
+      if (!partnerDoc) {
+        throw new ApiError(`Financing partner "${pid}" does not exist in master list.`, 422, 'INVALID_PARTNER')
+      }
+      if (!partnerDoc.active) {
+        throw new ApiError(`Financing partner "${partnerDoc.name}" is currently inactive.`, 422, 'INACTIVE_PARTNER')
+      }
+
+      if (existingPartnerIds.has(pid)) {
+        throw new ApiError(`Lead is already allocated to ${partnerDoc.name}.`, 409, 'CONFLICT')
+      }
+
+      // Deterministic document ID: ${leadId}_${financingPartnerId}
+      const allocId = `${foundCase.id}_${pid}`
+      const allocation: FinancingPartnerAllocation = {
+        id: allocId,
+        leadId: foundCase.id,
+        financingPartnerId: pid,
+        financingPartnerName: partnerDoc.name,
+        financingPartnerType: partnerDoc.type,
+        status: 'Allocated',
+        allocatedBy: active?.id || 'admin',
+        allocatedByName: active?.name || 'Administrator',
+        allocatedAt: nowIso,
+        requestedAmountSnapshot: reqAmount,
+        history: [
+          {
+            id: `hist-${Date.now()}-${pid}`,
+            toStatus: 'Allocated',
+            reason: 'Initial partner allocation',
+            updatedBy: active?.id || 'admin',
+            updatedAt: nowIso,
+          },
+        ],
+      }
+
+      newAllocs.push(allocation)
+      addOrUpdateStoredPartnerAllocation(allocation)
+    }
+
+    // Atomically transition lead stage to 'partner_allocated'
+    const allLeadAllocs = [...existingAllocs, ...newAllocs]
+    const nextLeadStage = deriveLeadStageFromAllocations(foundCase.status, allLeadAllocs)
+    const prevStatus = foundCase.status
+    foundCase.status = nextLeadStage
+    foundCase.current_stage = nextLeadStage
+    foundCase.allocation_count = allLeadAllocs.length
+    foundCase.updated_at = nowIso
+    foundCase.version = (foundCase.version || 1) + 1
+
+    if (!Array.isArray(foundCase.status_history)) {
+      foundCase.status_history = []
+    }
+    foundCase.status_history.unshift({
+      id: `sh-${Date.now()}`,
+      from_status: prevStatus,
+      to_status: foundCase.status,
+      reason: `Allocated to ${newAllocs.map((a) => a.financingPartnerName).join(', ')}`,
+      changed_by: active?.id || 'admin',
+      changer_name: active?.name || 'Administrator',
+      created_at: nowIso,
+    })
+
+    if (!Array.isArray(foundCase.call_activity_history)) {
+      foundCase.call_activity_history = []
+    }
+    foundCase.call_activity_history.unshift({
+      id: `act-alloc-${Date.now()}`,
+      outcome: 'partner_allocated',
+      remarks: `Allocated to: ${newAllocs.map((a) => a.financingPartnerName).join(', ')}`,
+      telecaller_name: active?.name || 'Administrator',
+      created_at: nowIso,
+    })
+
+    saveStoredCases(cases)
+    syncCaseToCloud(foundCase).catch(() => {})
+
+    return {
+      success: true,
+      lead: foundCase,
+      allocations: newAllocs,
+      allocation_count: foundCase.allocation_count,
+      status: foundCase.status,
+    }
+  }
+
+  // Phase 2: Partner Allocation Status Updates (Admin Only, Sanction Amount Validation)
+  const updateAllocStatusMatch = clean.match(/\/partner-allocations\/([^\/\?]+)/)
+  if (updateAllocStatusMatch && (method === 'PATCH' || method === 'POST')) {
+    const allocId = updateAllocStatusMatch[1]
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Telecallers cannot update partner allocation statuses.', 403, 'FORBIDDEN')
+    }
+
+    const { status, sanctionAmount, rejectionReason, correctionReason } = parsedBody || {}
+    const allocations = getStoredPartnerAllocations()
+    const foundAlloc = allocations.find((a) => a.id === allocId)
+    if (!foundAlloc) {
+      throw new ApiError('Partner allocation record not found.', 404, 'NOT_FOUND')
+    }
+
+    const prevAllocStatus = foundAlloc.status
+    const nowIso = new Date().toISOString()
+    const { reportingMonth } = getISTDateParts(nowIso)
+
+    // Allowed status transitions: Allocated -> In Process -> Sanctioned | Rejected; Allocated -> Rejected
+    // Reverting terminal state requires admin correctionReason
+    const isTerminalPrev = prevAllocStatus === 'Sanctioned' || prevAllocStatus === 'Rejected'
+    if (isTerminalPrev && !correctionReason) {
+      throw new ApiError('Reverting a terminal status (Sanctioned/Rejected) requires an administrative correction reason.', 422, 'REASON_REQUIRED')
+    }
+
+    if (status === 'Sanctioned') {
+      const parsedSanction = Number(sanctionAmount)
+      if (isNaN(parsedSanction) || parsedSanction <= 0) {
+        throw new ApiError('Sanction amount must be a positive numeric value.', 422, 'VALIDATION_ERROR')
+      }
+      foundAlloc.status = 'Sanctioned'
+      foundAlloc.sanctionAmount = parsedSanction
+      foundAlloc.sanctionedAt = nowIso
+      foundAlloc.reportingMonth = reportingMonth
+    } else if (status === 'Rejected') {
+      foundAlloc.status = 'Rejected'
+      foundAlloc.rejectedAt = nowIso
+      foundAlloc.rejectionReason = rejectionReason?.trim() || 'Lender policy decline'
+    } else if (status === 'In Process' || status === 'Allocated') {
+      foundAlloc.status = status
+    } else {
+      throw new ApiError(`Invalid allocation status: "${status}".`, 422, 'VALIDATION_ERROR')
+    }
+
+    foundAlloc.statusUpdatedBy = active?.id || 'admin'
+    foundAlloc.statusUpdatedAt = nowIso
+
+    if (!Array.isArray(foundAlloc.history)) {
+      foundAlloc.history = []
+    }
+    foundAlloc.history.unshift({
+      id: `hist-${Date.now()}`,
+      fromStatus: prevAllocStatus,
+      toStatus: foundAlloc.status,
+      reason: correctionReason || rejectionReason || `Status updated to ${foundAlloc.status}`,
+      updatedBy: active?.id || 'admin',
+      updatedAt: nowIso,
+      sanctionAmount: foundAlloc.sanctionAmount,
+    })
+
+    saveStoredPartnerAllocations(allocations)
+    addOrUpdateStoredPartnerAllocation(foundAlloc)
+
+    // Re-evaluate parent lead stage using deriveLeadStageFromAllocations
+    const leadAllocs = getAllocationsForLead(foundAlloc.leadId)
+    const cases = getStoredCases()
+    const parentLead = cases.find((c) => c.id === foundAlloc.leadId)
+    if (parentLead) {
+      const nextLeadStage = deriveLeadStageFromAllocations(parentLead.status, leadAllocs)
+      const prevLeadStatus = parentLead.status
+      parentLead.status = nextLeadStage
+      parentLead.current_stage = nextLeadStage
+      if (status === 'Sanctioned' && foundAlloc.sanctionAmount) {
+        parentLead.loan_amount_sanctioned = foundAlloc.sanctionAmount
+      }
+      parentLead.updated_at = nowIso
+
+      if (!Array.isArray(parentLead.status_history)) {
+        parentLead.status_history = []
+      }
+      parentLead.status_history.unshift({
+        id: `sh-${Date.now()}`,
+        from_status: prevLeadStatus,
+        to_status: parentLead.status,
+        reason: `${foundAlloc.financingPartnerName} status changed to ${foundAlloc.status}`,
+        changed_by: active?.id || 'admin',
+        changer_name: active?.name || 'Administrator',
+        created_at: nowIso,
+      })
+
+      saveStoredCases(cases)
+      syncCaseToCloud(parentLead).catch(() => {})
+    }
+
+    return {
+      success: true,
+      allocation: foundAlloc,
+      lead: parentLead,
+    }
+  }
+
+  // Financing Partners Master List (GET /financing-partners)
+  if (clean.includes('/financing-partners') && method === 'GET') {
+    return getStoredFinancingPartners()
+  }
+
+  // Financing Partners Create (POST /financing-partners)
+  if (clean.includes('/financing-partners') && method === 'POST') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Only administrators can configure financing partners.', 403, 'FORBIDDEN')
+    }
+    const { name, type } = parsedBody || {}
+    if (!name || !name.trim()) {
+      throw new ApiError('Financing partner name is required.', 422, 'VALIDATION_ERROR')
+    }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const newPartner: FinancingPartnerMaster = {
+      id: slug || `partner-${Date.now()}`,
+      name: name.trim(),
+      type: type === 'bank' ? 'bank' : 'nbfc',
+      active: true,
+      createdAt: new Date().toISOString(),
+      createdBy: active?.id || 'admin',
+    }
+    addOrUpdateStoredFinancingPartner(newPartner)
+    return { success: true, partner: newPartner }
+  }
+
+  // Partner Allocations Query (GET /partner-allocations)
+  if (clean.includes('/partner-allocations') && method === 'GET') {
+    const queryStr = endpoint.includes('?') ? endpoint.split('?')[1] : ''
+    const urlParams = new URLSearchParams(queryStr)
+    const leadId = urlParams.get('lead_id')
+    const partnerId = urlParams.get('partner_id')
+    let allocs = getStoredPartnerAllocations()
+    if (leadId) {
+      allocs = allocs.filter((a) => a.leadId === leadId)
+    }
+    if (partnerId) {
+      allocs = allocs.filter((a) => a.financingPartnerId === partnerId)
+    }
+    return allocs
+  }
+
+  // Payout Policies (GET /payout/policies, POST /payout/policies)
+  if (clean.includes('/payout/policies') && method === 'GET') {
+    return getStoredPayoutPolicies()
+  }
+  if (clean.includes('/payout/policies') && method === 'POST') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Telecallers cannot configure payout policies.', 403, 'FORBIDDEN')
+    }
+    const { financingPartnerId, calculationBasis, tierMode, tiers, effectiveFrom, effectiveTo } = parsedBody || {}
+    if (!financingPartnerId) {
+      throw new ApiError('Financing partner ID is required.', 422, 'VALIDATION_ERROR')
+    }
+    if (!Array.isArray(tiers) || tiers.length === 0) {
+      throw new ApiError('Policy must contain at least one tier.', 422, 'VALIDATION_ERROR')
+    }
+    const newPolicy: PayoutPolicy = {
+      id: `pol-${financingPartnerId}-${Date.now()}`,
+      financingPartnerId,
+      effectiveFrom: effectiveFrom || '2026-01-01',
+      effectiveTo: effectiveTo || null,
+      period: 'monthly',
+      calculationBasis: calculationBasis === 'disbursed_amount' ? 'disbursed_amount' : 'sanctioned_amount',
+      tierMode: tierMode === 'cliff' ? 'cliff' : 'slab',
+      tiers,
+      createdBy: active?.id || 'admin',
+      createdAt: new Date().toISOString(),
+    }
+    addOrUpdateStoredPayoutPolicy(newPolicy)
+    return { success: true, policy: newPolicy }
+  }
+
+  // Payout Receipts (GET /payout/receipts, POST /payout/receipts)
+  if (clean.includes('/payout/receipts') && method === 'GET') {
+    return getStoredPayoutReceipts()
+  }
+  if (clean.includes('/payout/receipts') && method === 'POST') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Telecallers cannot record payout receipts.', 403, 'FORBIDDEN')
+    }
+    const { financingPartnerId, period, amount, receivedOn, reference } = parsedBody || {}
+    if (!financingPartnerId || !amount || Number(amount) <= 0) {
+      throw new ApiError('Partner and positive amount are required.', 422, 'VALIDATION_ERROR')
+    }
+    const newReceipt: PayoutReceipt = {
+      id: `rcpt-${Date.now()}`,
+      financingPartnerId,
+      period: period || getISTDateParts().reportingMonth,
+      amount: Number(amount),
+      receivedOn: receivedOn || new Date().toISOString().split('T')[0],
+      reference: reference?.trim() || `UTR-${Date.now()}`,
+      recordedBy: active?.id || 'admin',
+      recordedAt: new Date().toISOString(),
+    }
+    addStoredPayoutReceipt(newReceipt)
+    return { success: true, receipt: newReceipt }
+  }
+
+  // Payout Dashboard Metrics (GET /payout/dashboard-metrics)
+  if (clean.includes('/payout/dashboard-metrics') && method === 'GET') {
+    const active = getActiveMockUser()
+    if (active && active.role === 'telecaller') {
+      throw new ApiError('Access denied: Telecallers cannot access payout financial metrics.', 403, 'FORBIDDEN')
+    }
+    const queryStr = endpoint.includes('?') ? endpoint.split('?')[1] : ''
+    const urlParams = new URLSearchParams(queryStr)
+    const period = urlParams.get('period') || getISTDateParts().reportingMonth
+
+    const partners = getStoredFinancingPartners()
+    const allocations = getStoredPartnerAllocations()
+    const policies = getStoredPayoutPolicies()
+    const receipts = getStoredPayoutReceipts()
+
+    const partnerResults = partners.map((partner) => {
+      return calculatePartnerPayout({
+        partnerId: partner.id,
+        partnerName: partner.name,
+        reportingMonth: period,
+        allocations,
+        policies,
+        receipts,
+      })
+    })
+
+    const totalVolume = partnerResults.reduce((acc, p) => acc + p.totalAttributedVolume, 0)
+    const totalEarned = partnerResults.reduce((acc, p) => acc + p.payoutEarned, 0)
+    const totalReceived = partnerResults.reduce((acc, p) => acc + p.amountReceived, 0)
+    const totalReceivable = partnerResults.reduce((acc, p) => acc + p.outstandingReceivable, 0)
+
+    return {
+      period,
+      totalVolume,
+      totalEarned,
+      totalReceived,
+      totalReceivable,
+      partners: partnerResults,
     }
   }
 

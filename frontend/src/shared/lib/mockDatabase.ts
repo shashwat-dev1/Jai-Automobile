@@ -35,8 +35,10 @@ export interface MockCase {
   assigned_telecaller_name?: string
   call_outcome?: string
   telecaller_remarks?: string
-  follow_up_at?: string
+  follow_up_at?: string | null
   call_attempts_count?: number
+  current_stage?: string
+  allocation_count?: number
   party_id?: string | null
   referral_profile_id?: string | null
   referral_partner_id?: string | null

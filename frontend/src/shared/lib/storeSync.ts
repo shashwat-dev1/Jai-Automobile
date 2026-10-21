@@ -12,6 +12,12 @@ import type { MockCase } from './mockDatabase'
 import type { DocumentItem } from '../../features/documents/types'
 import { isFirebaseConfigured, db } from './firebase'
 import {
+  DEFAULT_FINANCING_PARTNERS,
+  type FinancingPartnerMaster,
+  type FinancingPartnerAllocation,
+} from './leadQueues'
+import type { PayoutPolicy, PayoutReceipt } from './payoutCalculator'
+import {
   collection,
   doc,
   setDoc,
@@ -28,6 +34,10 @@ export const STORAGE_KEYS = {
   REFERRAL_PROFILES: 'dsa_os_referrals_store_v2',
   COMMISSIONS: 'dsa_os_commissions_store_v2',
   PARTIES: 'dsa_os_parties_store_v1',
+  FINANCING_PARTNERS: 'dsa_os_financing_partners_v1',
+  PARTNER_ALLOCATIONS: 'dsa_os_partner_allocations_v1',
+  PAYOUT_POLICIES: 'dsa_os_payout_policies_v1',
+  PAYOUT_RECEIPTS: 'dsa_os_payout_receipts_v1',
 } as const
 
 // --- Helper: Safe LocalStorage Access ---
@@ -71,7 +81,7 @@ export function getStoredCases(): MockCase[] {
   if (raw) {
     try {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length >= 20) {
+      if (Array.isArray(parsed)) {
         return parsed
       }
     } catch {
@@ -942,3 +952,243 @@ export function generateDeterministicOcrDocs(params: {
 
   return docs
 }
+
+// ===========================================================================
+// 5. Financing Partners (Master List, Admin Managed, Banks & NBFCs)
+// ===========================================================================
+
+export function getStoredFinancingPartners(): FinancingPartnerMaster[] {
+  const raw = safeGetItem(STORAGE_KEYS.FINANCING_PARTNERS)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    } catch {}
+  }
+  const initial = [...DEFAULT_FINANCING_PARTNERS]
+  safeSetItem(STORAGE_KEYS.FINANCING_PARTNERS, JSON.stringify(initial))
+  return initial
+}
+
+export function saveStoredFinancingPartners(partners: FinancingPartnerMaster[]): void {
+  safeSetItem(STORAGE_KEYS.FINANCING_PARTNERS, JSON.stringify(partners))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dsa_os_financing_partners_updated'))
+  }
+}
+
+export function addOrUpdateStoredFinancingPartner(partner: FinancingPartnerMaster): void {
+  const current = getStoredFinancingPartners()
+  const idx = current.findIndex((p) => p.id === partner.id)
+  let updated: FinancingPartnerMaster[]
+  if (idx >= 0) {
+    updated = [...current]
+    updated[idx] = { ...updated[idx], ...partner }
+  } else {
+    updated = [...current, partner]
+  }
+  saveStoredFinancingPartners(updated)
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const docRef = doc(db, 'financingPartners', partner.id)
+      setDoc(docRef, sanitizeForFirestore({
+        ...partner,
+        synced_at: new Date().toISOString(),
+      }), { merge: true }).catch(() => {})
+    } catch {}
+  }
+}
+
+// ===========================================================================
+// 6. Partner Allocations (Deterministic ID: ${leadId}_${financingPartnerId})
+// ===========================================================================
+
+export function getStoredPartnerAllocations(): FinancingPartnerAllocation[] {
+  const raw = safeGetItem(STORAGE_KEYS.PARTNER_ALLOCATIONS)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return parsed
+      }
+    } catch {}
+  }
+  return []
+}
+
+export function saveStoredPartnerAllocations(allocations: FinancingPartnerAllocation[]): void {
+  safeSetItem(STORAGE_KEYS.PARTNER_ALLOCATIONS, JSON.stringify(allocations))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dsa_os_partner_allocations_updated', { detail: { count: allocations.length } }))
+  }
+}
+
+export function getAllocationsForLead(leadId: string): FinancingPartnerAllocation[] {
+  const all = getStoredPartnerAllocations()
+  return all.filter((a) => a.leadId === leadId)
+}
+
+export function addOrUpdateStoredPartnerAllocation(allocation: FinancingPartnerAllocation): void {
+  const current = getStoredPartnerAllocations()
+  const idx = current.findIndex((a) => a.id === allocation.id)
+  let updated: FinancingPartnerAllocation[]
+  if (idx >= 0) {
+    updated = [...current]
+    updated[idx] = { ...updated[idx], ...allocation }
+  } else {
+    updated = [allocation, ...current]
+  }
+  saveStoredPartnerAllocations(updated)
+
+  // Cloud sync to Firestore partnerAllocations collection
+  if (isFirebaseConfigured() && db) {
+    try {
+      const docRef = doc(db, 'partnerAllocations', allocation.id)
+      setDoc(docRef, sanitizeForFirestore({
+        ...allocation,
+        synced_at: new Date().toISOString(),
+      }), { merge: true }).catch((e) => console.warn('Firestore allocation sync notice:', e))
+    } catch {}
+  }
+}
+
+// ===========================================================================
+// 7. Payout Policies (Versioned per Financing Partner)
+// ===========================================================================
+
+export const DEFAULT_SAMPLE_POLICIES: PayoutPolicy[] = [
+  {
+    id: 'pol-hdfc-2026',
+    financingPartnerId: 'hdfc-bank',
+    financingPartnerName: 'HDFC Bank',
+    effectiveFrom: '2026-01-01',
+    effectiveTo: null,
+    period: 'monthly',
+    calculationBasis: 'sanctioned_amount',
+    tierMode: 'slab',
+    tiers: [
+      { minAmount: 0, maxAmount: 2500000, ratePercent: 1.1 },
+      { minAmount: 2500000, maxAmount: 5000000, ratePercent: 1.6 },
+      { minAmount: 5000000, maxAmount: null, ratePercent: 2.1 },
+    ],
+  },
+  {
+    id: 'pol-sk-2026',
+    financingPartnerId: 'sk-finance',
+    financingPartnerName: 'SK Finance',
+    effectiveFrom: '2026-01-01',
+    effectiveTo: null,
+    period: 'monthly',
+    calculationBasis: 'sanctioned_amount',
+    tierMode: 'cliff',
+    tiers: [
+      { minAmount: 0, maxAmount: 1500000, ratePercent: 1.25 },
+      { minAmount: 1500000, maxAmount: 3500000, ratePercent: 1.75 },
+      { minAmount: 3500000, maxAmount: null, ratePercent: 2.25 },
+    ],
+  },
+  {
+    id: 'pol-axis-2026',
+    financingPartnerId: 'axis-bank',
+    financingPartnerName: 'Axis Bank',
+    effectiveFrom: '2026-01-01',
+    effectiveTo: null,
+    period: 'monthly',
+    calculationBasis: 'sanctioned_amount',
+    tierMode: 'slab',
+    tiers: [
+      { minAmount: 0, maxAmount: 2000000, ratePercent: 1.0 },
+      { minAmount: 2000000, maxAmount: 4000000, ratePercent: 1.5 },
+      { minAmount: 4000000, maxAmount: null, ratePercent: 2.0 },
+    ],
+  },
+]
+
+export function getStoredPayoutPolicies(): PayoutPolicy[] {
+  const raw = safeGetItem(STORAGE_KEYS.PAYOUT_POLICIES)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+      }
+    } catch {}
+  }
+  const initial = [...DEFAULT_SAMPLE_POLICIES]
+  safeSetItem(STORAGE_KEYS.PAYOUT_POLICIES, JSON.stringify(initial))
+  return initial
+}
+
+export function saveStoredPayoutPolicies(policies: PayoutPolicy[]): void {
+  safeSetItem(STORAGE_KEYS.PAYOUT_POLICIES, JSON.stringify(policies))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dsa_os_payout_policies_updated'))
+  }
+}
+
+export function addOrUpdateStoredPayoutPolicy(policy: PayoutPolicy): void {
+  const current = getStoredPayoutPolicies()
+  const idx = current.findIndex((p) => p.id === policy.id)
+  let updated: PayoutPolicy[]
+  if (idx >= 0) {
+    updated = [...current]
+    updated[idx] = { ...updated[idx], ...policy }
+  } else {
+    updated = [policy, ...current]
+  }
+  saveStoredPayoutPolicies(updated)
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const docRef = doc(db, 'payoutPolicies', policy.id)
+      setDoc(docRef, sanitizeForFirestore({
+        ...policy,
+        synced_at: new Date().toISOString(),
+      }), { merge: true }).catch(() => {})
+    } catch {}
+  }
+}
+
+// ===========================================================================
+// 8. Payout Receipts (Money actually received from Financing Partners)
+// ===========================================================================
+
+export function getStoredPayoutReceipts(): PayoutReceipt[] {
+  const raw = safeGetItem(STORAGE_KEYS.PAYOUT_RECEIPTS)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return parsed
+      }
+    } catch {}
+  }
+  return []
+}
+
+export function saveStoredPayoutReceipts(receipts: PayoutReceipt[]): void {
+  safeSetItem(STORAGE_KEYS.PAYOUT_RECEIPTS, JSON.stringify(receipts))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('dsa_os_payout_receipts_updated'))
+  }
+}
+
+export function addStoredPayoutReceipt(receipt: PayoutReceipt): void {
+  const current = getStoredPayoutReceipts()
+  const updated = [receipt, ...current]
+  saveStoredPayoutReceipts(updated)
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const docRef = doc(db, 'payoutReceipts', receipt.id)
+      setDoc(docRef, sanitizeForFirestore({
+        ...receipt,
+        synced_at: new Date().toISOString(),
+      }), { merge: true }).catch(() => {})
+    } catch {}
+  }
+}
+

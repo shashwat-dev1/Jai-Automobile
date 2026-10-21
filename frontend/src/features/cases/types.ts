@@ -17,6 +17,10 @@ export type CaseStatus =
   | 'closed'
   | 'rejected'
   | 'withdrawn'
+  | 'interested'
+  | 'not_interested'
+  | 'follow_up'
+  | 'partner_allocated'
 
 export type ProductType =
   | 'new_car'
@@ -32,6 +36,8 @@ export interface CaseListItem {
   case_no: string
   product_type: ProductType
   status: CaseStatus
+  current_stage?: string
+  allocation_count?: number
   loan_amount_requested: number
   loan_amount_sanctioned?: number | null
   loan_amount_disbursed?: number | null
@@ -91,12 +97,17 @@ export interface VehicleDetail {
   existing_hypothecation?: string | null
 }
 
+import type { FinancingPartnerAllocation } from '../../shared/lib/leadQueues'
+
 export interface CaseDetail {
   id: string
   org_id: string
   case_no: string
   product_type: ProductType
   status: CaseStatus
+  current_stage?: string
+  allocation_count?: number
+  allocations?: FinancingPartnerAllocation[]
   loan_amount_requested: number
   loan_amount_sanctioned?: number | null
   loan_amount_disbursed?: number | null
