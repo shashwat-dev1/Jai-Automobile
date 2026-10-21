@@ -426,6 +426,7 @@ export function ReferralPartnersPage() {
                 <span className="type-body-xs text-muted">Referral Partner Dossier</span>
                 <h2 className="type-h2">{selectedProfile.name}</h2>
                 <div className="dossier-meta-tags">
+                  <span className="font-mono text-muted">ID: {selectedProfile.id}</span>
                   <span className="font-mono text-muted">Phone: {selectedProfile.masked_mobile}</span>
                   <span
                     className={`status-chip ${
@@ -434,6 +435,32 @@ export function ReferralPartnersPage() {
                   >
                     {selectedProfile.verification_status === 'verified' ? 'Verified' : 'Pending Review'}
                   </span>
+                </div>
+
+                {/* Stage Distribution Strip */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', margin: '12px 0', background: '#F8FAFC', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>Referred</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700 }}>{partnerLeads.length}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#16A34A', textTransform: 'uppercase', fontWeight: 600 }}>Interested</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#16A34A' }}>
+                      {partnerLeads.filter((c: any) => c.call_outcome === 'interested' || c.status === 'interested').length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#DC2626', textTransform: 'uppercase', fontWeight: 600 }}>Not Interested</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626' }}>
+                      {partnerLeads.filter((c: any) => c.call_outcome === 'not_interested' || c.status === 'not_interested').length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#2563EB', textTransform: 'uppercase', fontWeight: 600 }}>Bank Allocated</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#2563EB' }}>
+                      {partnerLeads.filter((c: any) => c.status === 'partner_allocated' || (c.allocation_count && c.allocation_count > 0)).length}
+                    </div>
+                  </div>
                 </div>
               </div>
               <button
@@ -471,10 +498,20 @@ export function ReferralPartnersPage() {
                     partnerLeads.map((c: any) => (
                       <div key={c.id} className="dossier-lead-card">
                         <div className="lead-card-header">
-                          <span className="font-mono text-muted">{c.case_no}</span>
+                          <a
+                            href={`/cases/${c.id}`}
+                            style={{ color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'none' }}
+                            title="Open lead profile dossier"
+                          >
+                            {c.case_no || c.id} →
+                          </a>
                           <span className="text-capitalize product-tag">{c.product_type}</span>
                         </div>
-                        <h4 className="lead-applicant-name">{c.applicant_name || c.primary_applicant_name}</h4>
+                        <h4 className="lead-applicant-name">
+                          <a href={`/cases/${c.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                            {c.applicant_name || c.primary_applicant_name}
+                          </a>
+                        </h4>
                         <div className="lead-meta-row" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className="font-mono">{formatINR(c.loan_amount_requested)}</span>
                           <span className="outcome-chip-small" style={{ textTransform: 'capitalize' }}>Call: {c.call_outcome || 'new'}</span>
