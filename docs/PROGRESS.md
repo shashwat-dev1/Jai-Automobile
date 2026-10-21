@@ -6,7 +6,52 @@
 
 ## Current Phase
 
-**PHASE 1 REBUILD, CLOUD SYNC & LIVE DEPLOYMENT COMPLETE**
+**OPERATIONAL WORKFLOW DELIVERED: UNASSIGNED LEAD → TELECALLER → INTERESTED → PARTNER ALLOCATION → PROCESSING → PAYOUT TRACKING (COMPLETED)**
+
+### Operational Workflow & Sidebar Simplification (Completed)
+- **1. Exact 8-Item Admin Sidebar & Strict Role Scoping**:
+  - Simplified Admin sidebar to the exact 8 items in required sequence:
+    1. `Dashboard` (`/`)
+    2. `Allocate to Telecaller` (`/cases/allocate-telecaller`)
+    3. `Allocate to Partner` (`/cases/allocate-partner`)
+    4. `Leads` (`/cases`)
+    5. `Referral Partners` (`/referrals`)
+    6. `Telecaller Performance` (`/telecaller-performance`)
+    7. `Partner Performance` (`/partner-performance`)
+    8. `Payout Dashboard` (`/payout-dashboard`)
+  - Telecallers only see their dedicated Workspace (`/telecaller`). All administrative allocation, reporting, and payout navigation items are hidden from telecaller view.
+  - Sidebar route highlighting fixed so `/cases` remains unhighlighted when viewing `/cases/allocate-*`.
+- **2. Single Source of Truth Queue Engine (`leadQueues.ts`)**:
+  - Implemented pure selector functions with strict `Asia/Kolkata` (IST) boundary calculations (`startOfTodayIST`, `endOfTodayIST`).
+  - Pre-filtered queues for: Telecaller Allocation, Active Calling, Due Today, Overdue, Partner Allocation, Partner Allocated/In Process, and Sanctioned/Converted.
+  - Pure status derivation `deriveLeadStageFromAllocations`: multi-partner allocation tracking where rejection never marks lead as `Not Interested`, and Sanctioned status surfaces without prematurely advancing to `Disbursed`.
+- **3. Pure Payout Calculation Engine (`payoutCalculator.ts`)**:
+  - Integer paise arithmetic (1 INR = 100 paise) preventing floating-point precision errors.
+  - Supports both `slab` (incremental per bracket) and `cliff` (highest tier rate on entire volume) modes.
+  - Computes monthly target milestones (`nextMilestone`, `amountRemainingPaise`) and reconciles against real admin receipts (`payoutReceipts`). Missing policy renders "Policy not configured".
+- **4. Data Layer & API Client Enhancements**:
+  - Transactional partner allocation (`POST /cases/:id/allocate-partner`) with deterministic IDs (`${leadId}_${financingPartnerId}`).
+  - Structured call logging (`POST /cases/:id/call-activity`) with min-3-char remarks validation and future ISO datetime enforcement.
+  - Partner status updating (`PATCH /partner-allocations/:id`) with sanction amount validation (> 0).
+  - Payout metrics API (`GET /payout/dashboard-metrics`) computing expected vs received payout, variance, and partner breakdowns.
+- **5. Operational UI Suite**:
+  - Implemented `/cases/allocate-telecaller` (summary metrics, batch telecaller assignment).
+  - Implemented `/cases/allocate-partner` (eligible tab, active allocations tab with multi-partner selection and modal).
+  - Implemented `/telecaller-performance` (date presets, telecaller metrics, call histories).
+  - Implemented `/partner-performance` (sanction rates, TAT, volume, active pipeline).
+  - Implemented `/payout-dashboard` (net earned vs received, variance, partner cards, policy status, milestone progress).
+  - Extended `CaseDetailPage.tsx` with dedicated Financing Partner Allocations panel.
+  - Extended `ReferralPartnersPage.tsx` with lead stage distribution strip.
+- **6. Dashboard Simplification**:
+  - Compact 7-card KPI row with tooltip definitions and 1:1 count parity with filtered queues.
+  - Clear visual distinction for partner-allocated leads vs multi-partner allocations (`1 lead, 2 allocations`).
+- **7. Firestore Security Rules & Composite Indexes**:
+  - Updated `firestore.rules` and `firestore.indexes.json` enforcing role-based permissions, customer document isolation, and query efficiency.
+- **8. Quality & Verification**:
+  - All 16 operational acceptance scenarios covered and passing (100%) in `src/test/end_to_end_operational_scenarios.test.ts`.
+  - Clean production build: `npm run build` (`tsc -b && vite build`) passed with 0 errors.
+
+---
 
 ### TextBee SMS Gateway & Referral Partner OTP Verification (Developed, Verified & Archived)
 - **Status: Verified & Preserved in Local Workspace Archive (`archive/textbee_otp_verification/`)**:

@@ -159,6 +159,22 @@ Per `AGENTS.md`, stop and request human review when:
 
 ## Current Status
 
+> **Lead-to-Partner Operational Workflow & Sidebar Simplification: 100% COMPLETE.**
+> - **Frontend**: 100% test pass rate across all operational test suites including all 16 acceptance scenarios (`end_to_end_operational_scenarios.test.ts`, `lead_queues.test.ts`, `payout_calculator.test.ts`, `todays_console_admin_workflow.test.tsx`), zero type check errors (`tsc -b`), and clean production Vite bundle (`vite build`).
+> - **Exact 8-Item Admin Sidebar**: 1. `Dashboard` (`/`), 2. `Allocate to Telecaller` (`/cases/allocate-telecaller`), 3. `Allocate to Partner` (`/cases/allocate-partner`), 4. `Leads` (`/cases`), 5. `Referral Partners` (`/referrals`), 6. `Telecaller Performance` (`/telecaller-performance`), 7. `Partner Performance` (`/partner-performance`), 8. `Payout Dashboard` (`/payout-dashboard`).
+> - **Strict Role Scoping**: Telecallers see only their dedicated Workspace (`/telecaller`); allocation, reporting, and payout items are hidden.
+> - **Single Source of Truth Queues (`leadQueues.ts`)**: Pure selector functions in `Asia/Kolkata` (IST) ensuring 1:1 metric consistency across all screens without UTC rollover distortion.
+> - **Pure Payout Engine (`payoutCalculator.ts`)**: Integer paise calculation for `slab` and `cliff` commission structures, monthly target milestones, and receipt reconciliation against real `payoutReceipts`.
+> - **Two-Level Status Model**: Overall case status and per-partner allocation statuses (`Allocated`, `In Process`, `Sanctioned`, `Rejected`) with deterministic document IDs (`${leadId}_${financingPartnerId}`).
+> - **Operational UI Suite**:
+>   - `/cases/allocate-telecaller`: Batch allocation and telecaller workload metrics.
+>   - `/cases/allocate-partner`: Dual-tab workflow (Eligible leads vs Active allocations) with multi-partner selection modal.
+>   - `/telecaller-performance`: Contact rates, conversion tracking, follow-up adherence, and call history logs.
+>   - `/partner-performance`: Conversion rates, TAT, total volume, and active pipeline across banks/NBFCs.
+>   - `/payout-dashboard`: Total expected payout, received payout, variance, partner breakdown cards, milestone progress bars, and missing-policy warnings.
+> - **Dashboard Simplification**: 7 compact KPI cards with tooltips and visible distinction between leads and allocations.
+> - **Firestore Security & Indexes**: Production `firestore.rules` and `firestore.indexes.json` configured for role-based security, document privacy, and compound queries.
+>
 > **Public Referral Portal / New Lead Submission Updates: 100% COMPLETE.**
 > - **Frontend**: 171/171 Vitest tests passing across 21 test suites with clean production build (`tsc -b && vite build` in 25.88s).
 > - **Reordered Form Sections**: Exactly 1. Customer Details -> 2. Loan Type -> 3. Vehicle & Loan Details -> 4. Expected Loan Required Date -> 5. Vehicle Condition -> 6. Document Uploads (final section of form).
