@@ -10,6 +10,13 @@
  * records that produced the metric.
  */
 
+import {
+  isEligibleForPartnerAllocation,
+  isPartnerAllocatedOrInProcess,
+  isSanctionedOrConverted,
+} from '../../shared/lib/leadQueues'
+import { getStoredPartnerAllocations } from '../../shared/lib/storeSync'
+
 export type CaseViewFilter =
   | 'all'
   | 'active-calling'
@@ -19,6 +26,10 @@ export type CaseViewFilter =
   | 'converted'
   | 'unassigned'
   | 'interested-awaiting-next-step'
+  | 'partner_allocated'
+  | 'partner-allocated'
+  | 'sanctioned'
+  | 'allocate-partner'
 
 export interface FilterCriteria {
   view?: string | null
@@ -136,6 +147,29 @@ export function filterCasesByView<T extends any>(cases: T[], view?: string | nul
       return cases.filter(isUnassignedCase)
     case 'interested-awaiting-next-step':
       return cases.filter(isInterestedAwaitingNextStepCase)
+    case 'partner_allocated':
+    case 'partner-allocated': {
+      const allAlloc = getStoredPartnerAllocations()
+      return cases.filter((c: any) => {
+        const allocs = allAlloc.filter((a) => a.leadId === c.id)
+        return isPartnerAllocatedOrInProcess(c, allocs)
+      })
+    }
+    case 'sanctioned': {
+      const allAlloc = getStoredPartnerAllocations()
+      return cases.filter((c: any) => {
+        const allocs = allAlloc.filter((a) => a.leadId === c.id)
+        return isSanctionedOrConverted(c, allocs)
+      })
+    }
+    case 'allocate_partner':
+    case 'allocate-partner': {
+      const allAlloc = getStoredPartnerAllocations()
+      return cases.filter((c: any) => {
+        const allocs = allAlloc.filter((a) => a.leadId === c.id)
+        return isEligibleForPartnerAllocation(c, allocs)
+      })
+    }
     default:
       return cases
   }

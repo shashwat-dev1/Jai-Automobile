@@ -29,6 +29,7 @@ import { getStoredDocuments } from '../../shared/lib/storeSync'
 import { getDocumentPreviewInfo, downloadStoredDocument, getDocumentBlob, type DocumentPreviewInfo } from '../../shared/lib/documentStorage'
 import { evaluateThreeWayNameComparison, runClientOcr, evaluateAddressMatch, normalizeName } from '../../shared/lib/clientOcrService'
 import { PdfDocumentViewer } from '../../shared/components/PdfDocumentViewer'
+import type { FinancingPartnerAllocation } from '../../shared/lib/leadQueues'
 import type { DocumentItem } from '../documents/types'
 import './CaseDetailPage.css'
 
@@ -40,6 +41,7 @@ export const CaseDetailPage: React.FC = () => {
 
   const [caseData, setCaseData] = useState<any | null>(null)
   const [documents, setDocuments] = useState<DocumentItem[]>([])
+  const [allocations, setAllocations] = useState<FinancingPartnerAllocation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,6 +114,14 @@ export const CaseDetailPage: React.FC = () => {
       // Load documents from store
       const docs = getStoredDocuments(data.id || id)
       setDocuments(docs)
+
+      // Load partner allocations
+      try {
+        const allocsRes = await api.get<FinancingPartnerAllocation[]>(`/partner-allocations?lead_id=${data.id || id}`)
+        setAllocations(Array.isArray(allocsRes) ? allocsRes : [])
+      } catch {
+        setAllocations([])
+      }
 
       // Auto-scan pending KYC documents in background so OCR results appear automatically
       const pendingDocs = docs.filter(
@@ -1393,6 +1403,118 @@ export const CaseDetailPage: React.FC = () => {
                   <span>→</span>
                 </Link>
               </div>
+            </div>
+          </div>
+
+          {/* Card 4: Financing Partner Allocations & Underwriting Status */}
+          <div className="dossier-card">
+            <div className="dossier-card-header">
+              <div className="card-header-left">
+                <div className="header-icon-box" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="dossier-card-title">Financing Partner Allocations</h2>
+                  <p className="dossier-card-sub">Bank & NBFC underwriting status and sanction tracking</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className="dossier-badge-gray">
+                  {allocations.length === 0 ? '0 Allocated' : `${allocations.length} Allocated`}
+                </span>
+                {!isTelecaller && (
+                  <Link
+                    to="/cases/allocate-partner"
+                    className="stitch-btn-update"
+                    style={{ textDecoration: 'none', padding: '4px 10px', display: 'inline-block' }}
+                  >
+                    + Allocate to Partner
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: 'var(--space-md)' }}>
+              {allocations.length === 0 ? (
+                <div style={{ padding: 'var(--space-md)', textAlign: 'center', color: 'var(--color-text-secondary)', background: '#F8FAFC', borderRadius: 'var(--radius-md)' }}>
+                  No financing partners allocated yet. Once marked <strong>Interested</strong>, this lead can be allocated to HDFC Bank, SK Finance, Axis Bank, or other partners.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {allocations.map((alloc) => {
+                    const allocDate = alloc.allocatedAt ? new Date(alloc.allocatedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+                    const statusDate = alloc.sanctionedAt || alloc.rejectedAt || alloc.statusUpdatedAt
+                    const statusDateLabel = statusDate ? new Date(statusDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '—'
+
+                    return (
+                      <div
+                        key={alloc.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px',
+                          background: '#F8FAFC',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                            {alloc.financingPartnerName}
+                            <span style={{ fontSize: '10px', textTransform: 'uppercase', background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>
+                              {alloc.financingPartnerType}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                            Allocated: {allocDate} · Status Date: {statusDateLabel}
+                          </div>
+                          {alloc.rejectionReason && (
+                            <div style={{ fontSize: '11px', color: '#DC2626', marginTop: '2px' }}>
+                              Decline reason: {alloc.rejectionReason}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          {alloc.sanctionAmount ? (
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Sanction Amount</div>
+                              <div style={{ fontWeight: 700, color: '#15803D' }}>{formatINR(alloc.sanctionAmount)}</div>
+                            </div>
+                          ) : null}
+
+                          <span
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              background: alloc.status === 'Sanctioned' ? '#DCFCE7' : alloc.status === 'Rejected' ? '#FEE2E2' : alloc.status === 'In Process' ? '#FEF3C7' : '#E0F2FE',
+                              color: alloc.status === 'Sanctioned' ? '#15803D' : alloc.status === 'Rejected' ? '#B91C1C' : alloc.status === 'In Process' ? '#B45309' : '#0369A1',
+                            }}
+                          >
+                            {alloc.status}
+                          </span>
+
+                          {!isTelecaller && (
+                            <Link
+                              to="/cases/allocate-partner"
+                              style={{ fontSize: '12px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}
+                            >
+                              Manage →
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
