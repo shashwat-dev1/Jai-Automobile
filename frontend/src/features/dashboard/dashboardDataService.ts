@@ -38,8 +38,16 @@ export interface ChartPeriodItem {
   contacted: number
 }
 
+import {
+  isEligibleForPartnerAllocation,
+  isPartnerAllocatedOrInProcess,
+  isSanctionedOrConverted,
+  type FinancingPartnerAllocation,
+} from '../../shared/lib/leadQueues'
+import { getStoredPartnerAllocations } from '../../shared/lib/storeSync'
+
 export interface StitchDashboardData extends DashboardOverviewResponse {
-  // Six KPI cards
+  // Seven KPI cards
   leads_total: number
   leads_new_count: number
   active_calling_count: number
@@ -48,6 +56,10 @@ export interface StitchDashboardData extends DashboardOverviewResponse {
   converted_clients_count: number
   conversion_rate_pct: number
   unassigned_leads_count: number
+  allocate_to_partners_count: number
+  partner_allocated_leads_count: number
+  partner_allocated_allocations_count: number
+  sanctioned_converted_count: number
 
   // Due Today section
   due_today_data: {
@@ -118,6 +130,35 @@ export function computeStitchDashboard(
 
   // Unassigned Leads: eligible leads waiting for assignment
   const unassigned_leads_count = filteredCases.filter(isUnassignedCase).length
+
+  // Partner Allocations mapping
+  const allAllocations = getStoredPartnerAllocations()
+  const allocMap: Record<string, FinancingPartnerAllocation[]> = {}
+  allAllocations.forEach((a) => {
+    if (!allocMap[a.leadId]) allocMap[a.leadId] = []
+    allocMap[a.leadId].push(a)
+  })
+
+  // Allocate to Partners: Interested leads with 0 allocations
+  const allocate_to_partners_count = filteredCases.filter((c) =>
+    isEligibleForPartnerAllocation(c, allocMap[c.id] || [])
+  ).length
+
+  // Partner Allocated / In Process leads & allocations
+  const partner_allocated_leads = filteredCases.filter((c) =>
+    isPartnerAllocatedOrInProcess(c, allocMap[c.id] || [])
+  )
+  const partner_allocated_leads_count = partner_allocated_leads.length
+  const partner_allocated_allocations_count = partner_allocated_leads.reduce((sum, c) => {
+    const allocs = allocMap[c.id] || []
+    const active = allocs.filter((a) => a.status === 'Allocated' || a.status === 'In Process')
+    return sum + (active.length > 0 ? active.length : (allocs.length > 0 ? allocs.length : 1))
+  }, 0)
+
+  // Sanctioned or Converted
+  const sanctioned_converted_count = filteredCases.filter((c) =>
+    isSanctionedOrConverted(c, allocMap[c.id] || [])
+  ).length
 
   // 3. Due Today
   const due_today_data = {
@@ -219,6 +260,10 @@ export function computeStitchDashboard(
     converted_clients_count,
     conversion_rate_pct,
     unassigned_leads_count,
+    allocate_to_partners_count,
+    partner_allocated_leads_count,
+    partner_allocated_allocations_count,
+    sanctioned_converted_count,
     due_today_data,
     telecaller_performance,
     chart_data,

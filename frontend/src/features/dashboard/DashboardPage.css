@@ -214,6 +214,23 @@
   gap: 20px;
 }
 
+.stitch-kpi-grid-7 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+@media (min-width: 1200px) {
+  .stitch-kpi-grid-7 {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+  }
+}
+
+.stitch-priority-section {
+  width: 100%;
+}
+
 .stitch-kpi-card {
   background: #ffffff;
   border: 1px solid #f1f5f9;

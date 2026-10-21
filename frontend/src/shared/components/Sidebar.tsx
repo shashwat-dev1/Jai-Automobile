@@ -33,26 +33,6 @@ const CasesIcon = () => (
   </svg>
 )
 
-const LeadsIcon = () => (
-  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <circle cx="10" cy="7" r="3.5" />
-    <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" />
-  </svg>
-)
-
-
-const UsersIcon = () => (
-  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-  </svg>
-)
-
-const AuditIcon = () => (
-  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-)
-
 const TelecallerIcon = () => (
   <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
     <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V17a2 2 0 01-2 2h-1C9.716 19 3 12.284 3 4V5z" />
@@ -65,62 +45,55 @@ const ReferralsIcon = () => (
   </svg>
 )
 
-const LinkIcon = () => (
+const AllocateTelecallerIcon = () => (
   <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <path d="M11 3h6m0 0v6m0-6L9 11M5 7H4a2 2 0 00-2 2v7a2 2 0 002 2h7a2 2 0 002-2v-1" />
+    <path d="M13 14v-1a3 3 0 00-3-3H6a3 3 0 00-3 3v1" />
+    <circle cx="8" cy="6" r="3" />
+    <path d="M14 8l2 2 4-4" />
   </svg>
 )
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: <DashboardIcon />, section: 'Lead Execution' },
-  { label: "Today's Console", path: '/today', icon: <DashboardIcon /> },
-  {
-    label: 'Leads',
-    path: '/cases',
-    icon: <CasesIcon />,
-  },
-  {
-    label: 'Quick Lead Intake',
-    path: '/cases/new',
-    icon: <LeadsIcon />,
-    permission: PERMISSIONS.CASES_CREATE,
-  },
-  {
-    label: 'Telecaller Workspace',
-    path: '/telecaller',
-    icon: <TelecallerIcon />,
-  },
-  {
-    label: 'Referral Partners',
-    path: '/referrals',
-    icon: <ReferralsIcon />,
-    section: 'Network & Customers',
-    permission: PERMISSIONS.REFERRALS_READ,
-  },
-  {
-    label: 'Public Referral Portal',
-    path: '/referral',
-    icon: <LinkIcon />,
-  },
-  {
-    label: 'Borrowers & Customers',
-    path: '/parties',
-    icon: <LeadsIcon />,
-    permission: PERMISSIONS.PARTIES_READ,
-  },
-  {
-    label: 'Team & Telecallers',
-    path: '/admin/users',
-    icon: <UsersIcon />,
-    section: 'Governance & Settings',
-    permission: PERMISSIONS.USERS_MANAGE,
-  },
-  {
-    label: 'Audit Trail',
-    path: '/admin/audit',
-    icon: <AuditIcon />,
-    permission: PERMISSIONS.AUDIT_READ,
-  },
+const AllocatePartnerIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M3 8l7-5 7 5M4 8v8m4-8v8m4-8v8m4-8v8M2 17h16" />
+  </svg>
+)
+
+const TelecallerPerformanceIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M3 5a2 2 0 012-2h2.5l1 3-1.5 1.5a9 9 0 004 4L12.5 10l3 1V13.5a2 2 0 01-2 2H9a6.5 6.5 0 01-6.5-6.5V5z" />
+    <path d="M12 4l2 2 4-4" />
+  </svg>
+)
+
+const PartnerPerformanceIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M3 17V10M8 17V6M13 17V3M18 17V8" />
+  </svg>
+)
+
+const PayoutIcon = () => (
+  <svg className="sidebar-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M7.5 7.5h5M7.5 9.5h5M7.5 7.5h2.5a2 2 0 010 4H7.5l4 4" />
+  </svg>
+)
+
+// Exact 8 admin items in order
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
+  { label: 'Allocate to Telecaller', path: '/cases/allocate-telecaller', icon: <AllocateTelecallerIcon /> },
+  { label: 'Allocate to Partner', path: '/cases/allocate-partner', icon: <AllocatePartnerIcon /> },
+  { label: 'Leads', path: '/cases', icon: <CasesIcon /> },
+  { label: 'Referral Partners', path: '/referrals', icon: <ReferralsIcon />, permission: PERMISSIONS.REFERRALS_READ },
+  { label: 'Telecaller Performance', path: '/telecaller-performance', icon: <TelecallerPerformanceIcon /> },
+  { label: 'Partner Performance', path: '/partner-performance', icon: <PartnerPerformanceIcon /> },
+  { label: 'Payout Dashboard', path: '/payout-dashboard', icon: <PayoutIcon />, permission: PERMISSIONS.PAYOUT_READ },
+]
+
+// Telecaller-only view
+const TELECALLER_NAV_ITEMS: NavItem[] = [
+  { label: 'Telecaller Workspace', path: '/telecaller', icon: <TelecallerIcon /> },
 ]
 
 function Sidebar() {
@@ -147,7 +120,10 @@ function Sidebar() {
     navigate('/login')
   }
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
+  const isTelecaller = user?.role === 'telecaller'
+  const navItems = isTelecaller ? TELECALLER_NAV_ITEMS : ADMIN_NAV_ITEMS
+
+  const visibleNavItems = navItems.filter((item) => {
     if (!item.permission) return true
     return can(item.permission)
   })
@@ -199,7 +175,18 @@ function Sidebar() {
                   const isActive = (() => {
                     if (item.path === '/') return location.pathname === '/'
                     if (item.path === '/cases') {
-                      return location.pathname === '/cases' || (location.pathname.startsWith('/cases/') && location.pathname !== '/cases/new')
+                      return (
+                        location.pathname === '/cases' ||
+                        (location.pathname.startsWith('/cases/') &&
+                          !location.pathname.startsWith('/cases/allocate-') &&
+                          location.pathname !== '/cases/new')
+                      )
+                    }
+                    if (item.path === '/cases/allocate-telecaller') {
+                      return location.pathname === '/cases/allocate-telecaller' || location.pathname === '/allocate-telecaller'
+                    }
+                    if (item.path === '/cases/allocate-partner') {
+                      return location.pathname === '/cases/allocate-partner' || location.pathname === '/allocate-partner'
                     }
                     if (item.path === '/cases/new') {
                       return location.pathname === '/cases/new'

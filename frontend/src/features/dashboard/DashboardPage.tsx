@@ -17,8 +17,6 @@ import { useAuthStore } from '../auth/useAuth'
 import { TelecallerDashboard } from './TelecallerDashboard'
 import { DashboardKPIs } from './DashboardKPIs'
 import { DueTodaySection } from './DueTodaySection'
-import { TelecallerPerformanceSection } from './TelecallerPerformanceSection'
-import { LeadsInflowChart } from './LeadsInflowChart'
 import { StitchDashboardData } from './dashboardDataService'
 import './DashboardPage.css'
 
@@ -246,32 +244,28 @@ export const DashboardPage: React.FC = () => {
       {/* Main Dashboard Content */}
       {data && (
         <div className="stitch-dashboard-content">
-          {/* 1. Six KPI Cards */}
+          {/* 1. Seven KPI Cards */}
           <DashboardKPIs
             leadsTotal={data.leads_total}
             leadsNewCount={data.leads_new_count}
+            unassignedLeadsCount={data.unassigned_leads_count}
             activeCallingCount={data.active_calling_count}
             interestedCount={data.interested_count}
-            followUpsCount={data.follow_ups_count}
-            convertedClientsCount={data.converted_clients_count}
-            conversionRatePct={data.conversion_rate_pct}
-            unassignedLeadsCount={data.unassigned_leads_count}
+            allocateToPartnersCount={data.allocate_to_partners_count ?? 0}
+            partnerAllocatedLeadsCount={data.partner_allocated_leads_count ?? 0}
+            partnerAllocatedAllocationsCount={data.partner_allocated_allocations_count ?? 0}
+            sanctionedConvertedCount={data.sanctioned_converted_count ?? data.converted_clients_count ?? 0}
             dateRange={dateRange}
           />
 
-          {/* 2. Middle Section: Due Today (Left) + Telecaller Performance (Right) */}
-          <div className="stitch-middle-grid">
+          {/* 2. Due Today Priority Operations Panel */}
+          <div className="stitch-priority-section">
             <DueTodaySection
               unassignedCount={data.due_today_data?.unassigned_count ?? data.unassigned_leads_count}
               followUpsCount={data.due_today_data?.follow_ups_count ?? data.follow_ups_count}
               interestedCount={data.due_today_data?.interested_count ?? data.interested_count}
             />
-
-            <TelecallerPerformanceSection telecallers={data.telecaller_performance || []} />
           </div>
-
-          {/* 3. Bottom Section: Leads Inflow vs Contacted Grouped Bar Chart */}
-          <LeadsInflowChart data={data.chart_data || []} />
         </div>
       )}
     </div>

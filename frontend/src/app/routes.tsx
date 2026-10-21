@@ -24,6 +24,11 @@ import { SourcesReportPage } from '../features/reports/SourcesReportPage'
 import { TelecallerWorkspacePage } from '../features/cases/TelecallerWorkspacePage'
 import { ReferralPartnersPage } from '../features/referrals/ReferralPartnersPage'
 import { GuestReferralPage } from '../features/referrals/GuestReferralPage'
+import { AllocateToTelecallerPage } from '../features/cases/AllocateToTelecallerPage'
+import { AllocateToPartnerPage } from '../features/cases/AllocateToPartnerPage'
+import { TelecallerPerformancePage } from '../features/reports/TelecallerPerformancePage'
+import { PartnerPerformancePage } from '../features/reports/PartnerPerformancePage'
+import { PayoutDashboardPage } from '../features/payout/PayoutDashboardPage'
 
 function AppRoutes() {
   return (
@@ -47,6 +52,20 @@ function AppRoutes() {
 
         {/* Core Operations */}
         <Route path="cases" element={<CaseListPage />} />
+        <Route path="cases/allocate-telecaller" element={<AllocateToTelecallerPage />} />
+        <Route path="allocate-telecaller" element={<Navigate to="/cases/allocate-telecaller" replace />} />
+        <Route path="cases/allocate-partner" element={<AllocateToPartnerPage />} />
+        <Route path="allocate-partner" element={<Navigate to="/cases/allocate-partner" replace />} />
+        <Route path="telecaller-performance" element={<TelecallerPerformancePage />} />
+        <Route path="partner-performance" element={<PartnerPerformancePage />} />
+        <Route
+          path="payout-dashboard"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.PAYOUT_READ}>
+              <PayoutDashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="cases/new"
           element={
