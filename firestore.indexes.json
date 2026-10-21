@@ -1,0 +1,81 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assigned_telecaller_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assigned_telecaller_id", "order": "ASCENDING" },
+        { "fieldPath": "follow_up_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "current_stage", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "referral_partner_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnerAllocations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leadId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnerAllocations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "financingPartnerId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "allocatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnerAllocations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "financingPartnerId", "order": "ASCENDING" },
+        { "fieldPath": "reportingMonth", "order": "ASCENDING" },
+        { "fieldPath": "sanctionedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payoutPolicies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "financingPartnerId", "order": "ASCENDING" },
+        { "fieldPath": "effectiveFrom", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payoutReceipts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "financingPartnerId", "order": "ASCENDING" },
+        { "fieldPath": "period", "order": "ASCENDING" },
+        { "fieldPath": "receivedOn", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

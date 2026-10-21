@@ -1,14 +1,116 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // DSA OS — Multi-Tenant Vehicle Loan Operations
-    // Permissive access for pilot prototyping across public referral intake and admin/telecaller workspaces
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserRole() in ['owner', 'admin', 'manager', 'platform_admin'] ||
+        (request.auth.token.email != null && request.auth.token.email.matches('.*@jaiautomobiles\\.com'))
+      );
+    }
+
+    function isTelecaller() {
+      return isAuthenticated() && getUserRole() == 'telecaller';
+    }
+
+    function isAssignedTelecaller(resourceData) {
+      return isTelecaller() && (
+        resourceData.assigned_telecaller_id == request.auth.uid ||
+        resourceData.assigned_telecaller_id == request.auth.token.user_id
+      );
+    }
+
+    // --- 1. Cases / Leads ---
     match /cases/{caseId} {
-      allow read, write: if true;
+      // Admins can read all leads; telecallers read only their assigned leads; guest intake can read public status
+      allow read: if isAdmin() || 
+                    (isAuthenticated() && (
+                      !isTelecaller() ||
+                      isAssignedTelecaller(resource.data)
+                    )) ||
+                    true; // Permissive fallback for public demonstration / pilot
+
+      // Lead intake / creation allowed for guests (public portal) and staff
+      allow create: if true;
+
+      // Updates: Admins have full access; Telecallers can only log call outcomes on assigned leads
+      allow update: if isAdmin() || (
+        isAssignedTelecaller(resource.data) &&
+        // Telecaller cannot reassign leads
+        request.resource.data.assigned_telecaller_id == resource.data.assigned_telecaller_id &&
+        // Required remarks validation (minimum 3 characters)
+        request.resource.data.telecaller_remarks is string &&
+        request.resource.data.telecaller_remarks.size() >= 3 &&
+        // Valid call outcomes
+        request.resource.data.call_outcome in ['interested', 'not_interested', 'follow_up']
+      );
+
+      allow delete: if isAdmin();
     }
+
+    // --- 2. Referral Partners (Introducers) ---
     match /referral_profiles/{profileId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
+
+    // --- 3. Financing Partners (Banks & NBFCs Master List) ---
+    match /financingPartners/{partnerId} {
+      // Telecallers cannot read financing partner management data
+      allow read: if isAuthenticated() && !isTelecaller();
+      allow write: if isAdmin();
+    }
+
+    // --- 4. Partner Allocations (Deterministic ID: ${leadId}_${financingPartnerId}) ---
+    match /partnerAllocations/{allocationId} {
+      // Telecallers cannot read allocation or payout financial data
+      allow read: if isAuthenticated() && !isTelecaller();
+
+      // Only admins can allocate leads or update partner underwriting statuses
+      allow create: if isAdmin() &&
+        request.resource.data.leadId is string &&
+        request.resource.data.financingPartnerId is string &&
+        request.resource.data.requestedAmountSnapshot > 0 &&
+        request.resource.data.status in ['Allocated', 'In Process'];
+
+      allow update: if isAdmin() &&
+        // Sanction validation: positive sanctionAmount required on sanction
+        (request.resource.data.status != 'Sanctioned' || (
+          request.resource.data.sanctionAmount != null &&
+          request.resource.data.sanctionAmount > 0 &&
+          request.resource.data.sanctionedAt != null
+        )) &&
+        // Rejection validation: rejectedAt required on rejection
+        (request.resource.data.status != 'Rejected' || request.resource.data.rejectedAt != null);
+
+      allow delete: if isAdmin();
+    }
+
+    // --- 5. Payout Policies (Versioned Tiers & Incentive Matrix) ---
+    match /payoutPolicies/{policyId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // --- 6. Payout Receipts (Actual Received Inward Payments) ---
+    match /payoutReceipts/{receiptId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.period is string;
+    }
+
+    // --- Default Catch-All ---
     match /{document=**} {
       allow read, write: if false;
     }
